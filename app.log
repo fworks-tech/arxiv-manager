@@ -1,49 +1,9 @@
-INFO:     Started server process [10780]
+INFO:     Started server process [11656]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:     192.168.0.6:60445 - "GET / HTTP/1.1" 200 OK
-INFO:     192.168.0.6:55725 - "GET /author HTTP/1.1" 200 OK
-2026-07-23 18:49:28,110 [arxiv_manager.web.routes] INFO: upload via browser filename=2602.03916_p59_i0.png size=335456
-2026-07-23 18:49:28,135 [arxiv_manager.authoring.image_analyzer] INFO: analyze_uploaded_image entry path=C:\Github\atmydesk-new\realm-siq-assistant\storage\_uploads\upload_2ca149bc7c3df8f8.jpg
-2026-07-23 18:49:28,135 [arxiv_manager.sourcing.filters] INFO: audit_figure entry path=C:\Github\atmydesk-new\realm-siq-assistant\storage\_uploads\upload_2ca149bc7c3df8f8.jpg
-2026-07-23 18:49:28,183 [arxiv_manager.sourcing.filters] INFO: audit_figure result cs=0.371 type=chart_graph_text suitable=True dense=False text=False sparse=False logo=False dims=600x600
-2026-07-23 18:49:28,183 [arxiv_manager.authoring.image_analyzer] INFO: analyze result EASY cs=0.371 is_chart=True dense=False
-2026-07-23 18:49:28,183 [arxiv_manager.web.routes] INFO: upload ok upload_id=upload_2ca149bc7c3df8f8 suitability=EASY
-INFO:     192.168.0.6:50113 - "POST /api/image/upload HTTP/1.1" 200 OK
-INFO:     192.168.0.6:50113 - "GET /uploads/upload_2ca149bc7c3df8f8.jpg HTTP/1.1" 200 OK
-2026-07-23 18:49:28,497 [arxiv_manager.web.routes] INFO: draft request upload_id=upload_2ca149bc7c3df8f8 difficulty=easy
-2026-07-23 18:49:28,497 [arxiv_manager.web.routes] INFO: draft calling draft_qa figure_type=chart_graph_text complexity=0.371
-2026-07-23 18:49:28,497 [arxiv_manager.authoring.ai_draft] INFO: draft_qa entry image=C:\Github\atmydesk-new\realm-siq-assistant\storage\_uploads\upload_2ca149bc7c3df8f8.jpg provider=opencode difficulty=easy figure_type=chart_graph_text complexity=0.371
-2026-07-23 18:49:34,564 [httpx] INFO: HTTP Request: POST https://opencode.ai/zen/go/v1/chat/completions "HTTP/1.1 200 OK"
-2026-07-23 18:49:34,565 [arxiv_manager.authoring.validator] INFO: validate_task entry q_len=63 a_len=5 fmt=word ftype=chart_graph_text ttype=general_image
-2026-07-23 18:49:34,570 [arxiv_manager.authoring.validator] INFO: validate_task result valid=True score=95.0 errors=0 warnings=1
-2026-07-23 18:49:34,570 [arxiv_manager.web.routes] INFO: draft ok upload_id=upload_2ca149bc7c3df8f8 quality=95.00 errors=0
-INFO:     192.168.0.6:50113 - "POST /api/image/draft HTTP/1.1" 200 OK
-2026-07-23 18:50:16,518 [arxiv_manager.web.routes] INFO: draft request upload_id=upload_2ca149bc7c3df8f8 difficulty=easy
-2026-07-23 18:50:16,518 [arxiv_manager.web.routes] INFO: draft calling draft_qa figure_type=chart_graph_text complexity=0.371
-2026-07-23 18:50:16,518 [arxiv_manager.authoring.ai_draft] INFO: draft_qa entry image=C:\Github\atmydesk-new\realm-siq-assistant\storage\_uploads\upload_2ca149bc7c3df8f8.jpg provider=opencode difficulty=easy figure_type=chart_graph_text complexity=0.371
-2026-07-23 18:50:20,328 [httpx] INFO: HTTP Request: POST https://opencode.ai/zen/go/v1/chat/completions "HTTP/1.1 200 OK"
-2026-07-23 18:50:20,330 [arxiv_manager.authoring.validator] INFO: validate_task entry q_len=63 a_len=5 fmt=word ftype=chart_graph_text ttype=general_image
-2026-07-23 18:50:20,330 [arxiv_manager.authoring.validator] INFO: validate_task result valid=True score=95.0 errors=0 warnings=1
-2026-07-23 18:50:20,330 [arxiv_manager.web.routes] INFO: draft ok upload_id=upload_2ca149bc7c3df8f8 quality=95.00 errors=0
-INFO:     192.168.0.6:61527 - "POST /api/image/draft HTTP/1.1" 200 OK
-2026-07-23 18:50:20,332 [arxiv_manager.web.routes] INFO: draft request upload_id=upload_2ca149bc7c3df8f8 difficulty=easy
-2026-07-23 18:50:20,332 [arxiv_manager.web.routes] INFO: draft calling draft_qa figure_type=chart_graph_text complexity=0.371
-2026-07-23 18:50:20,332 [arxiv_manager.authoring.ai_draft] INFO: draft_qa entry image=C:\Github\atmydesk-new\realm-siq-assistant\storage\_uploads\upload_2ca149bc7c3df8f8.jpg provider=opencode difficulty=easy figure_type=chart_graph_text complexity=0.371
-2026-07-23 18:50:26,600 [httpx] INFO: HTTP Request: POST https://opencode.ai/zen/go/v1/chat/completions "HTTP/1.1 200 OK"
-2026-07-23 18:50:26,600 [arxiv_manager.authoring.validator] INFO: validate_task entry q_len=56 a_len=5 fmt=word ftype=chart_graph_text ttype=general_image
-2026-07-23 18:50:26,600 [arxiv_manager.authoring.validator] INFO: validate_task result valid=True score=95.0 errors=0 warnings=1
-2026-07-23 18:50:26,600 [arxiv_manager.web.routes] INFO: draft ok upload_id=upload_2ca149bc7c3df8f8 quality=95.00 errors=0
-INFO:     192.168.0.6:50560 - "POST /api/image/draft HTTP/1.1" 200 OK
-2026-07-23 18:50:26,606 [arxiv_manager.web.routes] INFO: draft request upload_id=upload_2ca149bc7c3df8f8 difficulty=easy
-2026-07-23 18:50:26,606 [arxiv_manager.web.routes] INFO: draft calling draft_qa figure_type=chart_graph_text complexity=0.371
-2026-07-23 18:50:26,606 [arxiv_manager.authoring.ai_draft] INFO: draft_qa entry image=C:\Github\atmydesk-new\realm-siq-assistant\storage\_uploads\upload_2ca149bc7c3df8f8.jpg provider=opencode difficulty=easy figure_type=chart_graph_text complexity=0.371
-2026-07-23 18:50:41,459 [httpx] INFO: HTTP Request: POST https://opencode.ai/zen/go/v1/chat/completions "HTTP/1.1 200 OK"
-2026-07-23 18:50:41,461 [arxiv_manager.authoring.validator] INFO: validate_task entry q_len=60 a_len=5 fmt=word ftype=chart_graph_text ttype=general_image
-2026-07-23 18:50:41,461 [arxiv_manager.authoring.validator] INFO: validate_task result valid=True score=95.0 errors=0 warnings=1
-2026-07-23 18:50:41,461 [arxiv_manager.web.routes] INFO: draft ok upload_id=upload_2ca149bc7c3df8f8 quality=95.00 errors=0
-INFO:     192.168.0.6:61527 - "POST /api/image/draft HTTP/1.1" 200 OK
-2026-07-23 18:51:02,662 [arxiv_manager.web.routes] INFO: draft request upload_id=upload_2ca149bc7c3df8f8 difficulty=easy
-2026-07-23 18:51:02,662 [arxiv_manager.web.routes] INFO: draft calling draft_qa figure_type=chart_graph_text complexity=0.371
-2026-07-23 18:51:02,662 [arxiv_manager.authoring.ai_draft] INFO: draft_qa entry image=C:\Github\atmydesk-new\realm-siq-assistant\storage\_uploads\upload_2ca149bc7c3df8f8.jpg provider=opencode difficulty=easy figure_type=chart_graph_text complexity=0.371
+2026-07-23 19:02:39,103 [arxiv_manager.web.routes] INFO: task update task_id=1 type=general_image format=number
+2026-07-23 19:02:39,103 [arxiv_manager.authoring.validator] INFO: validate_task entry q_len=77 a_len=1 fmt=number ftype= ttype=
+2026-07-23 19:02:39,107 [arxiv_manager.authoring.validator] INFO: validate_task result valid=True score=100.0 errors=0 warnings=0
+2026-07-23 19:02:39,129 [arxiv_manager.web.routes] INFO: task updated id=1 valid=True
+INFO:     127.0.0.1:57724 - "POST /api/task/1/update HTTP/1.1" 200 OK

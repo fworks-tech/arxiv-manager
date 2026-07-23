@@ -603,8 +603,7 @@ async def api_update_task(
     figure = get_session().get(Figure, task.figure_id) if task else None
     logger.info("task updated id=%d valid=%s", task_id, validation.is_valid)
 
-    return TEMPLATES.TemplateResponse("task_form.html", {
-        "request": request,
+    return TEMPLATES.TemplateResponse(request, "task_form.html", {
         "figure": figure,
         "task": task,
         "validation": validation,
