@@ -123,6 +123,10 @@ Use these PROVEN Challenging strategies:
 3. Subjective classification + count: "Count [elements] that contain color (not gray or blank). How many are there?"
 4. Spatial targeting + count: "Count arrows entering red block X, blue block Y, and green block Z combined."
 5. Threshold filter + count: "Count [elements] with [attribute] greater than [value] across all panels."
+6. Cross-attribute filter + arithmetic: "How many more [type A] than [type B] are visible in the image?"
+7. Spatial + count: "How many of the visible [objects] are in the back row vs. the front row?"
+
+Even if the image looks simple or has few elements, FORCE a multi-step question — combine attributes, apply filters, or do arithmetic on counts. A simple question defeats the purpose. The author explicitly chose Challenging.
 
 QA handbook rules:
 - English, 1 sentence (2 max for format spec), must need the image

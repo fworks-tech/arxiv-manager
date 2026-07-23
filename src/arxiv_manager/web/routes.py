@@ -257,6 +257,9 @@ async def api_draft_qa(
     img_path = UPLOADS_DIR / f"{upload_id}.jpg"
     figure_type = analysis["audit"].get("figure_type", "")
     complexity = analysis["audit"].get("complexity_score", 0.0)
+    suitability = analysis.get("suitability", "")
+    if difficulty.upper() != suitability:
+        logger.info("draft override difficulty=%s but suitability=%s (using requested difficulty)", difficulty, suitability)
     logger.info("draft calling draft_qa figure_type=%s complexity=%.3f", figure_type, complexity)
 
     draft = draft_qa(
