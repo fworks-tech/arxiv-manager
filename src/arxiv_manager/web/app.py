@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -12,6 +13,15 @@ from ..db import init_db
 from ..storage import FIGURES_DIR, PAPERS_DIR, UPLOADS_DIR
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
+
+# Ensure all app loggers propagate to the root uvicorn handler
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
+for name in ("arxiv_manager.web.routes", "arxiv_manager.authoring.ai_draft",
+              "arxiv_manager.authoring.image_analyzer", "arxiv_manager.authoring.validator",
+              "arxiv_manager.sourcing.filters"):
+    lgr = logging.getLogger(name)
+    lgr.setLevel(logging.INFO)
+    lgr.propagate = True
 
 
 def create_app() -> FastAPI:
