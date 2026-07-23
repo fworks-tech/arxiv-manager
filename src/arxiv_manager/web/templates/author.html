@@ -82,26 +82,28 @@ function uploadFile(file) {
 
     var formData = new FormData();
     formData.append('image', file);
-    htmx.ajax('POST', '/api/image/upload', {
-        target: '#analysis-results',
-        swap: 'innerHTML',
-        values: formData,
-        handler: function(elt, info) {
+    fetch('/api/image/upload', { method: 'POST', body: formData })
+        .then(function(r) { if (!r.ok) throw new Error('Upload failed (' + r.status + ')'); return r.text(); })
+        .then(function(html) {
+            document.getElementById('analysis-results').innerHTML = html;
             status.innerHTML = '';
-            var parser = new DOMParser();
-            var doc = parser.parseFromString(info.xhr.responseText, 'text/html');
-            var el = doc.querySelector('[data-upload-id]');
+            var el = document.querySelector('[data-upload-id]');
             if (el) {
                 currentUploadId = el.dataset.uploadId;
                 showToast('Image uploaded and analyzed', 'success');
-                // Auto-generate draft with recommended difficulty
                 var diff = el.dataset.recommendedDifficulty;
                 if (diff && diff !== 'rejected') {
                     setTimeout(function() { draftQA(currentUploadId, diff); }, 300);
                 }
             }
-        }
-    });
+        })
+        .catch(function(err) {
+            status.innerHTML = '';
+            showToast(err.message || 'Upload failed', 'error');
+            document.getElementById('analysis-results').innerHTML =
+                '<div class="bg-red-50 border border-red-200 rounded-xl p-4"><p class="text-sm text-red-700">' +
+                err.message + '</p></div>';
+        });
 }
 
 function handleDrop(e) {
@@ -115,16 +117,19 @@ document.addEventListener('keydown', function(e) {
         if (document.querySelector('input:focus, textarea:focus, select:focus')) return;
         setTimeout(function() {
             navigator.clipboard.read().then(function(items) {
+                var found = false;
                 for (var item of items) {
                     var imgType = item.types.find(function(t) { return t.startsWith('image/'); });
                     if (imgType) {
+                        found = true;
                         item.getType(imgType).then(function(blob) {
                             var file = new File([blob], 'pasted-' + Date.now() + '.png', {type: blob.type});
                             uploadFile(file);
                         });
                     }
                 }
-            }).catch(function() {});
+                if (!found) showToast('No image found in clipboard', 'info');
+            }).catch(function() { showToast('Cannot read clipboard — try right-click paste or browse', 'error'); });
         }, 100);
     }
 });

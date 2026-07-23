@@ -178,6 +178,7 @@ async def api_upload_image(
             if src.exists():
                 data = src.read_bytes()
                 upload_id, dest = _save_upload(data, src.name)
+                result = analyze_uploaded_image(dest)
             else:
                 error = "Figure file not found"
         elif image and image.filename:
