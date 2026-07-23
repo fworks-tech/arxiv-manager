@@ -1,0 +1,25 @@
+domains:
+  - name: "Computer Science"
+    terms: ["neural network", "deep learning", "computer vision", "object detection"]
+    categories: ["cs.AI", "cs.CV", "cs.CL"]
+  - name: "Mathematics"
+    terms: ["graph theory", "topology", "optimization", "matrix"]
+    categories: ["math.CO", "math.OC", "math.LA"]
+  - name: "Biology"
+    terms: ["gene expression", "protein structure", "phylogenetics", "cell"]
+    categories: ["q-bio.GN", "q-bio.BM", "q-bio.CB"]
+  - name: "Finance"
+    terms: ["portfolio", "risk", "volatility", "market"]
+    categories: ["q-fin.CP", "q-fin.RM", "q-fin.ST"]
+  - name: "Physics"
+    terms: ["quantum", "spectrum", "lattice", "phase"]
+    categories: ["physics", "quant-ph", "cond-mat"]
+  - name: "Medicine"
+    terms: ["clinical trial", "survival analysis", "epidemiology", "diagnosis"]
+    categories: ["stat.AP", "q-bio.QM"]
+  - name: "Statistics"
+    terms: ["regression", "bayesian", "hypothesis", "estimation"]
+    categories: ["stat.ML", "stat.TH", "stat.ME"]
+  - name: "Engineering"
+    terms: ["control system", "signal processing", "circuit", "sensor"]
+    categories: ["eess", "cs.SY"]
