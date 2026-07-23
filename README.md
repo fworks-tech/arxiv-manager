@@ -2,8 +2,6 @@
 
 AI-powered assistant for creating challenging visual-reasoning Q&A tasks from scientific figures.
 
-**Live app:** [arxiv-manager.onrender.com](https://arxiv-manager.onrender.com)
-
 ## Features
 
 - **Image Upload** — Drag, drop, or paste images; auto-analyze for suitability, complexity score, and figure type
