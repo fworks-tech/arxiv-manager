@@ -40,3 +40,12 @@ INFO:     192.168.0.6:65377 - "GET /uploads/upload_e29a581037d6997e.jpg HTTP/1.1
 2026-07-23 20:13:35,973 [arxiv_manager.authoring.validator] INFO: validate_task result valid=False score=75.0 errors=1 warnings=2
 2026-07-23 20:13:35,973 [arxiv_manager.web.routes] INFO: draft ok upload_id=upload_e29a581037d6997e quality=75.00 errors=1
 INFO:     192.168.0.6:65377 - "POST /api/image/draft HTTP/1.1" 200 OK
+2026-07-23 20:15:21,979 [arxiv_manager.web.routes] INFO: draft request upload_id=upload_e29a581037d6997e difficulty=hardest
+2026-07-23 20:15:21,979 [arxiv_manager.web.routes] INFO: draft override difficulty=hardest but suitability=CHALLENGING (using requested difficulty)
+2026-07-23 20:15:21,979 [arxiv_manager.web.routes] INFO: draft calling draft_qa figure_type=chart_graph_text complexity=0.797
+2026-07-23 20:15:21,979 [arxiv_manager.authoring.ai_draft] INFO: draft_qa entry image=C:\Github\atmydesk-new\realm-siq-assistant\storage\_uploads\upload_e29a581037d6997e.jpg provider=opencode difficulty=hardest figure_type=chart_graph_text complexity=0.797
+2026-07-23 20:15:52,628 [httpx] INFO: HTTP Request: POST https://opencode.ai/zen/go/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-23 20:15:52,629 [arxiv_manager.authoring.validator] INFO: validate_task entry q_len=69 a_len=1 fmt=number ftype=chart_graph_text ttype=general_image
+2026-07-23 20:15:52,629 [arxiv_manager.authoring.validator] INFO: validate_task result valid=True score=100.0 errors=0 warnings=0
+2026-07-23 20:15:52,629 [arxiv_manager.web.routes] INFO: draft ok upload_id=upload_e29a581037d6997e quality=100.00 errors=0
+INFO:     192.168.0.6:60360 - "POST /api/image/draft HTTP/1.1" 200 OK
