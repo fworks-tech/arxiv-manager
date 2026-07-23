@@ -1,0 +1,89 @@
+{% extends "base_layout.html" %}
+{% block title %}Stats — ArXiv Manager{% endblock %}
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Progress Dashboard</h1>
+    <p class="text-gray-500 mt-1">Pipeline statistics at a glance</p>
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 text-center">
+        <div class="text-3xl font-bold text-[#1a1a2e]">{{ stats.total_figures }}</div>
+        <div class="text-sm text-gray-500 mt-1">Total Figures</div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 text-center">
+        <div class="text-3xl font-bold text-green-600">{{ stats.used_figures }}</div>
+        <div class="text-sm text-gray-500 mt-1">Used Figures</div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 text-center">
+        <div class="text-3xl font-bold text-[#1a1a2e]">{{ stats.total_tasks }}</div>
+        <div class="text-sm text-gray-500 mt-1">Total Tasks</div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Tasks by Status</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Count</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for status, count in stats.by_status.items() %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 text-sm">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                {% if status == 'draft' %}bg-yellow-100 text-yellow-800
+                                {% elif status == 'validated' %}bg-blue-100 text-blue-800
+                                {% elif status == 'submitted' %}bg-purple-100 text-purple-800
+                                {% elif status == 'approved' %}bg-green-100 text-green-800
+                                {% elif status == 'rework' %}bg-red-100 text-red-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">{{ status }}</span>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-700 text-right font-medium">{{ count }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if not stats.by_status %}
+                    <tr><td colspan="2" class="px-4 py-8 text-center text-gray-400 text-sm">No tasks yet</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Tasks by Difficulty</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Count</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for diff, count in stats.by_difficulty.items() %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 text-sm">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                {% if diff == 'easy' %}bg-green-100 text-green-800
+                                {% elif diff == 'challenging' %}bg-yellow-100 text-yellow-800
+                                {% elif diff == 'hardest' %}bg-red-100 text-red-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">{{ diff }}</span>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-700 text-right font-medium">{{ count }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if not stats.by_difficulty %}
+                    <tr><td colspan="2" class="px-4 py-8 text-center text-gray-400 text-sm">No difficulty labels set yet</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

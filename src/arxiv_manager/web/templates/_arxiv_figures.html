@@ -1,0 +1,33 @@
+{% if error %}
+<div class="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+    <span class="text-red-600 font-bold text-lg">!</span>
+    <p class="text-sm text-red-700">{{ error }}</p>
+</div>
+{% elif figures %}
+<p class="text-sm text-gray-500 mb-3">Select a figure to use:</p>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+    {% for fig in figures %}
+    <div class="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer" onclick="useArxivFigure('{{ fig.image_path }}')">
+        <div class="bg-gray-50 h-36 sm:h-44 flex items-center justify-center p-2">
+            <img src="/figures/{{ fig.image_path.split('/')[-1] }}?v={{ fig.image_hash[:8] }}" alt="Figure" class="max-w-full max-h-full object-contain" loading="lazy">
+        </div>
+        <div class="p-3 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                {% if fig.figure_type %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">{{ fig.figure_type[:5] }}</span>
+                {% endif %}
+                <span class="text-xs font-medium text-gray-700">{{ "%.2f"|format(fig.complexity_score) }}</span>
+                {% if fig.is_dense %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">dense</span>
+                {% endif %}
+            </div>
+            <button class="px-2.5 py-1.5 bg-[#1a1a2e] text-white rounded-lg text-xs font-medium hover:bg-[#16213e] transition-colors" onclick="event.stopPropagation(); useArxivFigure('{{ fig.image_path }}')">Use</button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="bg-gray-50 rounded-xl p-6 text-center">
+    <p class="text-gray-400 text-sm">No figures extracted from this paper.</p>
+</div>
+{% endif %}

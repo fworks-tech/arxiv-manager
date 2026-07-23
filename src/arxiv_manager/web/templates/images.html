@@ -1,0 +1,98 @@
+{% extends "base_layout.html" %}
+{% block title %}Images — ArXiv Manager{% endblock %}
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Image Library</h1>
+    <p class="text-gray-500 mt-1">Browse, filter, and manage extracted figures</p>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5 mb-6">
+    <form method="get" action="/images" class="flex flex-col sm:flex-row gap-3">
+        <div class="flex-1">
+            <select name="status" onchange="this.form.submit()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">
+                <option value="">All statuses</option>
+                <option value="new" {% if status_filter == 'new' %}selected{% endif %}>New</option>
+                <option value="reviewed" {% if status_filter == 'reviewed' %}selected{% endif %}>Reviewed</option>
+                <option value="used" {% if status_filter == 'used' %}selected{% endif %}>Used</option>
+                <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>Rejected</option>
+            </select>
+        </div>
+        <div class="flex-1">
+            <select name="min_complexity" onchange="this.form.submit()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">
+                <option value="0">Any complexity</option>
+                <option value="0.3" {% if min_complexity == 0.3 %}selected{% endif %}>≥ 0.3</option>
+                <option value="0.5" {% if min_complexity == 0.5 %}selected{% endif %}>≥ 0.5</option>
+                <option value="0.7" {% if min_complexity == 0.7 %}selected{% endif %}>≥ 0.7</option>
+                <option value="0.8" {% if min_complexity == 0.8 %}selected{% endif %}>≥ 0.8</option>
+            </select>
+        </div>
+    </form>
+</div>
+
+{% if figures %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5 mb-6">
+    <form method="post" action="/api/figures/bulk-reject" id="bulk-form">
+        <div class="flex flex-wrap items-center gap-3">
+            <span class="text-sm font-medium text-gray-700">Bulk:</span>
+            <button type="button" onclick="document.querySelectorAll('.fig-check').forEach(c => c.checked = true)" class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200 transition-colors">Select all</button>
+            <button type="button" onclick="document.querySelectorAll('.fig-check').forEach(c => c.checked = false)" class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200 transition-colors">Clear</button>
+            <button type="submit" onclick="return confirm('Reject all selected figures?')" class="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors">Reject selected</button>
+        </div>
+    </form>
+</div>
+
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+    {% for fig in figures %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow relative group">
+        <label class="absolute top-2 left-2 z-10 bg-white rounded-md shadow-sm px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <input type="checkbox" class="fig-check" name="figure_ids" value="{{ fig.id }}" form="bulk-form" class="rounded">
+        </label>
+        <a href="/task/new/{{ fig.id }}">
+            <div class="bg-gray-50 h-36 sm:h-44 flex items-center justify-center p-2">
+                <img src="/figures/{{ fig.image_path.split('/')[-1] }}?v={{ fig.image_hash[:8] }}" alt="Figure {{ fig.id }}" loading="lazy" class="max-w-full max-h-full object-contain">
+            </div>
+        </a>
+        <div class="p-3 space-y-1.5">
+            <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-sm font-semibold text-gray-900">#{{ fig.id }}</span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                    {% if fig.status == 'new' %}bg-green-100 text-green-800
+                    {% elif fig.status == 'reviewed' %}bg-blue-100 text-blue-800
+                    {% elif fig.status == 'used' %}bg-purple-100 text-purple-800
+                    {% elif fig.status == 'rejected' %}bg-red-100 text-red-800
+                    {% else %}bg-gray-100 text-gray-800{% endif %}">{{ fig.status }}</span>
+                {% if fig.figure_type %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">{{ "chart" if fig.figure_type == "chart_graph_text" else "img" }}</span>
+                {% endif %}
+                {% if fig.is_dense %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">dense</span>
+                {% endif %}
+                {% if fig.is_suitable %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">suitable</span>
+                {% endif %}
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-500">{{ fig.width }}×{{ fig.height }}</span>
+                <span class="text-xs font-medium text-gray-700">{{ "%.3f"|format(fig.complexity_score) }}</span>
+            </div>
+            {% if fig.caption %}
+            <p class="text-xs text-gray-400 truncate">{{ fig.caption[:60] }}{% if fig.caption|length > 60 %}…{% endif %}</p>
+            {% endif %}
+            <div class="flex gap-2 pt-1">
+                <a href="/task/new/{{ fig.id }}" class="flex-1 text-center px-2 py-1.5 bg-[#1a1a2e] text-white rounded-lg text-xs font-medium hover:bg-[#16213e] transition-colors">Create Task</a>
+                <form method="post" action="/api/figure/{{ fig.id }}/status" class="flex-none">
+                    <input type="hidden" name="status" value="rejected">
+                    <button type="submit" class="px-2 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-medium hover:bg-red-200 transition-colors">Reject</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
+    <p class="text-gray-400">No images found. Run the sourcing pipeline first:</p>
+    <code class="inline-block mt-2 px-3 py-1.5 bg-gray-100 rounded text-sm text-gray-600">arxiv-manager search fetch-many</code>
+</div>
+{% endif %}
+{% endblock %}

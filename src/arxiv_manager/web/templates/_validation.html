@@ -1,0 +1,14 @@
+{% if validation %}
+<div class="{% if validation.is_valid %}bg-green-50 border border-green-200{% else %}bg-red-50 border border-red-200{% endif %} rounded-xl p-4">
+    <div class="flex items-center gap-2 text-sm mb-2">
+        <span>{% if validation.is_valid %}✅{% else %}❌{% endif %}</span>
+        <span class="font-semibold">{% if validation.is_valid %}All checks passed{% else %}Issues found{% endif %}</span>
+    </div>
+    {% for e in validation.errors %}
+    <div class="text-sm text-red-700 flex items-start gap-1.5 mt-1"><span>❌</span><span>{{ e }}</span></div>
+    {% endfor %}
+    {% for w in validation.warnings %}
+    <div class="text-sm text-yellow-700 flex items-start gap-1.5 mt-1"><span>⚠️</span><span>{{ w }}</span></div>
+    {% endfor %}
+</div>
+{% endif %}

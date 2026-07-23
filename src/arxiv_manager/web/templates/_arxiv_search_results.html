@@ -1,0 +1,28 @@
+{% if error %}
+<div class="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+    <span class="text-red-600 font-bold text-lg">!</span>
+    <p class="text-sm text-red-700">{{ error }}</p>
+</div>
+{% elif papers %}
+<p class="text-sm text-gray-500 mb-3">Found {{ papers|length }} papers</p>
+<div class="space-y-3 max-h-96 overflow-y-auto pr-1">
+    {% for p in papers %}
+    <div class="bg-white border border-gray-200 rounded-lg p-3 sm:p-4 hover:shadow-sm transition-shadow">
+        <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 mb-0.5">
+                    <span class="text-xs font-mono text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{{ p.id }}</span>
+                    <span class="text-xs text-gray-400 truncate">{{ p.categories[:40] }}</span>
+                </div>
+                <p class="text-sm font-medium text-gray-900 leading-snug">{{ p.title[:80] }}{% if p.title|length > 80 %}…{% endif %}</p>
+            </div>
+            <button onclick="extractArxiv('{{ p.id }}')" class="flex-none px-3 py-1.5 bg-[#1a1a2e] text-white rounded-lg text-xs font-medium hover:bg-[#16213e] transition-colors whitespace-nowrap">Extract</button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="bg-gray-50 rounded-xl p-6 text-center">
+    <p class="text-gray-400 text-sm">No papers found. Try different search terms.</p>
+</div>
+{% endif %}

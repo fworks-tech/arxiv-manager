@@ -1,0 +1,180 @@
+{% extends "base_layout.html" %}
+{% block title %}{% if task %}Edit Task #{{ task.id }}{% else %}New Task{% endif %} — ArXiv Manager{% endblock %}
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">{% if task %}Edit Task #{{ task.id }}{% else %}New Task{% endif %}</h1>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    {% if figure %}
+    <div class="lg:col-span-1">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5 sticky top-20">
+            <h2 class="text-lg font-semibold text-gray-900 mb-3">Source Image</h2>
+            <div class="bg-gray-50 rounded-lg p-2 mb-3 flex items-center justify-center">
+                <img src="/figures/{{ figure.image_path.split('/')[-1] }}?v={{ figure.image_hash[:8] }}" alt="Figure {{ figure.id }}" class="max-w-full max-h-64 object-contain rounded">
+            </div>
+            <dl class="space-y-2 text-sm">
+                <div class="flex justify-between"><dt class="text-gray-500">Figure ID</dt><dd class="font-medium">{{ figure.id }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">Complexity</dt><dd class="font-medium">{{ "%.3f"|format(figure.complexity_score) }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">Paper</dt><dd><a href="/papers/{{ figure.paper_id }}.pdf" target="_blank" class="text-blue-600 hover:underline font-medium">{{ figure.paper_id }}</a></dd></div>
+            </dl>
+            {% if figure.caption %}
+            <p class="text-xs text-gray-400 mt-3 leading-relaxed">{{ figure.caption }}</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="{% if figure %}lg:col-span-2{% else %}lg:col-span-3{% endif %} space-y-6">
+        {% if validation %}
+        <div class="{% if validation.is_valid %}bg-green-50 border border-green-200{% else %}bg-red-50 border border-red-200{% endif %} rounded-xl p-4 sm:p-5">
+            <div class="flex items-center gap-2 mb-2">
+                <span class="text-lg">{% if validation.is_valid %}✅{% else %}❌{% endif %}</span>
+                <span class="font-semibold text-sm">{% if validation.is_valid %}Validation Passed{% else %}Validation Issues{% endif %}</span>
+                <span class="ml-auto text-xs text-gray-500">Score: <strong>{{ validation.quality_score|int }}/100</strong></span>
+            </div>
+            {% for e in validation.errors %}
+            <div class="text-sm text-red-700 flex items-start gap-1.5 mt-1"><span>❌</span><span>{{ e }}</span></div>
+            {% endfor %}
+            {% for w in validation.warnings %}
+            <div class="text-sm text-yellow-700 flex items-start gap-1.5 mt-1"><span>⚠️</span><span>{{ w }}</span></div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Question & Answer</h2>
+            <form method="post" action="{% if task %}/api/task/{{ task.id }}/update{% else %}/api/task/create{% endif %}">
+                {% if not task %}
+                <input type="hidden" name="figure_id" value="{{ figure.id }}">
+                {% endif %}
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="title" class="block text-sm font-medium text-gray-700 mb-1">Task Title</label>
+                        <input type="text" name="title" id="title" value="{{ task.title if task else (form_data.title if form_data else (figure.caption[:60] if figure and figure.caption else '')) }}" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">
+                    </div>
+
+                    <div>
+                        <label for="domain" class="block text-sm font-medium text-gray-700 mb-1">Domain</label>
+                        <select name="domain" id="domain" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">
+                            <option value="">Select domain</option>
+                            {% for d in ['Computer Science','Mathematics','Biology','Physics','Chemistry','Medicine','Finance','Statistics','Engineering','Art / design','Economics','Education'] %}
+                            <option value="{{ d }}" {% if task and task.domain == d %}selected{% elif not task and d == 'Computer Science' %}selected{% endif %}>{{ d }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="question" class="block text-sm font-medium text-gray-700 mb-1">Question</label>
+                        <textarea name="question" id="question" rows="3" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">{{ task.question if task else (form_data.question if form_data else '') }}</textarea>
+                    </div>
+
+                    <div>
+                        <label for="answer" class="block text-sm font-medium text-gray-700 mb-1">Answer (boxed, short)</label>
+                        <input type="text" name="answer" id="answer" value="{{ task.answer if task else (form_data.answer if form_data else '') }}" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="answer_format" class="block text-sm font-medium text-gray-700 mb-1">Answer Format</label>
+                            <select name="answer_format" id="answer_format" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">
+                                {% for fmt in ['number', 'word', 'phrase', 'year', 'percent', 'integer'] %}
+                                <option value="{{ fmt }}" {% if task and task.answer_format == fmt %}selected{% elif not task and fmt == 'word' %}selected{% endif %}>{{ fmt }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="task_type" class="block text-sm font-medium text-gray-700 mb-1">Task Type</label>
+                            <select name="task_type" id="task_type" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">
+                                {% for tt in ['chart', 'general_image', 'spatial'] %}
+                                <option value="{{ tt }}" {% if task and task.task_type == tt %}selected{% elif not task and tt == 'chart' %}selected{% endif %}>{{ tt }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-3 pt-2">
+                        <button type="submit" class="px-4 py-2 bg-[#1a1a2e] text-white rounded-lg text-sm font-medium hover:bg-[#16213e] transition-colors">
+                            {% if task %}Update Task{% else %}Create Task{% endif %}
+                        </button>
+                        {% if task %}
+                        <button type="button" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+                                hx-post="/api/task/{{ task.id }}/validate" hx-target="#validation-box">Validate</button>
+                        {% endif %}
+                    </div>
+                </div>
+            </form>
+            <div id="validation-box" class="mt-4"></div>
+        </div>
+
+        {% if task %}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Platform Info</h2>
+            <p class="text-sm text-gray-600 mb-2"><strong>Image Path:</strong> <code class="px-1.5 py-0.5 bg-gray-100 rounded text-xs">{{ figure.image_path if figure else task.image_path }}</code></p>
+            <p class="text-sm font-medium text-gray-700 mb-2">Export Format:</p>
+            <textarea readonly rows="5" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs font-mono bg-gray-50">Title: {{ task.title }}
+Domain: {{ task.domain }}
+Question: {{ task.question }}
+Answer: {{ task.answer }}
+Format: {{ task.answer_format }}
+Type: {{ task.task_type }}</textarea>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Rhea Review</h2>
+            <form method="post" action="/api/task/{{ task.id }}/rhea">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" name="rhea_reviewed" value="true" {% if task.rhea_reviewed %}checked{% endif %} class="rounded border-gray-300">
+                        Reviewed by Rhea
+                    </label>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" name="rhea_passed" value="true" {% if task.rhea_passed %}checked{% endif %} class="rounded border-gray-300">
+                        Rhea Passed
+                    </label>
+                    <div class="sm:col-span-1">
+                        <input type="text" name="rhea_notes" value="{{ task.rhea_notes or '' }}" placeholder="Review feedback..." class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                </div>
+                <button type="submit" class="mt-3 px-4 py-2 bg-[#1a1a2e] text-white rounded-lg text-sm font-medium hover:bg-[#16213e] transition-colors">Update</button>
+            </form>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Model Runs</h2>
+            <form method="post" action="/api/task/{{ task.id }}/difficulty">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
+                        <select name="difficulty" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            {% for d in ['easy', 'challenging', 'hardest'] %}
+                            <option value="{{ d }}" {% if task.difficulty == d %}selected{% endif %}>{{ d }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Qwen passes (0-4)</label>
+                        <input type="number" name="qwen" min="0" max="4" value="{{ task.qwen_passes }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Gemini passes (0-4)</label>
+                        <input type="number" name="gemini" min="0" max="4" value="{{ task.gemini_passes }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                </div>
+                <button type="submit" class="mt-3 px-4 py-2 bg-[#1a1a2e] text-white rounded-lg text-sm font-medium hover:bg-[#16213e] transition-colors">Update</button>
+            </form>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Actions</h2>
+            <form method="post" action="/api/task/{{ task.id }}/submit">
+                <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">Mark as Submitted</button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
