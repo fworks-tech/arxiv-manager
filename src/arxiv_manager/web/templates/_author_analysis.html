@@ -39,8 +39,8 @@
                 {% endif %}
 
                 <div class="flex flex-wrap gap-2 pt-2">
-                    {% if result.suitability == 'CHALLENGING' or result.suitability == 'HARDEST' %}
                     <button onclick="draftQA('{{ upload_id }}', 'challenging')" class="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm font-medium hover:bg-yellow-700 transition-colors">Generate Challenging</button>
+                    {% if result.suitability == 'CHALLENGING' or result.suitability == 'HARDEST' %}
                     <button onclick="draftQA('{{ upload_id }}', 'hardest')" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors">Generate HARDEST</button>
                     {% elif result.suitability == 'EASY' %}
                     <button onclick="draftQA('{{ upload_id }}', 'easy')" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">Generate Easy</button>
