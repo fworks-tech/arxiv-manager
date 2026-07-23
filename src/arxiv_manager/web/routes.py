@@ -703,3 +703,27 @@ async def update_rhea(
         session.commit()
         logger.info("task rhea updated task_id=%d", task_id)
     return RedirectResponse(url=f"/task/{task_id}", status_code=303)
+
+
+@router.post("/api/task/{task_id}/rhea-override")
+async def save_rhea_override(
+    request: Request,
+    task_id: int,
+    rhea_override_notes: str = Form(...),
+    rhea_passed: bool = Form(True),
+):
+    """Save author's override notes for a Rhea-rejected task.
+
+    Sets rhea_passed=True and stores the author's justification.
+    This is a first-class signal that the author disagreed with Rhea.
+    """
+    logger.info("task rhea override task_id=%d passed=%s notes_len=%d", task_id, rhea_passed, len(rhea_override_notes))
+    session = get_session()
+    task = session.get(Task, task_id)
+    if task:
+        task.rhea_override_notes = rhea_override_notes
+        task.rhea_passed = rhea_passed
+        session.add(task)
+        session.commit()
+        logger.info("task rhea override saved task_id=%d", task_id)
+    return RedirectResponse(url=f"/task/{task_id}", status_code=303)

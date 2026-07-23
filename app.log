@@ -1,9 +1,8 @@
-INFO:     Started server process [11656]
+2026-07-23 19:40:43,738 [arxiv_manager.db] INFO: migration: added tasks.rhea_override_notes
+INFO:     Started server process [3344]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-2026-07-23 19:02:39,103 [arxiv_manager.web.routes] INFO: task update task_id=1 type=general_image format=number
-2026-07-23 19:02:39,103 [arxiv_manager.authoring.validator] INFO: validate_task entry q_len=77 a_len=1 fmt=number ftype= ttype=
-2026-07-23 19:02:39,107 [arxiv_manager.authoring.validator] INFO: validate_task result valid=True score=100.0 errors=0 warnings=0
-2026-07-23 19:02:39,129 [arxiv_manager.web.routes] INFO: task updated id=1 valid=True
-INFO:     127.0.0.1:57724 - "POST /api/task/1/update HTTP/1.1" 200 OK
+2026-07-23 19:40:53,648 [arxiv_manager.web.routes] INFO: task rhea override task_id=1 passed=True notes_len=209
+2026-07-23 19:40:53,661 [arxiv_manager.web.routes] INFO: task rhea override saved task_id=1
+INFO:     127.0.0.1:60335 - "POST /api/task/1/rhea-override HTTP/1.1" 303 See Other

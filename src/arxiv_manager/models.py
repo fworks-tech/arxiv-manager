@@ -120,6 +120,7 @@ class Task(SQLModel, table=True):
     rhea_reviewed: bool = False  # Has Rhea review been requested?
     rhea_passed: bool = False  # Did Rhea review pass?
     rhea_notes: str = ""  # Rhea review feedback
+    rhea_override_notes: str = ""  # Author's justification for overriding Rhea's verdict
     created_at: datetime = Field(default_factory=datetime.now)
     submitted_at: datetime | None = None
     platform_task_id: str = ""
