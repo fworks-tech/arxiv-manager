@@ -2,3 +2,7 @@ INFO:     Started server process [23832]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
+INFO:     192.168.0.6:51011 - "GET /author HTTP/1.1" 200 OK
+INFO:     192.168.0.6:51011 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     192.168.0.6:51011 - "POST /api/image/upload HTTP/1.1" 200 OK
+INFO:     192.168.0.6:51011 - "GET /uploads/upload_8f1add790588b207.jpg HTTP/1.1" 200 OK
