@@ -41,5 +41,8 @@ htmlcov/
 *.tmp
 *.bak
 
+# Root logs
+app.log
+
 # HF Space
 .space/
