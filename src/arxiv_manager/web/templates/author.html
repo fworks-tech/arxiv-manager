@@ -140,12 +140,18 @@ function searchArxiv() {
     var btn = document.getElementById('arxiv-search-btn');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-1"></span> Searching...';
-    htmx.ajax('GET', '/api/arxiv/search', {
-        target: '#arxiv-results',
-        swap: 'innerHTML',
-        values: {q: q},
-        handler: function() { btn.disabled = false; btn.textContent = 'Search'; }
-    });
+    fetch('/api/arxiv/search?q=' + encodeURIComponent(q))
+        .then(function(r) { if (!r.ok) throw new Error('Search failed'); return r.text(); })
+        .then(function(html) {
+            document.getElementById('arxiv-results').innerHTML = html;
+            btn.disabled = false;
+            btn.textContent = 'Search';
+        })
+        .catch(function(err) {
+            showToast(err.message, 'error');
+            btn.disabled = false;
+            btn.textContent = 'Search';
+        });
 }
 
 function draftQA(uploadId, difficulty) {
@@ -176,46 +182,51 @@ function proposeTask(uploadId) {
     var btn = event.target;
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-1"></span> Saving...';
-    htmx.ajax('POST', '/api/image/propose', {
-        values: {
-            upload_id: uploadId,
-            question: q.value,
-            answer: a.value,
-            answer_format: fmt.value,
-            task_type: tp.value,
-            domain: 'Computer Science',
-            title: ''
-        },
-        handler: function() { btn.disabled = false; btn.textContent = 'Propose'; }
+    var body = new URLSearchParams({
+        upload_id: uploadId,
+        question: q.value,
+        answer: a.value,
+        answer_format: fmt.value,
+        task_type: tp.value,
+        domain: 'Computer Science',
+        title: ''
     });
+    fetch('/api/image/propose', { method: 'POST', body: body, headers: {'Content-Type': 'application/x-www-form-urlencoded'} })
+        .then(function(r) {
+            if (r.redirected) { window.location.href = r.url; return; }
+            if (!r.ok) throw new Error('Propose failed (' + r.status + ')');
+        })
+        .catch(function(err) {
+            btn.disabled = false;
+            btn.textContent = 'Propose';
+            showToast(err.message, 'error');
+        });
 }
 
 function discardUpload(uploadId) {
     if (!confirm('Discard this image?')) return;
-    htmx.ajax('POST', '/api/image/discard', {
-        values: {upload_id: uploadId},
-        handler: function() {
+    var body = new URLSearchParams({upload_id: uploadId});
+    fetch('/api/image/discard', { method: 'POST', body: body, headers: {'Content-Type': 'application/x-www-form-urlencoded'} })
+        .then(function() {
             document.getElementById('analysis-results').innerHTML = '<div class="bg-gray-50 rounded-xl p-6 text-center"><p class="text-gray-400 text-sm">Upload an image or search arXiv to begin.</p></div>';
             document.getElementById('draft-results').innerHTML = '';
             currentUploadId = '';
             showToast('Image discarded', 'info');
-        }
-    });
+        })
+        .catch(function(err) { showToast(err.message, 'error'); });
 }
 
 function useArxivFigure(path) {
     showTab('upload');
     var status = document.getElementById('upload-status');
     status.innerHTML = '<div class="flex items-center gap-2 text-sm text-gray-600"><svg class="spinner w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="4" stroke-linecap="round" class="opacity-75"/></svg> Loading figure...</div>';
-    htmx.ajax('POST', '/api/image/upload', {
-        target: '#analysis-results',
-        swap: 'innerHTML',
-        values: {arxiv_figure_path: path},
-        handler: function(elt, info) {
+    var body = new URLSearchParams({arxiv_figure_path: path});
+    fetch('/api/image/upload', { method: 'POST', body: body, headers: {'Content-Type': 'application/x-www-form-urlencoded'} })
+        .then(function(r) { if (!r.ok) throw new Error('Load failed'); return r.text(); })
+        .then(function(html) {
+            document.getElementById('analysis-results').innerHTML = html;
             status.innerHTML = '';
-            var parser = new DOMParser();
-            var doc = parser.parseFromString(info.xhr.responseText, 'text/html');
-            var el = doc.querySelector('[data-upload-id]');
+            var el = document.querySelector('[data-upload-id]');
             if (el) {
                 currentUploadId = el.dataset.uploadId;
                 var diff = el.dataset.recommendedDifficulty;
@@ -223,20 +234,30 @@ function useArxivFigure(path) {
                     setTimeout(function() { draftQA(currentUploadId, diff); }, 300);
                 }
             }
-        }
-    });
+        })
+        .catch(function(err) {
+            status.innerHTML = '';
+            showToast(err.message, 'error');
+        });
 }
 
 function extractArxiv(arxivId) {
     var btn = event && event.target ? event.target : document.querySelector('#arxiv-results button');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-1"></span> Extracting...';
-    htmx.ajax('POST', '/api/arxiv/extract', {
-        target: '#arxiv-results',
-        swap: 'innerHTML',
-        values: {arxiv_id: arxivId},
-        handler: function() { btn.disabled = false; btn.textContent = 'Extract'; }
-    });
+    var body = new URLSearchParams({arxiv_id: arxivId});
+    fetch('/api/arxiv/extract', { method: 'POST', body: body, headers: {'Content-Type': 'application/x-www-form-urlencoded'} })
+        .then(function(r) { if (!r.ok) throw new Error('Extract failed'); return r.text(); })
+        .then(function(html) {
+            document.getElementById('arxiv-results').innerHTML = html;
+            btn.disabled = false;
+            btn.textContent = 'Extract';
+        })
+        .catch(function(err) {
+            showToast(err.message, 'error');
+            btn.disabled = false;
+            btn.textContent = 'Extract';
+        });
 }
 
 function showToast(msg, type) {
