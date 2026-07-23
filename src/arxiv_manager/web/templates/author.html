@@ -88,14 +88,15 @@ function uploadFile(file) {
         values: formData,
         handler: function(elt, info) {
             status.innerHTML = '';
-            // Extract upload_id from the response
             var parser = new DOMParser();
             var doc = parser.parseFromString(info.xhr.responseText, 'text/html');
             var el = doc.querySelector('[data-upload-id]');
-            if (el) currentUploadId = el.dataset.uploadId;
+            if (el) {
+                currentUploadId = el.dataset.uploadId;
+                showToast('Image uploaded and analyzed', 'success');
+            }
         }
     });
-    showToast('📋 Image uploaded', 'success');
 }
 
 function handleDrop(e) {
@@ -206,10 +207,14 @@ function useArxivFigure(path) {
 }
 
 function extractArxiv(arxivId) {
+    var btn = event && event.target ? event.target : document.querySelector('#arxiv-results button');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-1"></span> Extracting...';
     htmx.ajax('POST', '/api/arxiv/extract', {
         target: '#arxiv-results',
         swap: 'innerHTML',
-        values: {arxiv_id: arxivId}
+        values: {arxiv_id: arxivId},
+        handler: function() { btn.disabled = false; btn.textContent = 'Extract'; }
     });
 }
 

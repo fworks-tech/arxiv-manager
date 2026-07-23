@@ -25,6 +25,20 @@ Rules: English, 1 sentence (2 max for format spec), must need the image, no yes/
 Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"chart|general_image|spatial"}}"""
 
 
+EASY_PROMPT = """Create a straightforward visual-reasoning question for this image that is easy to answer.
+
+The question should:
+- Focus on a single clear element (count, color, shape, label, position)
+- Require looking at the image, but only a simple observation
+- Have an obvious, unambiguous answer of 1 word or 1 number
+- Be answerable by anyone who can see the image — no multi-step reasoning
+- Avoid counting large numbers (>10) or complex comparisons
+
+Rules: English, 1 sentence, must need the image, no yes/no, no "how does" / "what trend".
+Answer is 1 word or 1 number.
+Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"chart|general_image|spatial"}}"""
+
+
 REGEN_PROMPT = """Create a hard visual-reasoning question for this image.
 The previous attempt had validation errors — fix ALL of them:
 
@@ -293,6 +307,8 @@ def draft_qa(
         prompt = SPATIAL_HARDEST_PROMPT if is_spatial else HARDEST_PROMPT
     elif difficulty == "challenging":
         prompt = SPATIAL_CHALLENGING_PROMPT if is_spatial else CHALLENGING_PROMPT
+    elif difficulty == "easy":
+        prompt = SPATIAL_DRAFT_PROMPT if is_spatial else EASY_PROMPT
     elif feedback:
         prompt = (SPATIAL_REGEN_PROMPT if is_spatial else REGEN_PROMPT).format(feedback=feedback)
     else:
@@ -379,36 +395,39 @@ def _call_opencode(api_key: str, prompt: str, b64_image: str, model: str | None 
     for attempt in range(retries):
         if attempt > 0:
             time.sleep(2 ** attempt)  # 2s, 4s backoff
-
-        resp = httpx.post(
-            "https://opencode.ai/zen/go/v1/chat/completions",
-            headers={"Authorization": f"Bearer {api_key}"},
-            json={
-                "model": model_id,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": prompt},
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                "url": f"data:{media_type};base64,{b64_image}",
+        try:
+            resp = httpx.post(
+                "https://opencode.ai/zen/go/v1/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}"},
+                json={
+                    "model": model_id,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": prompt},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                    "url": f"data:{media_type};base64,{b64_image}",
+                                    },
                                 },
-                            },
-                        ],
-                    }
-                ],
-                "max_tokens": max_tokens,
-            },
-            timeout=timeout,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        msg = data["choices"][0]["message"]
-        content = msg.get("content") or ""
-        if content.strip():
-            return _parse_llm_response(content)
+                            ],
+                        }
+                    ],
+                    "max_tokens": max_tokens,
+                },
+                timeout=timeout,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            msg = data["choices"][0]["message"]
+            content = msg.get("content") or ""
+            if content.strip():
+                return _parse_llm_response(content)
+        except Exception:
+            if attempt == retries - 1:
+                raise
 
     return None
 

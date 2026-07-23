@@ -44,7 +44,7 @@
 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
     {% for fig in figures %}
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow relative group">
-        <label class="absolute top-2 left-2 z-10 bg-white rounded-md shadow-sm px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <label class="absolute top-2 left-2 z-10 bg-white rounded-md shadow-sm px-1.5 py-1 opacity-60 hover:opacity-100 transition-opacity">
             <input type="checkbox" class="fig-check" name="figure_ids" value="{{ fig.id }}" form="bulk-form" class="rounded">
         </label>
         <a href="/task/new/{{ fig.id }}">
