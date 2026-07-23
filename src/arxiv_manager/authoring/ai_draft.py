@@ -5,10 +5,13 @@ from __future__ import annotations
 import base64
 import io
 import json
+import logging
 import os
 import re
 import time
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 DRAFT_PROMPT = """Create a hard visual-reasoning question for this image that requires multiple steps of reasoning.
@@ -263,37 +266,20 @@ def draft_qa(
     figure_type: str = "",
     complexity_score: float = 0.0,
 ) -> dict | None:
-    """Draft a Q&A pair from an image using an LLM.
+    """Draft a Q&A pair from an image using an LLM."""
+    logger.info("draft_qa entry image=%s provider=%s difficulty=%s figure_type=%s complexity=%.3f",
+                image_path, provider, difficulty, figure_type, complexity_score)
 
-    Args:
-        image_path: Path to the image file.
-        paper_title: Optional paper title for context.
-        caption: Optional figure caption.
-        task_type_hint: Optional hint (chart, general_image, spatial).
-        provider: LLM provider to use (opencode, openai, anthropic).
-        model: Optional model override.
-        api_key: Optional API key override (falls back to env var).
-        feedback: Validation error feedback for regeneration.
-        difficulty: Target difficulty ("hardest" uses Qwen-weakness-exploiting prompt).
-        figure_type: "chart_graph_text" or "general_image" (for context).
-        complexity_score: 0-1 complexity score (for context).
-
-    Returns:
-        Dict with question, answer, answer_format, task_type, or None on failure.
-    """
     if not api_key:
         api_key = _get_api_key(provider)
     if not api_key:
+        logger.warning("draft_qa: no api key for provider=%s", provider)
         return None
 
     from PIL import Image
 
-    # Resize + JPEG-encode for ~5x smaller payload than PNG.
-    # The model doesn't need lossless; JPEG quality 85 is visually identical
-    # and dramatically cuts input tokens.
     img = Image.open(image_path)
     if img.mode in ("RGBA", "P"):
-        # JPEG doesn't support alpha — flatten onto white
         img = img.convert("RGB")
     img.thumbnail((1024, 1024))
     buf = io.BytesIO()
@@ -301,7 +287,6 @@ def draft_qa(
     b64 = base64.b64encode(buf.getvalue()).decode()
     image_media_type = "image/jpeg"
 
-    # Select prompt based on figure_type + difficulty (Tier 2a)
     is_spatial = figure_type == "general_image"
     if difficulty == "hardest":
         prompt = SPATIAL_HARDEST_PROMPT if is_spatial else HARDEST_PROMPT
@@ -327,7 +312,7 @@ def draft_qa(
     result: dict | None = None
     try:
         if provider == "opencode":
-            time.sleep(1)  # Avoid rate limiting
+            time.sleep(1)
             result = _call_opencode(api_key, prompt, b64, model, difficulty=difficulty, media_type=image_media_type)
         elif provider == "openai":
             result = _call_openai(api_key, prompt, b64, model, media_type=image_media_type)

@@ -13,10 +13,13 @@ Provides:
 from __future__ import annotations
 
 import hashlib
+import logging
 from pathlib import Path
 
 import imagehash
 from PIL import Image
+
+logger = logging.getLogger(__name__)
 
 
 # ─── Complexity scoring ────────────────────────────────────────────
@@ -349,13 +352,8 @@ def compute_perceptual_hash(image_path: Path) -> str:
 
 
 def audit_figure(image_path: Path) -> dict:
-    """Run all filters and return a single audit record.
-
-    Returns dict with:
-        filesize_bytes, width, height, width_height_ratio,
-        complexity_score, figure_type, figure_type_confidence,
-        is_dense, is_logo_or_icon, is_likely_sparse, is_text_only, is_suitable
-    """
+    """Run all filters and return a single audit record."""
+    logger.info("audit_figure entry path=%s", image_path)
     result = {
         "filesize_bytes": 0,
         "width": 0,
@@ -409,4 +407,8 @@ def audit_figure(image_path: Path) -> dict:
         and result["filesize_bytes"] >= 5000
     )
 
+    logger.info("audit_figure result cs=%.3f type=%s suitable=%s dense=%s text=%s sparse=%s logo=%s dims=%dx%d",
+                 result["complexity_score"], result["figure_type"], result["is_suitable"],
+                 result["is_dense"], result["is_text_only"], result["is_likely_sparse"],
+                 result["is_logo_or_icon"], result["width"], result["height"])
     return result

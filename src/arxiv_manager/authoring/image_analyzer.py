@@ -3,21 +3,18 @@
 Bridges existing tools into a single function call for the web UI."""
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from ..sourcing.filters import audit_figure
 from ..authoring.validator import validate_task
 
+logger = logging.getLogger(__name__)
+
 
 def analyze_uploaded_image(image_path: Path) -> dict:
-    """Run all filters on an uploaded image and determine difficulty potential.
-
-    Returns a dict with:
-        audit (full audit dict from audit_figure),
-        suitability ("HARDEST"|"CHALLENGING"|"EASY"|"REJECTED"),
-        suitability_reason (string explanation),
-        figure_type_label ("chart"|"img"),
-    """
+    """Run all filters on an uploaded image and determine difficulty potential."""
+    logger.info("analyze_uploaded_image entry path=%s", image_path)
     audit = audit_figure(image_path)
 
     if not audit["is_suitable"]:
@@ -32,17 +29,12 @@ def analyze_uploaded_image(image_path: Path) -> dict:
             reasons.append(f"low complexity ({audit['complexity_score']:.2f})")
         if audit["width"] < 200 or audit["height"] < 200:
             reasons.append("too small")
-        return {
-            "audit": audit,
-            "suitability": "REJECTED",
-            "suitability_reason": "; ".join(reasons),
-            "figure_type_label": _type_label(audit),
-        }
+        result = {"audit": audit, "suitability": "REJECTED", "suitability_reason": "; ".join(reasons), "figure_type_label": _type_label(audit)}
+        logger.info("analyze result REJECTED reason=%s cs=%.3f dims=%dx%d", result["suitability_reason"], audit["complexity_score"], audit["width"], audit["height"])
+        return result
 
     cs = audit["complexity_score"]
     is_chart = _type_label(audit) == "chart"
-    # Charts need higher complexity thresholds than general images
-    # because structured plots are easier for models to parse
     hardest_threshold = 0.85 if is_chart else 0.75
     challenging_threshold = 0.55 if is_chart else 0.45
     easy_threshold = 0.35 if is_chart else 0.25
@@ -63,12 +55,9 @@ def analyze_uploaded_image(image_path: Path) -> dict:
         likelihood = "EASY"
         reason = f"Very low complexity ({cs:.2f}) — not suitable"
 
-    return {
-        "audit": audit,
-        "suitability": likelihood,
-        "suitability_reason": reason,
-        "figure_type_label": _type_label(audit),
-    }
+    result = {"audit": audit, "suitability": likelihood, "suitability_reason": reason, "figure_type_label": _type_label(audit)}
+    logger.info("analyze result %s cs=%.3f is_chart=%s dense=%s", likelihood, cs, is_chart, audit.get("is_dense"))
+    return result
 
 
 def validate_draft(draft: dict, figure_type: str = "", task_type: str = "") -> dict:

@@ -4,9 +4,12 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import logging
 import os
 import time as time_module
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, File, Form, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -125,6 +128,7 @@ async def task_detail(request: Request, task_id: int):
 @router.get("/stats", response_class=HTMLResponse)
 async def stats_page(request: Request):
     """Statistics dashboard."""
+    logger.info("stats page")
     stats = get_stats()
     return TEMPLATES.TemplateResponse(request, "stats.html", {"stats": stats})
 
@@ -173,30 +177,36 @@ async def api_upload_image(
 
     try:
         if arxiv_figure_path:
-            # Figure selected from arXiv extraction — copy into _uploads
+            logger.info("upload via arxiv_figure_path=%s", arxiv_figure_path)
             src = STORAGE_DIR / arxiv_figure_path
             if src.exists():
                 data = src.read_bytes()
                 upload_id, dest = _save_upload(data, src.name)
                 result = analyze_uploaded_image(dest)
+                logger.info("upload from arxiv ok upload_id=%s size=%d result=%s", upload_id, len(data), result.get("suitability"))
             else:
                 error = "Figure file not found"
+                logger.warning("arxiv figure not found: %s", src)
         elif image and image.filename:
             data = await image.read()
+            logger.info("upload via browser filename=%s size=%d", image.filename, len(data))
             if len(data) > 20 * 1024 * 1024:
                 error = "File too large (max 20MB)"
+                logger.warning("upload too large: %d bytes", len(data))
             else:
                 upload_id, dest = _save_upload(data, image.filename)
                 result = analyze_uploaded_image(dest)
+                logger.info("upload ok upload_id=%s suitability=%s", upload_id, result.get("suitability"))
         else:
             error = "No image provided"
+            logger.warning("upload called without image or arxiv_figure_path")
 
         if error:
+            logger.warning("upload error: %s", error)
             return TEMPLATES.TemplateResponse(
                 request, "_author_analysis.html", {"result": None, "error": error, "upload_id": ""}
             )
 
-        # Cache analysis
         _upload_cache[upload_id] = result
         _upload_cache_ts[upload_id] = time_module.time()
 
@@ -205,6 +215,7 @@ async def api_upload_image(
             {"result": result, "upload_id": upload_id, "error": ""},
         )
     except Exception as e:
+        logger.error("upload exception: %s", e, exc_info=True)
         return TEMPLATES.TemplateResponse(
             request, "_author_analysis.html",
             {"result": None, "error": str(e)[:150], "upload_id": ""},
@@ -220,8 +231,11 @@ async def api_draft_qa(
     """Generate a Q&A draft for the uploaded image."""
     import os as os_mod
 
+    logger.info("draft request upload_id=%s difficulty=%s", upload_id, difficulty)
+
     api_key = os_mod.environ.get("OPENCODE_API_KEY")
     if not api_key:
+        logger.warning("draft failed: no OPENCODE_API_KEY set")
         return TEMPLATES.TemplateResponse(
             request, "_author_draft.html",
             {"draft": None, "validation": None, "error": "No OPENCODE_API_KEY set", "upload_id": upload_id, "difficulty": difficulty},
@@ -229,9 +243,10 @@ async def api_draft_qa(
 
     analysis = _upload_cache.get(upload_id)
     if not analysis:
-        # Try loading from disk
+        logger.info("draft: cache miss, re-analyzing from disk")
         img_path = UPLOADS_DIR / f"{upload_id}.jpg"
         if not img_path.exists():
+            logger.warning("draft failed: upload not found at %s", img_path)
             return TEMPLATES.TemplateResponse(
                 request, "_author_draft.html",
                 {"draft": None, "validation": None, "error": "Upload not found — please re-upload", "upload_id": upload_id, "difficulty": difficulty},
@@ -242,6 +257,7 @@ async def api_draft_qa(
     img_path = UPLOADS_DIR / f"{upload_id}.jpg"
     figure_type = analysis["audit"].get("figure_type", "")
     complexity = analysis["audit"].get("complexity_score", 0.0)
+    logger.info("draft calling draft_qa figure_type=%s complexity=%.3f", figure_type, complexity)
 
     draft = draft_qa(
         image_path=img_path,
@@ -253,12 +269,14 @@ async def api_draft_qa(
     )
 
     if not draft:
+        logger.error("draft generation returned None for upload_id=%s", upload_id)
         return TEMPLATES.TemplateResponse(
             request, "_author_draft.html",
             {"draft": None, "validation": None, "error": "Draft generation failed — API error", "upload_id": upload_id, "difficulty": difficulty},
         )
 
     validation = validate_draft(draft, figure_type=figure_type)
+    logger.info("draft ok upload_id=%s quality=%.2f errors=%d", upload_id, validation.get("quality_score", 0), len(validation.get("errors", [])))
 
     return TEMPLATES.TemplateResponse(
         request, "_author_draft.html",
@@ -272,12 +290,11 @@ async def api_discard_image(
     upload_id: str = Form(...),
 ):
     """Delete an uploaded image and clear cache."""
-    # Delete file
+    logger.info("discard upload_id=%s", upload_id)
     for ext in [".jpg", ".png"]:
         p = UPLOADS_DIR / f"{upload_id}{ext}"
         if p.exists():
             p.unlink()
-    # Clear cache
     _upload_cache.pop(upload_id, None)
     _upload_cache_ts.pop(upload_id, None)
     return HTMLResponse("")
@@ -296,20 +313,20 @@ async def api_propose_task(
     """Save the uploaded image as a Figure + Task in the database."""
     from ..authoring import create_task
 
+    logger.info("propose upload_id=%s type=%s format=%s", upload_id, task_type, answer_format)
+
     session = get_session()
 
-    # Find the uploaded file
     img_path = UPLOADS_DIR / f"{upload_id}.jpg"
     if not img_path.exists():
+        logger.warning("propose failed: upload not found at %s", img_path)
         return HTMLResponse("Upload not found", status_code=404)
 
-    # Compute hash
     img_hash = compute_file_hash(img_path)
     img = PILImage.open(img_path)
     w, h = img.size
     audit = audit_figure(img_path)
 
-    # Insert Figure record
     fig_path = f"figures/user_{upload_id}.jpg"
     fig_dest = STORAGE_DIR / fig_path
     import shutil
@@ -335,6 +352,7 @@ async def api_propose_task(
     session.add(figure)
     session.commit()
     session.refresh(figure)
+    logger.info("propose figure created id=%d", figure.id)
 
     # Create task
     task = create_task(
@@ -358,6 +376,7 @@ async def api_arxiv_search(
     limit: int = Query(10),
 ):
     """Search arXiv CC0 papers."""
+    logger.info("arxiv search q=%s domain=%s limit=%d", q, domain, limit)
     if not q:
         return TEMPLATES.TemplateResponse(
             request, "_arxiv_search_results.html", {"papers": None, "error": "Enter search terms"}
@@ -365,10 +384,12 @@ async def api_arxiv_search(
     try:
         term_list = [t.strip() for t in q.split(",") if t.strip()] if q else None
         papers = search_papers(terms=term_list, domain=domain or None, limit=limit)
+        logger.info("arxiv search found %d papers", len(papers) if papers else 0)
         return TEMPLATES.TemplateResponse(
             request, "_arxiv_search_results.html", {"papers": papers, "error": ""}
         )
     except Exception as e:
+        logger.error("arxiv search error: %s", e, exc_info=True)
         return TEMPLATES.TemplateResponse(
             request, "_arxiv_search_results.html", {"papers": None, "error": str(e)[:200]}
         )
@@ -380,6 +401,7 @@ async def api_arxiv_extract(
     arxiv_id: str = Form(...),
 ):
     """Download a paper PDF, extract figures, and return top candidates."""
+    logger.info("arxiv extract arxiv_id=%s", arxiv_id)
     try:
         import sqlite3
         conn = sqlite3.connect(str(STORAGE_DIR / "arxiv-manager.db"))
@@ -387,6 +409,7 @@ async def api_arxiv_extract(
 
         pdf_path = download_pdf(arxiv_id)
         extracted = extract_figures(pdf_path)
+        logger.info("arxiv extract extracted %d raw figures", len(extracted))
 
         figures = []
         for img_data in extracted:
@@ -408,15 +431,16 @@ async def api_arxiv_extract(
                 "page_num": img_data.get("page_num", 0),
             })
 
-        # Sort by complexity, keep top 3
         figures.sort(key=lambda f: f["complexity_score"], reverse=True)
         figures = figures[:3]
+        logger.info("arxiv extract %d suitable figures (top 3)", len(figures))
 
         conn.close()
         return TEMPLATES.TemplateResponse(
             request, "_arxiv_figures.html", {"figures": figures, "error": ""}
         )
     except Exception as e:
+        logger.error("arxiv extract error: %s", e, exc_info=True)
         return TEMPLATES.TemplateResponse(
             request, "_arxiv_figures.html", {"figures": None, "error": str(e)[:200]}
         )
@@ -512,6 +536,7 @@ def _compute_metrics() -> dict:
 @router.get("/metrics", response_class=HTMLResponse)
 async def metrics_page(request: Request):
     """AI draft performance dashboard."""
+    logger.info("metrics page")
     metrics = _compute_metrics()
     return TEMPLATES.TemplateResponse(request, "metrics.html", {"m": metrics})
 
@@ -532,6 +557,7 @@ async def api_create_task(
     """Create a new task (HTMX endpoint)."""
     from ..authoring import create_task
 
+    logger.info("task create figure_id=%d type=%s format=%s", figure_id, task_type, answer_format)
     validation = validate_task(question, answer, answer_format)
 
     if validation.is_valid:
@@ -544,9 +570,10 @@ async def api_create_task(
             answer_format=answer_format,
             task_type=task_type,
         )
+        logger.info("task created id=%d", task.id)
         return RedirectResponse(url=f"/task/{task.id}", status_code=303)
 
-    # Show errors
+    logger.warning("task create validation failed errors=%d", len(validation.errors))
     figure = get_session().get(Figure, figure_id)
     return TEMPLATES.TemplateResponse(request, "task_form.html", {
         "figure": figure,
@@ -570,9 +597,11 @@ async def api_update_task(
     """Update an existing task (HTMX endpoint)."""
     from ..authoring import update_task
 
+    logger.info("task update task_id=%d type=%s format=%s", task_id, task_type, answer_format)
     validation = validate_task(question, answer, answer_format)
     task = update_task(task_id, title=title, domain=domain, question=question, answer=answer, answer_format=answer_format, task_type=task_type)
     figure = get_session().get(Figure, task.figure_id) if task else None
+    logger.info("task updated id=%d valid=%s", task_id, validation.is_valid)
 
     return TEMPLATES.TemplateResponse("task_form.html", {
         "request": request,
@@ -585,13 +614,16 @@ async def api_update_task(
 @router.post("/api/task/{task_id}/validate", response_class=HTMLResponse)
 async def api_validate_task(request: Request, task_id: int):
     """Re-validate a task (HTMX endpoint)."""
+    logger.info("task revalidate task_id=%d", task_id)
     session = get_session()
     task = session.get(Task, task_id)
     if not task:
+        logger.warning("task revalidate not found task_id=%d", task_id)
         return HTMLResponse("Not found", status_code=404)
 
     figure = session.get(Figure, task.figure_id)
     validation = validate_task(task.question, task.answer, task.answer_format)
+    logger.info("task revalidate ok task_id=%d valid=%s score=%.1f", task_id, validation.is_valid, validation.quality_score)
 
     return TEMPLATES.TemplateResponse(request, "_validation.html", {
         "validation": validation,
@@ -601,18 +633,21 @@ async def api_validate_task(request: Request, task_id: int):
 @router.post("/api/figure/{figure_id}/status")
 async def update_figure_status(figure_id: int, status: str = Form(...)):
     """Update figure status (HTMX endpoint)."""
+    logger.info("figure status figure_id=%d -> %s", figure_id, status)
     session = get_session()
     figure = session.get(Figure, figure_id)
     if figure:
         figure.status = status
         session.add(figure)
         session.commit()
+        logger.info("figure status updated figure_id=%d status=%s", figure_id, status)
     return RedirectResponse(url="/images", status_code=303)
 
 
 @router.post("/api/figures/bulk-reject")
 async def bulk_reject_figures(figure_ids: list[int] = Form(default=[])):
     """Bulk reject multiple figures at once."""
+    logger.info("bulk reject ids=%s", figure_ids)
     session = get_session()
     rejected = 0
     for fid in figure_ids:
@@ -622,6 +657,7 @@ async def bulk_reject_figures(figure_ids: list[int] = Form(default=[])):
             session.add(figure)
             rejected += 1
     session.commit()
+    logger.info("bulk reject done count=%d", rejected)
     return RedirectResponse(url="/images", status_code=303)
 
 
@@ -633,6 +669,7 @@ async def update_task_difficulty(
     gemini: int = Form(0),
 ):
     """Update task difficulty (HTMX endpoint)."""
+    logger.info("task difficulty task_id=%d difficulty=%s qwen=%d gemini=%d", task_id, difficulty, qwen, gemini)
     from ..tracking import set_difficulty
     set_difficulty(task_id, difficulty, qwen, gemini)
     return RedirectResponse(url=f"/task/{task_id}", status_code=303)
@@ -641,6 +678,7 @@ async def update_task_difficulty(
 @router.post("/api/task/{task_id}/submit")
 async def submit_task(task_id: int):
     """Mark task as submitted (HTMX endpoint)."""
+    logger.info("task submit task_id=%d", task_id)
     from ..tracking import mark_submitted
     mark_submitted(task_id)
     return RedirectResponse(url="/tasks", status_code=303)
@@ -655,6 +693,7 @@ async def update_rhea(
     rhea_notes: str = Form(""),
 ):
     """Update Rhea review status (HTMX endpoint)."""
+    logger.info("task rhea task_id=%d reviewed=%s passed=%s", task_id, rhea_reviewed, rhea_passed)
     session = get_session()
     task = session.get(Task, task_id)
     if task:
@@ -663,4 +702,5 @@ async def update_rhea(
         task.rhea_notes = rhea_notes
         session.add(task)
         session.commit()
+        logger.info("task rhea updated task_id=%d", task_id)
     return RedirectResponse(url=f"/task/{task_id}", status_code=303)

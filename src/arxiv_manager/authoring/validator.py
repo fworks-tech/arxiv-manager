@@ -9,8 +9,11 @@ Sources:
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -262,19 +265,9 @@ def validate_task(
     figure_type: str = "",
     task_type: str = "",
 ) -> ValidationResult:
-    """Validate a task against all handbook rules.
-
-    Args:
-        question: The question text.
-        answer: The canonical answer.
-        answer_format: Expected format (number, word, phrase, etc.).
-        image_path: Path to the image (for future visual checks).
-        caption: Figure caption (caption-solvable check).
-        options: MCQ options (if any). Validated against §5 rules.
-
-    Returns:
-        ValidationResult with errors, warnings, and quality score.
-    """
+    """Validate a task against all handbook rules."""
+    logger.info("validate_task entry q_len=%d a_len=%d fmt=%s ftype=%s ttype=%s",
+                len(question), len(answer), answer_format, figure_type, task_type)
     result = ValidationResult()
     q = question.strip()
     a = answer.strip().lower()
@@ -467,6 +460,8 @@ def validate_task(
     # --- Calculate quality score ---
     result.quality_score = _calculate_score(result)
 
+    logger.info("validate_task result valid=%s score=%.1f errors=%d warnings=%d",
+                result.is_valid, result.quality_score, len(result.errors), len(result.warnings))
     return result
 
 
