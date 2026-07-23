@@ -300,13 +300,14 @@ def validate_task(
         result.passed_checks.append("Answer is not a trick answer")
 
     # --- Rule 5: Single question (not multiple ?) ---
-    question_marks = q.count("?")
-    if question_marks > 1:
-        result.errors.append(f"Multiple questions detected ({question_marks} question marks)")
-    elif question_marks == 0:
-        result.errors.append("Question must end with '?'")
+    stripped = q.rstrip(".!?")
+    ending = q[len(stripped):] if len(stripped) < len(q) else ""
+    if q.count("?") > 1:
+        result.errors.append(f"Multiple questions detected ({q.count('?')} question marks)")
+    elif not ending:
+        result.errors.append("Question must end with punctuation ('?' or '.')")
     else:
-        result.passed_checks.append("Single question with '?'")
+        result.passed_checks.append(f"Ends with '{ending}'")
 
     # --- Rule 6: Question length ---
     sentences = _count_sentences(q)

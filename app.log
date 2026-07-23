@@ -2,3 +2,41 @@ INFO:     Started server process [11420]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     192.168.0.6:62027 - "GET /author HTTP/1.1" 200 OK
+INFO:     192.168.0.6:62027 - "GET /images HTTP/1.1" 200 OK
+INFO:     192.168.0.6:62027 - "GET /figures/user_upload_8e9929f1bc62c638.jpg?v=14c1e56f HTTP/1.1" 304 Not Modified
+INFO:     192.168.0.6:60592 - "GET /figures/user_upload_ee7123e0d95947e3.jpg?v=9fcae221 HTTP/1.1" 304 Not Modified
+INFO:     192.168.0.6:60592 - "GET /figures/arxiv_2602_03916_p59.png?v=2ca149bc HTTP/1.1" 304 Not Modified
+INFO:     192.168.0.6:60592 - "GET /tasks HTTP/1.1" 200 OK
+INFO:     192.168.0.6:60592 - "GET /images HTTP/1.1" 200 OK
+INFO:     192.168.0.6:60592 - "GET /task/new/2 HTTP/1.1" 200 OK
+INFO:     192.168.0.6:60592 - "GET /tasks HTTP/1.1" 200 OK
+2026-07-23 19:54:05,259 [arxiv_manager.authoring.validator] INFO: validate_task entry q_len=71 a_len=1 fmt=number ftype= ttype=
+2026-07-23 19:54:05,263 [arxiv_manager.authoring.validator] INFO: validate_task result valid=True score=100.0 errors=0 warnings=1
+INFO:     192.168.0.6:60592 - "GET /task/2 HTTP/1.1" 200 OK
+2026-07-23 20:11:40,516 [arxiv_manager.web.routes] INFO: stats page
+INFO:     192.168.0.6:55241 - "GET /stats HTTP/1.1" 200 OK
+INFO:     192.168.0.6:55241 - "GET /tasks HTTP/1.1" 200 OK
+2026-07-23 20:11:43,116 [arxiv_manager.authoring.validator] INFO: validate_task entry q_len=258 a_len=2 fmt=number ftype= ttype=
+2026-07-23 20:11:43,117 [arxiv_manager.authoring.validator] INFO: validate_task result valid=False score=75.0 errors=1 warnings=2
+INFO:     192.168.0.6:55241 - "GET /task/3 HTTP/1.1" 200 OK
+INFO:     192.168.0.6:55241 - "GET /figures/user_upload_8e9929f1bc62c638.jpg?v=14c1e56f HTTP/1.1" 304 Not Modified
+INFO:     192.168.0.6:51801 - "GET / HTTP/1.1" 200 OK
+INFO:     192.168.0.6:51801 - "GET / HTTP/1.1" 200 OK
+INFO:     192.168.0.6:49658 - "GET /author HTTP/1.1" 200 OK
+2026-07-23 20:12:56,970 [arxiv_manager.web.routes] INFO: upload via browser filename=2110.13432_p2_i0.png size=275760
+2026-07-23 20:12:56,999 [arxiv_manager.authoring.image_analyzer] INFO: analyze_uploaded_image entry path=C:\Github\atmydesk-new\realm-siq-assistant\storage\_uploads\upload_e29a581037d6997e.jpg
+2026-07-23 20:12:56,999 [arxiv_manager.sourcing.filters] INFO: audit_figure entry path=C:\Github\atmydesk-new\realm-siq-assistant\storage\_uploads\upload_e29a581037d6997e.jpg
+2026-07-23 20:12:57,043 [arxiv_manager.sourcing.filters] INFO: audit_figure result cs=0.797 type=chart_graph_text suitable=True dense=True text=False sparse=False logo=False dims=1268x312
+2026-07-23 20:12:57,043 [arxiv_manager.authoring.image_analyzer] INFO: analyze result CHALLENGING cs=0.797 is_chart=True dense=True
+2026-07-23 20:12:57,043 [arxiv_manager.web.routes] INFO: upload ok upload_id=upload_e29a581037d6997e suitability=CHALLENGING
+INFO:     192.168.0.6:65377 - "POST /api/image/upload HTTP/1.1" 200 OK
+INFO:     192.168.0.6:65377 - "GET /uploads/upload_e29a581037d6997e.jpg HTTP/1.1" 200 OK
+2026-07-23 20:12:57,365 [arxiv_manager.web.routes] INFO: draft request upload_id=upload_e29a581037d6997e difficulty=challenging
+2026-07-23 20:12:57,367 [arxiv_manager.web.routes] INFO: draft calling draft_qa figure_type=chart_graph_text complexity=0.797
+2026-07-23 20:12:57,367 [arxiv_manager.authoring.ai_draft] INFO: draft_qa entry image=C:\Github\atmydesk-new\realm-siq-assistant\storage\_uploads\upload_e29a581037d6997e.jpg provider=opencode difficulty=challenging figure_type=chart_graph_text complexity=0.797
+2026-07-23 20:13:35,970 [httpx] INFO: HTTP Request: POST https://opencode.ai/zen/go/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-23 20:13:35,973 [arxiv_manager.authoring.validator] INFO: validate_task entry q_len=126 a_len=2 fmt=number ftype=chart_graph_text ttype=general_image
+2026-07-23 20:13:35,973 [arxiv_manager.authoring.validator] INFO: validate_task result valid=False score=75.0 errors=1 warnings=2
+2026-07-23 20:13:35,973 [arxiv_manager.web.routes] INFO: draft ok upload_id=upload_e29a581037d6997e quality=75.00 errors=1
+INFO:     192.168.0.6:65377 - "POST /api/image/draft HTTP/1.1" 200 OK
