@@ -318,19 +318,31 @@ def validate_task(
     q = question.strip()
     a = answer.strip().lower()
 
-    # --- Rule 1: No binary/T-F questions ---
+    _run_format_checks(result, q, a, answer_format)
+    _run_content_checks(result, q, a, answer_format)
+    _run_complexity_checks(result, q, figure_type, task_type)
+    _run_handbook_basics(result, q, a, caption)
+    _run_visual_tests(result, q, a)
+    _run_handbook_errors(result, q, a, options, figure_type, task_type, image_path)
+
+    result.quality_score = _calculate_score(result)
+    logger.info("validate_task result valid=%s score=%.1f errors=%d warnings=%d",
+                result.is_valid, result.quality_score, len(result.errors), len(result.warnings))
+    return result
+
+
+def _run_format_checks(result: ValidationResult, q: str, a: str, answer_format: str) -> None:
+    """Rules 1-5: Binary/T-F, answer format, length, trick answers, single question."""
     if _is_binary_question(q):
         result.errors.append("Binary/T-F question is not allowed")
     else:
         result.passed_checks.append("Question is not binary/T-F")
 
-    # --- Rule 2: Answer format should be specified ---
     if not answer_format:
         result.errors.append("Answer format not specified (e.g. number, word, phrase)")
     else:
         result.passed_checks.append("Answer format is specified")
 
-    # --- Rule 3: Answer should be short ---
     word_count = len(a.split())
     if word_count > 4:
         result.warnings.append(f"Answer has {word_count} words — prefer 1-2 words (max 4)")
@@ -339,13 +351,11 @@ def validate_task(
     if len(a) > 50:
         result.errors.append(f"Answer too long ({len(a)} chars)")
 
-    # --- Rule 4: No trick answers ---
     if a in TRICK_ANSWERS:
         result.errors.append(f"Trick answer '{a}' is not allowed")
     else:
         result.passed_checks.append("Answer is not a trick answer")
 
-    # --- Rule 5: Single question (not multiple ?) ---
     stripped = q.rstrip(".!?")
     ending = q[len(stripped):] if len(stripped) < len(q) else ""
     if q.count("?") > 1:
@@ -355,32 +365,30 @@ def validate_task(
     else:
         result.passed_checks.append(f"Ends with '{ending}'")
 
-    # --- Rule 6: Question length ---
+
+def _run_content_checks(result: ValidationResult, q: str, a: str, answer_format: str) -> None:
+    """Rules 6-11: Sentence count, option restriction, jargon, visual reference, format consistency, explanation."""
     sentences = _count_sentences(q)
     if sentences > 2:
         result.warnings.append(f"Question has {sentences} sentences — prefer 1-2")
     else:
         result.passed_checks.append("Question is concise")
 
-    # --- Rule 7: No option restriction in question ---
     if _restricts_options(q):
         result.errors.append("Don't restrict options in question (e.g. 'Out of the 3...')")
     else:
         result.passed_checks.append("No option restriction in question")
 
-    # --- Rule 8: No domain-specific jargon ---
     if _has_domain_jargon(q):
         result.warnings.append("Contains domain-specific terminology — rewrite for general audience")
     else:
         result.passed_checks.append("No domain-specific jargon")
 
-    # --- Rule 9: Question references image content ---
     if not _references_visual_content(q):
         result.warnings.append("Question may not require the image to answer")
     else:
         result.passed_checks.append("Question references visual content")
 
-    # --- Rule 10: Answer format consistency ---
     if answer_format == "number" and not _is_number(a):
         result.warnings.append(f"Answer format is 'number' but answer '{a}' doesn't look numeric")
     elif answer_format == "number":
@@ -388,20 +396,21 @@ def validate_task(
     if answer_format == "percent" and "%" not in a:
         result.warnings.append("Answer format is 'percent' but answer missing '%'")
 
-    # --- Rule 11: No explanation questions (handbook "how/what trend") ---
     if _is_explanation_question(q):
         result.errors.append("Explanation questions ('Explain how...' / 'What trend...') are not allowed")
     else:
         result.passed_checks.append("Not an explanation question")
 
-    # --- Rule 12: Question complexity (multi-step reasoning) ---
+
+def _run_complexity_checks(result: ValidationResult, q: str, figure_type: str, task_type: str) -> None:
+    """Rules 12-12d: Reasoning depth, chart anti-patterns, generic count, chart math-only."""
     if _has_reasoning_depth(q):
         result.passed_checks.append("Question requires multi-step reasoning")
     else:
         result.warnings.append("Question may be too simple — consider adding comparison or ranking")
 
-    # --- Rule 12b: Chart-specific anti-patterns (counting chart furniture) ---
-    if figure_type in ("chart_graph_text", "chart") or task_type == "chart":
+    is_chart = figure_type in ("chart_graph_text", "chart") or task_type == "chart"
+    if is_chart:
         anti_pattern_hits = _matches_chart_anti_pattern(q)
         if anti_pattern_hits:
             for hit in anti_pattern_hits:
@@ -416,27 +425,25 @@ def validate_task(
                     "Chart question may not reference actual data — consider referencing axis values, peaks, regions, or cross-panel comparisons"
                 )
 
-    # --- Rule 12c: Generic simple-count check (no filter/comparison) ---
     if _is_generic_count_question(q):
         result.errors.append(
             "Question is a generic count ('How many X in the image?') without a filter, comparison, or arithmetic — too easy for Qwen"
         )
 
-    # --- Rule 12d: Chart math-only check (no visual element required) ---
-    if figure_type in ("chart_graph_text", "chart") or task_type == "chart":
-        if _is_chart_math_only(q):
-            result.errors.append(
-                "Chart question is pure math (ratio/difference of values stated in text) — the image is not required. "
-                "Rewrite to ask about a SPECIFIC visual element (peak, trough, color region, data point) that requires reading the chart"
-            )
+    if is_chart and _is_chart_math_only(q):
+        result.errors.append(
+            "Chart question is pure math (ratio/difference of values stated in text) — the image is not required. "
+            "Rewrite to ask about a SPECIFIC visual element (peak, trough, color region, data point) that requires reading the chart"
+        )
 
-    # --- Rule 13: Answer derivability ---
+
+def _run_handbook_basics(result: ValidationResult, q: str, a: str, caption: str) -> None:
+    """Rules 13-19: Derivability, grammar, extreme-seeking, threshold, multi-panel, caption, extreme answer."""
     if _answer_seems_derivable(q, a):
         result.passed_checks.append("Answer appears derivable from question")
     else:
         result.warnings.append("Answer may not be clearly derivable from the question")
 
-    # --- Rule 14: Grammar basics ---
     grammar_issues = _check_grammar(q)
     if grammar_issues:
         for issue in grammar_issues:
@@ -444,33 +451,28 @@ def validate_task(
     else:
         result.passed_checks.append("Basic grammar checks passed")
 
-    # --- Rule 15: Extreme-seeking warning (Qwen bias) ---
     if _has_extreme_seeking(q):
         result.warnings.append("Uses extreme-seeking words (highest/lowest/most) — Qwen checks these first; consider threshold filters instead")
     else:
         result.passed_checks.append("No extreme-seeking bias detected")
 
-    # --- Rule 16: Threshold filter detection (good practice) ---
     if _has_threshold_filter(q):
         result.passed_checks.append("Uses threshold filters (creates genuine visual complexity)")
 
-    # --- Rule 17: Multi-panel reference (good practice) ---
     if _references_multi_panel(q):
         result.passed_checks.append("References multiple panels (cross-panel reasoning)")
 
-    # --- Rule 18: Caption-solvable check ---
     if caption and _is_caption_solvable(caption, q):
         result.warnings.append("Caption is very descriptive / question asks about caption — image may not be required")
     elif caption:
         result.passed_checks.append("Caption is not overly descriptive")
 
-    # --- Rule 19: Answer is intermediate (not extreme) ---
     if _answer_is_extreme(a):
         result.warnings.append("Answer is an extreme value (highest/lowest) — intermediate values are harder for models")
 
-    # ─── NEW Handbook rules (ArXiv QA Expert Handbook) ───
 
-    # --- Rule 20: The two tests (handbook §3) ---
+def _run_visual_tests(result: ValidationResult, q: str, a: str) -> None:
+    """Rules 20-20b: Visual-dependence test (Test 1), one-answer test (Test 2), answer-in-question check."""
     if not _passes_visual_dependence_test(q):
         result.errors.append("Test 1 FAILED: A smart person could answer this without the image")
     else:
@@ -480,38 +482,35 @@ def validate_task(
     else:
         result.passed_checks.append("Passes one-answer test (handbook §3)")
 
-    # --- Rule 20b: Answer-in-question check (visual-dependence) ---
     if _has_answer_in_question(q, a):
         result.errors.append(
             "Question provides the data needed to compute the answer in the text (visual-dependence failure). "
             "Rewrite so the image is REQUIRED — ask about a SPECIFIC visual element (peak, region, color), not a math operation on values stated in the question"
         )
 
-    # --- Rule 21: Math-heavy (handbook common error) ---
+
+def _run_handbook_errors(result: ValidationResult, q: str, a: str, options: list[str] | None,
+                          figure_type: str, task_type: str, image_path: str) -> None:
+    """Rules 21-28: Math-heavy, text-only, long-winded, noise, list answer, MCQ, watermark, type mismatch."""
     if any(re.search(p, q, re.IGNORECASE) for p in MATH_HEAVY_PATTERNS):
         result.warnings.append("Question focuses on calculation rather than visuo-spatial reasoning (handbook common error)")
     else:
         result.passed_checks.append("Question is visuo-spatial, not pure calculation")
 
-    # --- Rule 22: Text-heavy (handbook common error) ---
     if any(re.search(p, q, re.IGNORECASE) for p in TEXT_HEAVY_PATTERNS):
         result.errors.append("Question is text-only — does not require visual reasoning (handbook common error)")
     else:
         result.passed_checks.append("Question is not text-only")
 
-    # --- Rule 23: Long-winded/awkward (handbook common error) ---
     if any(re.search(p, q, re.IGNORECASE) for p in LONG_WINDED_INDICATORS):
         result.warnings.append("Question is long-winded/awkward — rewrite for clarity (handbook common error)")
 
-    # --- Rule 24: Noise conditions (handbook common error #7) ---
     if any(re.search(p, q, re.IGNORECASE) for p in NOISE_CONDITION_PATTERNS):
         result.warnings.append("Question has a condition that may not materially change the answer (handbook error #7)")
 
-    # --- Rule 25: List answer with 3+ elements (handbook §5) ---
     if _answer_is_list_of_three_plus(a):
         result.warnings.append("Answer is a list with more than 3 short elements — handbook §5 bans this")
 
-    # --- Rule 26: MCQ options check (handbook §5) ---
     if options:
         mcq_issues = _check_mcq_options(options)
         for issue in mcq_issues:
@@ -519,16 +518,12 @@ def validate_task(
         if not any("MCQ" in i for i in mcq_issues):
             result.passed_checks.append(f"MCQ has {len(options)} options meeting handbook §5")
 
-    # --- Rule 27: Watermark / copyright hint (handbook HDM checklist) ---
-    # Best-effort filename check; full detection would require image analysis
     if image_path:
         lower_path = image_path.lower()
         for hint in WATERMARK_HINTS:
             if re.search(hint, lower_path):
                 result.warnings.append("Filename suggests potential watermark/copyright — verify CC0 license")
 
-    # --- Rule 28: Image-type / task-type match ---
-    # If figure was classified as general_image but task_type is chart, warn
     if figure_type and task_type:
         mismatch = (
             (figure_type == "general_image" and task_type in ("chart",))
@@ -540,13 +535,6 @@ def validate_task(
             )
         else:
             result.passed_checks.append("figure_type matches task_type")
-
-    # --- Calculate quality score ---
-    result.quality_score = _calculate_score(result)
-
-    logger.info("validate_task result valid=%s score=%.1f errors=%d warnings=%d",
-                result.is_valid, result.quality_score, len(result.errors), len(result.warnings))
-    return result
 
 
 def validate_mcq(
