@@ -435,7 +435,12 @@ def _call_opencode(api_key: str, prompt: str, b64_image: str, model: str | None 
             msg = data["choices"][0]["message"]
             content = msg.get("content") or ""
             if content.strip():
-                return _parse_llm_response(content)
+                parsed = _parse_llm_response(content)
+                if parsed:
+                    return parsed
+                logger.warning("_call_opencode: parsing returned None despite content (len=%d, preview=%.150s)",
+                               len(content), content[:150])
+                continue  # retry with different response (model may self-correct)
         except Exception:
             if attempt == retries - 1:
                 raise
@@ -538,6 +543,9 @@ def _parse_llm_response(text: str | None) -> dict | None:
 
     Some models (e.g. minimax-m3) wrap reasoning in <think>...</think> blocks
     inside the content field. We strip those before attempting JSON parse.
+
+    Accepts partial JSON — only question + answer are truly required;
+    answer_format defaults to "number", task_type defaults to "chart".
     """
     if not text:
         return None
@@ -550,14 +558,22 @@ def _parse_llm_response(text: str | None) -> dict | None:
     # Strip <think>...</think> blocks (some models emit reasoning in content)
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
-    # Try parsing as-is
-    try:
-        data = json.loads(text)
-        required = ["question", "answer", "answer_format", "task_type"]
-        if all(k in data for k in required):
+    def _parse_candidate(candidate: str) -> dict | None:
+        """Try to parse a candidate JSON string. Returns dict with defaults or None."""
+        try:
+            data = json.loads(candidate)
+            if "question" not in data or "answer" not in data:
+                return None
+            data.setdefault("answer_format", "number")
+            data.setdefault("task_type", "chart")
             return data
-    except json.JSONDecodeError:
-        pass
+        except json.JSONDecodeError:
+            return None
+
+    # Try parsing as-is
+    data = _parse_candidate(text)
+    if data:
+        return data
 
     # Try to find JSON object with balanced braces (handles nested objects)
     start = text.find('{')
@@ -571,16 +587,13 @@ def _parse_llm_response(text: str | None) -> dict | None:
                 if depth == 0:
                     candidate = text[start:end + 1]
                     if '"question"' in candidate:
-                        try:
-                            data = json.loads(candidate)
-                            required = ["question", "answer", "answer_format", "task_type"]
-                            if all(k in data for k in required):
-                                return data
-                        except json.JSONDecodeError:
-                            pass
+                        data = _parse_candidate(candidate)
+                        if data:
+                            return data
                     break
 
-    return None  # end of _parse_llm_response
+    logger.warning("_parse_llm_response: could not parse text (len=%d, preview=%.200s)", len(text), text[:200])
+    return None
 
 
 # ─── Verification pass (Tier 1) ────────────────────────────────────
