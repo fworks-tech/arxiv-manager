@@ -58,6 +58,7 @@
 <script>
 var currentUploadId = '';
 var activeTab = 'upload';
+var _draftAbort = null;
 
 function showTab(tab) {
     activeTab = tab;
@@ -156,19 +157,29 @@ function searchArxiv() {
 
 function draftQA(uploadId, difficulty) {
     if (!uploadId) { showToast('Upload an image first', 'error'); return; }
+    if (_draftAbort) _draftAbort.abort();
+    _draftAbort = new AbortController();
     var status = document.getElementById('upload-status');
     status.innerHTML = '<div class="flex items-center gap-2 text-sm text-gray-600"><svg class="spinner w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="4" stroke-linecap="round" class="opacity-75"/></svg> Generating draft...</div>';
     var body = new URLSearchParams({upload_id: uploadId, difficulty: difficulty});
-    fetch('/api/image/draft', { method: 'POST', body: body, headers: {'Content-Type': 'application/x-www-form-urlencoded'} })
-        .then(function(r) { if (!r.ok) throw new Error('Draft failed (' + r.status + ')'); return r.text(); })
-        .then(function(html) {
-            document.getElementById('draft-results').innerHTML = html;
-            status.innerHTML = '';
-        })
-        .catch(function(err) {
-            status.innerHTML = '';
-            showToast(err.message || 'Draft failed', 'error');
-        });
+    fetch('/api/image/draft', {
+        method: 'POST', body: body,
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        signal: _draftAbort.signal
+    })
+    .then(function(r) { if (!r.ok) throw new Error('Draft failed (' + r.status + ')'); return r.text(); })
+    .then(function(html) {
+        document.getElementById('draft-results').innerHTML = html;
+        status.innerHTML = '';
+    })
+    .catch(function(err) {
+        if (err.name === 'AbortError') return;
+        status.innerHTML = '';
+        showToast(err.message || 'Draft failed', 'error');
+    })
+    .finally(function() {
+        _draftAbort = null;
+    });
 }
 
 function proposeTask(uploadId) {
