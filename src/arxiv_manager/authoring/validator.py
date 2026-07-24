@@ -111,10 +111,12 @@ DOMAIN_JARGON = [
 
 REASONING_INDICATORS = [
     r"\b(highest|lowest|most|least|fewest|greatest)\b.*\b(highest|lowest|most|least|fewest|greatest)\b",
-    r"\b(also|and|while|whereas|compared|between)\b",
-    r"\b(rank|order|sort|compare|relative)\b",
+    r"\b(also|and|while|whereas|compared|between|versus|vs)\b",
+    r"\b(rank|order|sort|compare|relative|ratio|factor)\b",
     r"\b(first|second|third|top|bottom)\b.*\b(first|second|third|top|bottom)\b",
-    r"\b(sum|total|average|difference)\b",
+    r"\b(sum|total|average|difference|ratio|factor|proportion)\b",
+    r"\b(larger|smaller|greater|less|fewer)\s+than\b",
+    r"\b(magnitude)\b",
 ]
 
 # Conditions that may not materially change the answer (handbook error #7)
