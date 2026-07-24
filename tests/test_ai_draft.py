@@ -23,15 +23,15 @@ def test_get_api_key_opencode(monkeypatch):
 
 
 def test_get_api_key_openai(monkeypatch):
-    """_get_api_key returns OPENAI_API_KEY value."""
+    """_get_api_key returns None for openai (only opencode is supported)."""
     monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
-    assert _get_api_key("openai") == "test-openai-key"
+    assert _get_api_key("openai") is None
 
 
 def test_get_api_key_anthropic(monkeypatch):
-    """_get_api_key returns ANTHROPIC_API_KEY value."""
+    """_get_api_key returns None for anthropic (only opencode is supported)."""
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
-    assert _get_api_key("anthropic") == "test-anthropic-key"
+    assert _get_api_key("anthropic") is None
 
 
 def test_get_api_key_missing(monkeypatch):
