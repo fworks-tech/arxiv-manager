@@ -37,7 +37,6 @@ def draft_qa(
     paper_title: str = "",
     caption: str = "",
     task_type_hint: str = "",
-    provider: str = "opencode",
     model: str | None = None,
     api_key: str | None = None,
     feedback: str = "",
@@ -48,13 +47,13 @@ def draft_qa(
     figure_id: int | None = None,
 ) -> dict | None:
     """Draft a Q&A pair from an image using an LLM."""
-    logger.info("draft_qa entry image=%s provider=%s difficulty=%s figure_type=%s complexity=%.3f",
-                image_path, provider, difficulty, figure_type, complexity_score)
+    logger.info("draft_qa entry image=%s difficulty=%s figure_type=%s complexity=%.3f",
+                image_path, difficulty, figure_type, complexity_score)
 
     if not api_key:
-        api_key = _get_api_key(provider)
+        api_key = _get_api_key()
     if not api_key:
-        logger.warning("draft_qa: no api key for provider=%s", provider)
+        logger.warning("draft_qa: no api key set")
         return None
 
     from PIL import Image
@@ -147,7 +146,6 @@ def draft_qa(
                 "warnings": v.warnings,
             },
             "min_quality": 30,
-            "provider": provider,
             "api_key": api_key,
             "difficulty": difficulty,
             "figure_type": figure_type,
@@ -187,9 +185,9 @@ def draft_qa(
     return result
 
 
-def _get_api_key(provider: str) -> str | None:
-    """Get API key from environment."""
-    return os.environ.get("OPENCODE_API_KEY") if provider == "opencode" else None
+def _get_api_key() -> str | None:
+    """Get OpenCode API key from environment."""
+    return os.environ.get("OPENCODE_API_KEY")
 
 
 def _call_opencode(api_key: str, prompt: str, b64_image: str, model: str | None = None, retries: int | None = None, difficulty: str = "", media_type: str = "image/jpeg", parser=None) -> dict | None:
@@ -414,7 +412,6 @@ def _parse_critique_response(text: str | None, raw_text: str = "") -> dict | Non
 def verify_draft(
     image_path: str | Path,
     draft: dict,
-    provider: str = "opencode",
     api_key: str | None = None,
     model: str | None = None,
     media_type: str = "image/jpeg",
@@ -427,7 +424,7 @@ def verify_draft(
     from PIL import Image
 
     if not api_key:
-        api_key = _get_api_key(provider)
+        api_key = _get_api_key()
     if not api_key:
         return draft
 
@@ -476,7 +473,6 @@ def draft_qa_consensus(
     image_path: str | Path,
     n_attempts: int = 3,
     verify: bool = True,
-    provider: str = "opencode",
     api_key: str | None = None,
     difficulty: str = "",
     figure_type: str = "",
@@ -493,7 +489,7 @@ def draft_qa_consensus(
     5. Returns best verified draft, or None if all attempts failed.
     """
     if not api_key:
-        api_key = _get_api_key(provider)
+        api_key = _get_api_key()
     if not api_key:
         return None
 
@@ -503,7 +499,6 @@ def draft_qa_consensus(
     for i in range(n_attempts):
         draft = draft_qa(
             image_path=image_path,
-            provider=provider,
             api_key=api_key,
             difficulty=difficulty,
             figure_type=figure_type,
@@ -544,7 +539,7 @@ def draft_qa_consensus(
     if verify:
         verified = verify_draft(
             image_path, best,
-            provider=provider, api_key=api_key,
+            api_key=api_key,
         )
         if verified:
             from .validator import validate_task as _validate
@@ -561,7 +556,6 @@ def draft_qa_consensus(
 def draft_with_self_critique(
     image_path: str | Path,
     max_rounds: int = 2,
-    provider: str = "opencode",
     model: str | None = None,
     api_key: str | None = None,
     difficulty: str = "",
@@ -582,9 +576,9 @@ def draft_with_self_critique(
     logger.info("self_critique entry difficulty=%s figure_type=%s max_rounds=%d", difficulty, figure_type, max_rounds)
 
     if not api_key:
-        api_key = _get_api_key(provider)
+        api_key = _get_api_key()
     if not api_key:
-        logger.warning("self_critique: no api key for provider=%s", provider)
+        logger.warning("self_critique: no api key set")
         return None
 
     from PIL import Image
@@ -598,7 +592,6 @@ def draft_with_self_critique(
 
     draft = draft_qa(
         image_path=image_path,
-        provider=provider,
         model=model,
         api_key=api_key,
         difficulty=difficulty,

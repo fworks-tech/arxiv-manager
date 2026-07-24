@@ -699,15 +699,13 @@ def create_task(
         if draft_attempts > 1:
             draft = draft_qa_consensus(
                 figure.full_path, n_attempts=draft_attempts, verify=True,
-                caption=figure.caption, provider="opencode",
-                api_key=os.environ.get("OPENCODE_API_KEY"), difficulty=difficulty,
+                caption=figure.caption,                api_key=os.environ.get("OPENCODE_API_KEY"), difficulty=difficulty,
                 figure_type=figure.figure_type, complexity_score=figure.complexity_score,
                 model=model,
             )
         else:
             draft = draft_qa(
-                figure.full_path, caption=figure.caption, provider="opencode",
-                api_key=os.environ.get("OPENCODE_API_KEY"), difficulty=difficulty,
+                figure.full_path, caption=figure.caption,                api_key=os.environ.get("OPENCODE_API_KEY"), difficulty=difficulty,
                 figure_type=figure.figure_type, complexity_score=figure.complexity_score,
                 model=model, figure_id=figure.id,
             )
@@ -818,7 +816,6 @@ def validate_existing(
         draft = draft_qa(
             figure.full_path,
             caption=figure.caption,
-            provider="opencode",
             api_key=api_key,
             feedback=feedback,
             difficulty="hardest" if hardest else ("challenging" if challenging else ""),
@@ -1036,8 +1033,7 @@ def create_task_batch(
         if draft_attempts > 1:
             draft = draft_qa_consensus(
                 fig.full_path, n_attempts=draft_attempts, verify=True,
-                caption=fig.caption, provider="opencode",
-                api_key=api_key, difficulty=difficulty or "",
+                caption=fig.caption,                api_key=api_key, difficulty=difficulty or "",
                 figure_type=fig.figure_type, complexity_score=fig.complexity_score,
                 model=model,
             )
@@ -1045,7 +1041,6 @@ def create_task_batch(
             draft = draft_qa(
                 fig.full_path,
                 caption=fig.caption,
-                provider="opencode",
                 api_key=api_key,
                 difficulty=difficulty or "",
                 figure_type=fig.figure_type,
