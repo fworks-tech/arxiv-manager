@@ -12,7 +12,15 @@ logger = logging.getLogger(__name__)
 
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 
-engine = create_engine(DATABASE_URL, echo=False)
+engine = create_engine(DATABASE_URL, echo=False, connect_args={"check_same_thread": False})
+
+
+def _enable_wal() -> None:
+    """Enable WAL mode for better concurrent read performance."""
+    with engine.connect() as conn:
+        conn.execute(text("PRAGMA journal_mode=WAL"))
+        conn.execute(text("PRAGMA synchronous=NORMAL"))
+        conn.commit()
 
 
 def _migrate() -> None:
@@ -24,12 +32,21 @@ def _migrate() -> None:
             conn.commit()
             logger.info("migration: added tasks.rhea_override_notes")
 
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(text("PRAGMA table_info(generation_attempts)")).fetchall()]
+        if "prompt_text_hash" not in cols:
+            conn.execute(text("ALTER TABLE generation_attempts ADD COLUMN prompt_text_hash TEXT NOT NULL DEFAULT ''"))
+            conn.execute(text("ALTER TABLE generation_attempts ADD COLUMN prompt_version_id TEXT NOT NULL DEFAULT ''"))
+            conn.commit()
+            logger.info("migration: added generation_attempts.prompt_text_hash and prompt_version_id")
+
 
 def init_db() -> None:
     """Create all tables if they don't exist."""
     ensure_dirs()
     from . import models  # noqa: F401
     SQLModel.metadata.create_all(engine)
+    _enable_wal()
     _migrate()
 
 

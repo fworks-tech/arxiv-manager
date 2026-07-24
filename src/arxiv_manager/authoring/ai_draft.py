@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import io
 import json
 import logging
@@ -17,6 +18,7 @@ from ._draft_prompts import (
     DRAFT_PROMPT,
     EASY_PROMPT,
     HARDEST_PROMPT,
+    PROMPT_TEMPLATES,
     REGEN_PROMPT,
     SELF_CRITIQUE_PROMPT,
     SPATIAL_CHALLENGING_PROMPT,
@@ -43,6 +45,7 @@ def draft_qa(
     figure_type: str = "",
     complexity_score: float = 0.0,
     previous_question: str = "",
+    figure_id: int | None = None,
 ) -> dict | None:
     """Draft a Q&A pair from an image using an LLM."""
     logger.info("draft_qa entry image=%s provider=%s difficulty=%s figure_type=%s complexity=%.3f",
@@ -67,15 +70,20 @@ def draft_qa(
 
     is_spatial = figure_type == "general_image"
     if difficulty == "hardest":
-        prompt = SPATIAL_HARDEST_PROMPT if is_spatial else HARDEST_PROMPT
+        raw_template = SPATIAL_HARDEST_PROMPT if is_spatial else HARDEST_PROMPT
+        prompt = raw_template.text
     elif difficulty == "challenging":
-        prompt = SPATIAL_CHALLENGING_PROMPT if is_spatial else CHALLENGING_PROMPT
+        raw_template = SPATIAL_CHALLENGING_PROMPT if is_spatial else CHALLENGING_PROMPT
+        prompt = raw_template.text
     elif difficulty == "easy":
-        prompt = SPATIAL_DRAFT_PROMPT if is_spatial else EASY_PROMPT
+        raw_template = SPATIAL_DRAFT_PROMPT if is_spatial else EASY_PROMPT
+        prompt = raw_template.text
     elif feedback:
-        prompt = (SPATIAL_REGEN_PROMPT if is_spatial else REGEN_PROMPT).format(feedback=feedback)
+        raw_template = SPATIAL_REGEN_PROMPT if is_spatial else REGEN_PROMPT
+        prompt = raw_template.text.format(feedback=feedback)
     else:
-        prompt = SPATIAL_DRAFT_PROMPT if is_spatial else DRAFT_PROMPT
+        raw_template = SPATIAL_DRAFT_PROMPT if is_spatial else DRAFT_PROMPT
+        prompt = raw_template.text
     if caption:
         prompt += f"\nCaption: {caption}"
     if figure_type:
@@ -84,23 +92,93 @@ def draft_qa(
         prompt += f"\nFigure complexity: {complexity_score:.2f}/1.0 (higher = more complex, candidate for hard multi-step counting)"
     if task_type_hint:
         prompt += f"\nType: {task_type_hint}"
-    if previous_question:
-        prompt += f"\n\nThe previous question for this image was: {previous_question}\nGenerate a SUBSTANTIALLY DIFFERENT question — different strategy, different data references, different answer. Do NOT reuse the same pattern (e.g., if previous was ratio of minima, use threshold counting or cross-panel sum instead)."
+
+    from ._history_context import inject_history_into_prompt, select_best_model
+    if model is None:
+        model = select_best_model(
+            figure_type=figure_type,
+            difficulty=difficulty,
+            default_model=CONFIG.default_model,
+        )
+    prompt = inject_history_into_prompt(
+        prompt,
+        figure_id=figure_id,
+        figure_type=figure_type,
+        difficulty=difficulty,
+        complexity_score=complexity_score,
+        task_type=task_type_hint,
+        previous_question=previous_question,
+    )
+
+    prompt_text_hash = hashlib.sha256(prompt.encode()).hexdigest()[:20]
+    prompt_version_id = f"{raw_template.name}@{prompt_text_hash[:12]}"
 
     model_id = model or CONFIG.default_model
     start = time.time()
     result: dict | None = None
     try:
-        time.sleep(1)
         result = _call_opencode(api_key, prompt, b64, model, difficulty=difficulty, media_type=image_media_type)
         ok = result is not None
+    except ValueError:
+        raise
     except Exception as e:
         ok = False
         result = None
-        error = str(e)[:100]
+        _err = str(e)[:100]
+
+    if result is not None:
+        result["_prompt_version_id"] = prompt_version_id
+        result["_prompt_text_hash"] = prompt_text_hash
+
+        from ._guardrails import run_guardrails
+        from .validator import validate_task as _validate
+
+        v = _validate(
+            result.get("question", ""),
+            result.get("answer", ""),
+            result.get("answer_format", "word"),
+            figure_type=figure_type,
+            task_type=result.get("task_type", "chart"),
+        )
+        guardrail_context = {
+            "validation_result": {
+                "quality_score": v.quality_score,
+                "errors": v.errors,
+                "warnings": v.warnings,
+            },
+            "min_quality": 30,
+            "provider": provider,
+            "api_key": api_key,
+            "difficulty": difficulty,
+            "figure_type": figure_type,
+            "complexity_score": complexity_score,
+            "previous_question": previous_question,
+            "figure_id": figure_id,
+            "model": model,
+        }
+        result = run_guardrails(
+            result,
+            guardrail_context,
+            api_key=api_key,
+            image_path=str(image_path),
+            max_retries=1,
+        )
+        if result is not None:
+            # Re-validate after guardrails (may have retried with a different draft)
+            v2 = _validate(
+                result.get("question", ""),
+                result.get("answer", ""),
+                result.get("answer_format", "word"),
+                figure_type=figure_type,
+                task_type=result.get("task_type", "chart"),
+            )
+            result["_validation_quality"] = v2.quality_score
+            result["_validation_is_valid"] = v2.is_valid
+            result["_validation_errors"] = v2.errors
+            result["_validation_warnings"] = v2.warnings
 
     elapsed = time.time() - start
-    error_msg = error if 'error' in dir() else ""
+    error_msg = _err if '_err' in dir() else ""
     log_draft(
         model=model_id, ok=ok, elapsed=elapsed,
         difficulty=difficulty, figure_type=figure_type or "",
@@ -114,7 +192,7 @@ def _get_api_key(provider: str) -> str | None:
     return os.environ.get("OPENCODE_API_KEY") if provider == "opencode" else None
 
 
-def _call_opencode(api_key: str, prompt: str, b64_image: str, model: str | None = None, retries: int | None = None, difficulty: str = "", media_type: str = "image/jpeg") -> dict | None:
+def _call_opencode(api_key: str, prompt: str, b64_image: str, model: str | None = None, retries: int | None = None, difficulty: str = "", media_type: str = "image/jpeg", parser=None) -> dict | None:
     """Call OpenCode Go API (OpenAI-compatible) with image.
 
     Default model: minimax-m3 (selected after A/B test on fresh figures).
@@ -169,16 +247,37 @@ def _call_opencode(api_key: str, prompt: str, b64_image: str, model: str | None 
                 timeout=timeout,
             )
             resp.raise_for_status()
-            data = resp.json()
-            msg = data["choices"][0]["message"]
+            body = resp.text
+            try:
+                data = resp.json()
+            except Exception:
+                logger.warning("_call_opencode: non-json response (len=%d, preview=%.200s)", len(body), body[:200])
+                raise ValueError(f"API returned non-JSON response: {body[:200]}")
+            if "error" in data and isinstance(data["error"], dict):
+                err_msg = data["error"].get("message", "") or str(data["error"])
+                logger.warning("_call_opencode: API error: %s", err_msg)
+                raise ValueError(err_msg)
+            choices = data.get("choices")
+            if not choices:
+                logger.warning("_call_opencode: no choices in response (preview=%.200s)", str(data)[:200])
+                raise ValueError("API returned empty response — model may not support image input")
+            msg = choices[0].get("message", {})
             content = msg.get("content") or ""
-            if content.strip():
-                parsed = _parse_llm_response(content)
-                if parsed:
-                    return parsed
-                logger.warning("_call_opencode: parsing returned None despite content (len=%d, preview=%.150s)",
-                               len(content), content[:150])
+            if not content.strip():
+                logger.warning("_call_opencode: empty content on attempt %d", attempt)
                 continue
+            if "does not support image" in content.lower() or "cannot read" in content.lower():
+                logger.warning("_call_opencode: model does not support image input: %.200s", content[:200])
+                raise ValueError("Cannot read image — this model does not support image input")
+            parse_fn = parser or _parse_llm_response
+            parsed = parse_fn(content, raw_text=content)
+            if parsed:
+                return parsed
+            logger.warning("_call_opencode: parsing returned None despite content (len=%d, preview=%.150s)",
+                           len(content), content[:150])
+            continue
+        except ValueError:
+            raise
         except Exception:
             if attempt == retries - 1:
                 raise
@@ -186,11 +285,24 @@ def _call_opencode(api_key: str, prompt: str, b64_image: str, model: str | None 
     return None
 
 
-def _parse_llm_response(text: str | None) -> dict | None:
+def _extract_reasoning(text: str) -> tuple[str, str]:
+    """Extract <think> reasoning blocks from model output.
+
+    Returns (cleaned_text, reasoning_trace).
+    Some models (e.g. minimax-m3) wrap chain-of-thought in <think>...</think>.
+    """
+    reasoning_parts = re.findall(r"<think>(.*?)</think>", text, flags=re.DOTALL)
+    reasoning = "\n".join(part.strip() for part in reasoning_parts).strip()
+    cleaned = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+    return cleaned, reasoning
+
+
+def _parse_llm_response(text: str | None, raw_text: str = "") -> dict | None:
     """Parse JSON from LLM response, handling markdown code blocks and <think> tags.
 
-    Some models (e.g. minimax-m3) wrap reasoning in <think>...</think> blocks
-    inside the content field. We strip those before attempting JSON parse.
+    Strips <think> reasoning blocks before parsing but returns the extracted
+    reasoning as ``_reasoning_trace`` in the result dict. The original raw text
+    is returned as ``_raw_response``.
 
     Accepts partial JSON — only question + answer are truly required;
     answer_format defaults to "number", task_type defaults to "chart".
@@ -199,11 +311,17 @@ def _parse_llm_response(text: str | None) -> dict | None:
         return None
 
     text = text.strip()
+
+    err_lower = text.lower()
+    if "does not support image" in err_lower or "cannot read" in err_lower:
+        logger.warning("_parse_llm_response: model does not support image input: %.200s", text[:200])
+        return None
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*\n?", "", text)
         text = re.sub(r"\n?```\s*$", "", text)
 
-    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+    cleaned, reasoning = _extract_reasoning(text)
+    text = cleaned
 
     def _parse_candidate(candidate: str) -> dict | None:
         try:
@@ -212,6 +330,8 @@ def _parse_llm_response(text: str | None) -> dict | None:
                 return None
             data.setdefault("answer_format", "number")
             data.setdefault("task_type", "chart")
+            data["_reasoning_trace"] = reasoning
+            data["_raw_response"] = raw_text or text
             return data
         except json.JSONDecodeError:
             return None
@@ -240,6 +360,57 @@ def _parse_llm_response(text: str | None) -> dict | None:
     return None
 
 
+def _parse_critique_response(text: str | None, raw_text: str = "") -> dict | None:
+    """Parse a self-critique response expecting score + rewrite.
+
+    Expected format: {"score": 1-5, "rewrite_question": "...", "rewrite_answer": "..."}
+    Strips <think> blocks and markdown fences before parsing.
+    """
+    if not text:
+        return None
+
+    text = text.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*\n?", "", text)
+        text = re.sub(r"\n?```\s*$", "", text)
+
+    cleaned, reasoning = _extract_reasoning(text)
+
+    def _parse(candidate: str) -> dict | None:
+        try:
+            data = json.loads(candidate)
+            if "score" not in data:
+                return None
+            data["_reasoning_trace"] = reasoning
+            data["_raw_response"] = raw_text or cleaned
+            return data
+        except json.JSONDecodeError:
+            return None
+
+    data = _parse(cleaned)
+    if data:
+        return data
+
+    start = cleaned.find('{')
+    if start >= 0:
+        depth = 0
+        for end in range(start, len(cleaned)):
+            if cleaned[end] == '{':
+                depth += 1
+            elif cleaned[end] == '}':
+                depth -= 1
+                if depth == 0:
+                    candidate = cleaned[start:end + 1]
+                    if '"score"' in candidate:
+                        data = _parse(candidate)
+                        if data:
+                            return data
+                    break
+
+    logger.warning("_parse_critique_response: could not parse text (len=%d, preview=%.200s)", len(text), text[:200])
+    return None
+
+
 def verify_draft(
     image_path: str | Path,
     draft: dict,
@@ -260,7 +431,7 @@ def verify_draft(
     if not api_key:
         return draft
 
-    prompt = VERIFY_PROMPT.format(
+    prompt = VERIFY_PROMPT.text.format(
         question=draft.get("question", ""),
         answer=draft.get("answer", ""),
     )
@@ -398,6 +569,7 @@ def draft_with_self_critique(
     complexity_score: float = 0.0,
     caption: str = "",
     previous_question: str = "",
+    figure_id: int | None = None,
 ) -> dict | None:
     """Draft a Q&A pair and self-critique the question's difficulty.
 
@@ -434,13 +606,14 @@ def draft_with_self_critique(
         complexity_score=complexity_score,
         caption=caption,
         previous_question=previous_question,
+        figure_id=figure_id,
     )
-    if not draft:
+    if draft is None:
         logger.warning("self_critique: initial draft failed")
         return None
 
     for round_idx in range(max_rounds):
-        prompt = SELF_CRITIQUE_PROMPT.format(
+        prompt = SELF_CRITIQUE_PROMPT.text.format(
             question=draft["question"],
             answer=draft["answer"],
         )
@@ -448,7 +621,7 @@ def draft_with_self_critique(
         try:
             critique = _call_opencode(
                 api_key, prompt, b64, model, retries=2, difficulty=difficulty,
-                media_type="image/jpeg",
+                media_type="image/jpeg", parser=_parse_critique_response,
             )
         except Exception as e:
             logger.warning("self_critique: model call failed round=%d err=%s", round_idx, str(e)[:100])

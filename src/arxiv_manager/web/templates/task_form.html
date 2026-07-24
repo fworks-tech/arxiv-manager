@@ -187,6 +187,13 @@ Type: {{ task.task_type }}</textarea>
         </div>
 
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Generation History</h2>
+            <div id="generation-history-content" hx-get="/api/task/{{ task.id }}/history" hx-trigger="load" hx-swap="innerHTML">
+                <div class="text-center py-4 text-gray-400 text-sm">Loading history...</div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
             <h2 class="text-lg font-semibold text-gray-900 mb-4">Actions</h2>
             <form method="post" action="/api/task/{{ task.id }}/submit">
                 <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">Mark as Submitted</button>
@@ -218,6 +225,7 @@ document.getElementById('regenerate-btn')?.addEventListener('click', function() 
             document.getElementById('answer_format').value = data.answer_format;
             document.getElementById('task_type').value = data.task_type;
             document.getElementById('validation-box').innerHTML = '';
+            htmx.trigger('#generation-history-content', 'load');
             showToast('Regeneration complete — review and save', 'success');
         } else {
             showToast('Regenerate failed: ' + (data.error || 'unknown error'), 'error');

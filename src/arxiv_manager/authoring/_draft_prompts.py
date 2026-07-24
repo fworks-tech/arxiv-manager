@@ -1,6 +1,25 @@
-"""Prompt templates for AI-assisted Q&A drafting."""
+"""Prompt templates for AI-assisted Q&A drafting with versioning."""
 
-DRAFT_PROMPT = """Create a hard visual-reasoning question for this image that requires multiple steps of reasoning.
+from __future__ import annotations
+
+import hashlib
+from typing import NamedTuple
+
+
+class PromptTemplate(NamedTuple):
+    name: str
+    text: str
+
+    @property
+    def hash(self) -> str:
+        return hashlib.sha256(self.text.encode()).hexdigest()
+
+    @property
+    def version_id(self) -> str:
+        return f"{self.name}@{self.hash[:12]}"
+
+
+DRAFT_PROMPT = PromptTemplate("DRAFT_PROMPT", """Create a hard visual-reasoning question for this image that requires multiple steps of reasoning.
 
 Authoring principles (from QA handbook):
 - Prefer REASONING over recognition: compose multiple series, filter by attribute, compare across panels
@@ -11,10 +30,10 @@ Authoring principles (from QA handbook):
 - The answer must be objective — two reasonable people give the same answer
 
 Rules: English, 1 sentence (2 max for format spec), must need the image, no yes/no, no "how does" / "what trend" (explanation banned), no "none" / "cannot be determined" answer, answer is 1 word or 1 number. NO option restriction like "Out of the 3...".
-Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"chart|general_image|spatial"}}"""
+Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"chart|general_image|spatial"}}""")
 
 
-EASY_PROMPT = """Create a straightforward visual-reasoning question for this image that is easy to answer.
+EASY_PROMPT = PromptTemplate("EASY_PROMPT", """Create a straightforward visual-reasoning question for this image that is easy to answer.
 
 The question should:
 - Focus on a single clear element (count, color, shape, label, position)
@@ -25,10 +44,10 @@ The question should:
 
 Rules: English, 1 sentence, must need the image, no yes/no, no "how does" / "what trend".
 Answer is 1 word or 1 number.
-Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"chart|general_image|spatial"}}"""
+Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"chart|general_image|spatial"}}""")
 
 
-REGEN_PROMPT = """Create a hard visual-reasoning question for this image.
+REGEN_PROMPT = PromptTemplate("REGEN_PROMPT", """Create a hard visual-reasoning question for this image.
 The previous attempt had validation errors — fix ALL of them:
 
 {feedback}
@@ -42,10 +61,10 @@ Authoring principles (from QA handbook):
 - Answer must be objective
 
 Rules: English, 1 sentence, must need the image, no yes/no, answer is 1 word or number. No option restriction. No "how does" / "what trend" / no "none" / "cannot be determined".
-Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"chart|general_image|spatial"}}"""
+Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"chart|general_image|spatial"}}""")
 
 
-SPATIAL_REGEN_PROMPT = """Create a hard spatial-reasoning question for this natural image.
+SPATIAL_REGEN_PROMPT = PromptTemplate("SPATIAL_REGEN_PROMPT", """Create a hard spatial-reasoning question for this natural image.
 The previous attempt had validation errors — fix ALL of them:
 
 {feedback}
@@ -66,10 +85,10 @@ Use these spatial question types:
 6. Occlusion/in front: "Which object is partially blocking the view of the cabinet?"
 
 Rules: English, 1 sentence, must need the image, no yes/no, no "how does" / "what trend". Answer is 1 word (object name) or number. No trick answers.
-Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"general_image"}}"""
+Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"general_image"}}""")
 
 
-HARDEST_PROMPT = """Create an EXTREMELY HARD visual-reasoning question for this image that Qwen 3.6-35B-A3B will FAIL on.
+HARDEST_PROMPT = PromptTemplate("HARDEST_PROMPT", """Create an EXTREMELY HARD visual-reasoning question for this image that Qwen 3.6-35B-A3B will FAIL on.
 
 Qwen's known weaknesses (from benchmarks):
 - ODInW13 (object detection/counting): 50.8 — weak at counting many visual elements
@@ -91,10 +110,10 @@ QA handbook rules:
 - Answer is 1 word or 1 number (smallest possible unit)
 - The answer must be an UNUSUAL number (not 2, 3, 4, 5) to avoid Qwen guessing
 
-Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"chart|general_image|spatial"}}"""
+Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"chart|general_image|spatial"}}""")
 
 
-CHALLENGING_PROMPT = """Create a CHALLENGING visual-reasoning question for this image that Qwen 3.6-35B-A3B will FAIL on but Gemini is likely to PASS.
+CHALLENGING_PROMPT = PromptTemplate("CHALLENGING_PROMPT", """Create a CHALLENGING visual-reasoning question for this image that Qwen 3.6-35B-A3B will FAIL on but Gemini is likely to PASS.
 
 Qwen's known weaknesses (from benchmarks):
 - ODInW13 (object detection/counting): 50.8 — weak at counting many visual elements
@@ -145,10 +164,10 @@ QA handbook rules:
 - Add ONE intermediate reasoning step: combine two values, or locate then compare
 - Pin the answer down with constraints: specify which series, panel, axis, subset
 
-Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"chart|general_image|spatial"}}"""
+Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"chart|general_image|spatial"}}""")
 
 
-SPATIAL_DRAFT_PROMPT = """Create a hard spatial-reasoning question for this natural image that requires looking at 3D layout, object positions, depth, or spatial relationships.
+SPATIAL_DRAFT_PROMPT = PromptTemplate("SPATIAL_DRAFT_PROMPT", """Create a hard spatial-reasoning question for this natural image that requires looking at 3D layout, object positions, depth, or spatial relationships.
 
 This is a NATURAL IMAGE (photo or scene) — not a chart or diagram.
 
@@ -170,10 +189,10 @@ Use these spatial question types:
 9. Navigation-style: "Starting from the doorway and moving toward the sink, which object would be on your right?"
 
 Rules: English, 1 sentence, must need the image, no yes/no, no "how does" / "what trend". Answer is 1 word (object name) or number. No trick answers ("none" / "cannot be determined"). NO option restriction like "Out of the 3...".
-Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"general_image"}}"""
+Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"general_image"}}""")
 
 
-SPATIAL_CHALLENGING_PROMPT = """Create a CHALLENGING spatial-reasoning question for this natural image that Qwen 3.6-35B-A3B will FAIL on but Gemini is likely to PASS.
+SPATIAL_CHALLENGING_PROMPT = PromptTemplate("SPATIAL_CHALLENGING_PROMPT", """Create a CHALLENGING spatial-reasoning question for this natural image that Qwen 3.6-35B-A3B will FAIL on but Gemini is likely to PASS.
 
 This is a NATURAL IMAGE (photo or scene) — not a chart or diagram.
 
@@ -200,10 +219,10 @@ QA handbook rules:
 - Add ONE intermediate step: locate then compare, or filter then name
 - Pin the answer down with constraints
 
-Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"general_image"}}"""
+Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"general_image"}}""")
 
 
-SPATIAL_HARDEST_PROMPT = """Create an EXTREMELY HARD spatial-reasoning question for this natural image that Qwen 3.6-35B-A3B will FAIL on.
+SPATIAL_HARDEST_PROMPT = PromptTemplate("SPATIAL_HARDEST_PROMPT", """Create an EXTREMELY HARD spatial-reasoning question for this natural image that Qwen 3.6-35B-A3B will FAIL on.
 
 This is a NATURAL IMAGE (photo or scene) — not a chart or diagram.
 
@@ -219,18 +238,18 @@ Strategies:
 
 Rules: English, 1 sentence (2 max for format spec), must need the image. No yes/no. Answer is 1 word or number.
 No trick answers. Answer must be UNUSUAL number (not 2, 3, 4, 5).
-Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"general_image"}}"""
+Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"general_image"}}""")
 
 
-VERIFY_PROMPT = """Look at this image carefully. The question and answer below were
+VERIFY_PROMPT = PromptTemplate("VERIFY_PROMPT", """Look at this image carefully. The question and answer below were
 drafted by AI. Verify if the answer is CORRECT based on the image, and fix
 if wrong. Reply with corrected JSON only (same keys).
 
 Draft question: {question}
-Draft answer: {answer}"""
+Draft answer: {answer}""")
 
 
-SELF_CRITIQUE_PROMPT = """You drafted this question for a CHALLENGING visual-reasoning task:
+SELF_CRITIQUE_PROMPT = PromptTemplate("SELF_CRITIQUE_PROMPT", """You drafted this question for a CHALLENGING visual-reasoning task:
 
 Q: {question}
 A: {answer}
@@ -258,4 +277,14 @@ If score is 1-3, REWRITE the question to:
 - ASK about a SPECIFIC visual element (peak position, color, region, intersection)
 - Make the image REQUIRED (no way to answer without seeing it)
 
-Keep the answer in sync. Return JSON only: {{"score": <1-5>, "rewrite_question": "...", "rewrite_answer": "..."}}"""
+Keep the answer in sync. Return JSON only: {{"score": <1-5>, "rewrite_question": "...", "rewrite_answer": "..."}}""")
+
+
+PROMPT_TEMPLATES: dict[str, PromptTemplate] = {
+    p.name: p for p in [
+        DRAFT_PROMPT, EASY_PROMPT, REGEN_PROMPT, SPATIAL_REGEN_PROMPT,
+        HARDEST_PROMPT, CHALLENGING_PROMPT, SPATIAL_DRAFT_PROMPT,
+        SPATIAL_CHALLENGING_PROMPT, SPATIAL_HARDEST_PROMPT,
+        VERIFY_PROMPT, SELF_CRITIQUE_PROMPT,
+    ]
+}

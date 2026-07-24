@@ -92,11 +92,6 @@ function uploadFile(file) {
             if (el) {
                 currentUploadId = el.dataset.uploadId;
                 showToast('Image uploaded and analyzed', 'success');
-                var diff = el.dataset.recommendedDifficulty;
-                if (diff && diff !== 'rejected') {
-                    var capturedId = currentUploadId;
-                    setTimeout(function() { draftQA(capturedId, diff); }, 300);
-                }
             }
         })
         .catch(function(err) {
@@ -179,6 +174,8 @@ function draftQA(uploadId, difficulty) {
     })
     .finally(function() {
         if (_draftAbort === thisController) _draftAbort = null;
+        var btns = document.querySelectorAll('#draft-results button, #analysis-results button');
+        for (var i = 0; i < btns.length; i++) { btns[i].disabled = false; }
     });
 }
 
@@ -245,11 +242,6 @@ function useArxivFigure(path) {
             var el = document.querySelector('[data-upload-id]');
             if (el) {
                 currentUploadId = el.dataset.uploadId;
-                var diff = el.dataset.recommendedDifficulty;
-                if (diff && diff !== 'rejected') {
-                    var capturedId = currentUploadId;
-                    setTimeout(function() { draftQA(capturedId, diff); }, 300);
-                }
             }
         })
         .catch(function(err) {

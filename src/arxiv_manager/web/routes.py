@@ -39,14 +39,14 @@ _upload_cache: dict[str, dict] = {}
 # ─── PAGES ────────────────────────────────────────────────────────
 
 @router.get("/", response_class=HTMLResponse)
-async def index(request: Request):
+def index(request: Request):
     """Dashboard home."""
     stats = get_stats()
     return TEMPLATES.TemplateResponse(request, "base.html", {"stats": stats})
 
 
 @router.get("/images", response_class=HTMLResponse)
-async def images_page(
+def images_page(
     request: Request,
     status: str = "",
     min_complexity: float = 0,
@@ -55,77 +55,89 @@ async def images_page(
 ):
     """Image library page."""
     session = get_session()
-    query = select(Figure)
-    if status:
-        query = query.where(Figure.status == status)
-    if min_complexity > 0:
-        query = query.where(Figure.complexity_score >= min_complexity)
-    if figure_type:
-        query = query.where(Figure.figure_type == figure_type)
-    if suitable_only:
-        query = query.where(Figure.is_suitable == True)  # noqa: E712
-    query = query.order_by(Figure.complexity_score.desc())
-    figures = list(session.exec(query).all())
+    try:
+        query = select(Figure)
+        if status:
+            query = query.where(Figure.status == status)
+        if min_complexity > 0:
+            query = query.where(Figure.complexity_score >= min_complexity)
+        if figure_type:
+            query = query.where(Figure.figure_type == figure_type)
+        if suitable_only:
+            query = query.where(Figure.is_suitable == True)  # noqa: E712
+        query = query.order_by(Figure.complexity_score.desc())
+        figures = list(session.exec(query).all())
 
-    return TEMPLATES.TemplateResponse(request, "images.html", {
-        "figures": figures,
-        "status_filter": status,
-        "min_complexity": min_complexity,
-        "figure_type_filter": figure_type,
-    })
+        return TEMPLATES.TemplateResponse(request, "images.html", {
+            "figures": figures,
+            "status_filter": status,
+            "min_complexity": min_complexity,
+            "figure_type_filter": figure_type,
+        })
+    finally:
+        session.close()
 
 
 @router.get("/tasks", response_class=HTMLResponse)
-async def tasks_page(request: Request, status: str = ""):
+def tasks_page(request: Request, status: str = ""):
     """Tasks list page."""
     session = get_session()
-    query = select(Task)
-    if status:
-        query = query.where(Task.status == status)
-    query = query.order_by(Task.created_at.desc())
-    tasks = list(session.exec(query).all())
+    try:
+        query = select(Task)
+        if status:
+            query = query.where(Task.status == status)
+        query = query.order_by(Task.created_at.desc())
+        tasks = list(session.exec(query).all())
 
-    return TEMPLATES.TemplateResponse(request, "tasks.html", {
-        "tasks": tasks,
-        "status_filter": status,
-    })
+        return TEMPLATES.TemplateResponse(request, "tasks.html", {
+            "tasks": tasks,
+            "status_filter": status,
+        })
+    finally:
+        session.close()
 
 
 @router.get("/task/new/{figure_id}", response_class=HTMLResponse)
-async def task_form(request: Request, figure_id: int):
+def task_form(request: Request, figure_id: int):
     """Task authoring form for a specific image."""
     session = get_session()
-    figure = session.get(Figure, figure_id)
-    if not figure:
-        return HTMLResponse("Image not found", status_code=404)
+    try:
+        figure = session.get(Figure, figure_id)
+        if not figure:
+            return HTMLResponse("Image not found", status_code=404)
 
-    return TEMPLATES.TemplateResponse(request, "task_form.html", {
-        "figure": figure,
-        "validation": None,
-        "task": None,
-    })
+        return TEMPLATES.TemplateResponse(request, "task_form.html", {
+            "figure": figure,
+            "validation": None,
+            "task": None,
+        })
+    finally:
+        session.close()
 
 
 @router.get("/task/{task_id}", response_class=HTMLResponse)
-async def task_detail(request: Request, task_id: int):
+def task_detail(request: Request, task_id: int):
     """View/edit an existing task."""
     session = get_session()
-    task = session.get(Task, task_id)
-    if not task:
-        return HTMLResponse("Task not found", status_code=404)
-    figure = session.get(Figure, task.figure_id)
+    try:
+        task = session.get(Task, task_id)
+        if not task:
+            return HTMLResponse("Task not found", status_code=404)
+        figure = session.get(Figure, task.figure_id)
 
-    validation = validate_task(task.question, task.answer, task.answer_format)
+        validation = validate_task(task.question, task.answer, task.answer_format)
 
-    return TEMPLATES.TemplateResponse(request, "task_form.html", {
-        "figure": figure,
-        "task": task,
-        "validation": validation,
-    })
+        return TEMPLATES.TemplateResponse(request, "task_form.html", {
+            "figure": figure,
+            "task": task,
+            "validation": validation,
+        })
+    finally:
+        session.close()
 
 
 @router.get("/stats", response_class=HTMLResponse)
-async def stats_page(request: Request):
+def stats_page(request: Request):
     """Statistics dashboard."""
     logger.info("stats page")
     stats = get_stats()
@@ -136,7 +148,7 @@ async def stats_page(request: Request):
 
 
 @router.get("/author", response_class=HTMLResponse)
-async def author_page(request: Request):
+def author_page(request: Request):
     """Main upload + Q&A authoring page."""
     return TEMPLATES.TemplateResponse(request, "author.html", {})
 
@@ -164,7 +176,7 @@ def _save_upload(file_bytes: bytes, filename: str = "upload") -> tuple[str, Path
 
 
 @router.post("/api/image/upload", response_class=HTMLResponse)
-async def api_upload_image(
+def api_upload_image(
     request: Request,
     image: UploadFile = File(None),
     arxiv_figure_path: str = Form(""),
@@ -191,7 +203,7 @@ async def api_upload_image(
                 error = "Figure file not found"
                 logger.warning("arxiv figure not found: %s", src)
         elif image and image.filename:
-            data = await image.read()
+            data = image.file.read()
             logger.info("upload via browser filename=%s size=%d", image.filename, len(data))
             if len(data) > 20 * 1024 * 1024:
                 error = "File too large (max 20MB)"
@@ -225,18 +237,16 @@ async def api_upload_image(
 
 
 @router.post("/api/image/draft", response_class=HTMLResponse)
-async def api_draft_qa(
+def api_draft_qa(
     request: Request,
     upload_id: str = Form(...),
     difficulty: str = Form("challenging"),
     previous_question: str = Form(""),
 ):
     """Generate a Q&A draft for the uploaded image."""
-    import os as os_mod
-
     logger.info("draft request upload_id=%s difficulty=%s", upload_id, difficulty)
 
-    api_key = os_mod.environ.get("OPENCODE_API_KEY")
+    api_key = os.environ.get("OPENCODE_API_KEY")
     if not api_key:
         logger.warning("draft failed: no OPENCODE_API_KEY set")
         return TEMPLATES.TemplateResponse(
@@ -274,20 +284,31 @@ async def api_draft_qa(
     suitability = analysis.get("suitability", "")
     logger.info("draft difficulty=%s suitability=%s figure_type=%s complexity=%.3f", difficulty, suitability, figure_type, complexity)
 
-    if difficulty in ("challenging", "hardest"):
-        logger.info("draft using self_critique flow difficulty=%s", difficulty)
-        draft = draft_with_self_critique(
-            image_path=img_path,
-            max_rounds=1,
-            provider="opencode",
-            api_key=api_key,
-            difficulty=difficulty,
-            figure_type=figure_type,
-            complexity_score=complexity,
-            previous_question=previous_question,
-        )
-        if not draft:
-            logger.info("self_critique returned None, falling back to plain draft_qa")
+    try:
+        if difficulty in ("challenging", "hardest"):
+            logger.info("draft using self_critique flow difficulty=%s", difficulty)
+            draft = draft_with_self_critique(
+                image_path=img_path,
+                max_rounds=1,
+                provider="opencode",
+                api_key=api_key,
+                difficulty=difficulty,
+                figure_type=figure_type,
+                complexity_score=complexity,
+                previous_question=previous_question,
+            )
+            if draft is None:
+                logger.info("self_critique returned None, falling back to plain draft_qa")
+                draft = draft_qa(
+                    image_path=img_path,
+                    provider="opencode",
+                    api_key=api_key,
+                    difficulty=difficulty,
+                    figure_type=figure_type,
+                    complexity_score=complexity,
+                    previous_question=previous_question,
+                )
+        else:
             draft = draft_qa(
                 image_path=img_path,
                 provider="opencode",
@@ -297,15 +318,11 @@ async def api_draft_qa(
                 complexity_score=complexity,
                 previous_question=previous_question,
             )
-    else:
-        draft = draft_qa(
-            image_path=img_path,
-            provider="opencode",
-            api_key=api_key,
-            difficulty=difficulty,
-            figure_type=figure_type,
-            complexity_score=complexity,
-            previous_question=previous_question,
+    except ValueError as e:
+        logger.error("draft generation failed for upload_id=%s: %s", upload_id, e)
+        return TEMPLATES.TemplateResponse(
+            request, "_author_draft.html",
+            {"draft": None, "validation": None, "error": str(e), "upload_id": upload_id, "difficulty": difficulty},
         )
 
     if not draft:
@@ -318,6 +335,33 @@ async def api_draft_qa(
     validation = validate_draft(draft, figure_type=figure_type)
     logger.info("draft ok upload_id=%s quality=%.2f errors=%d", upload_id, validation.get("quality_score", 0), len(validation.get("errors", [])))
 
+    from ..authoring._draft_telemetry import log_generation_attempt
+    log_generation_attempt(
+        attempt_number=1,
+        generation_type="self_critique" if difficulty in ("challenging", "hardest") else "draft",
+        source_route="api_draft_qa",
+        prompt_template_name=f"{difficulty}_{figure_type}" if figure_type else difficulty,
+        prompt_version_id=draft.get("_prompt_version_id", ""),
+        prompt_text_hash=draft.get("_prompt_text_hash", ""),
+        difficulty=difficulty,
+        figure_type=figure_type,
+        complexity_score=complexity,
+        previous_question=previous_question,
+        model_name="minimax-m3",
+        raw_response=draft.get("_raw_response", ""),
+        reasoning_trace=draft.get("_reasoning_trace", ""),
+        generated_question=draft.get("question", ""),
+        generated_answer=draft.get("answer", ""),
+        generated_answer_format=draft.get("answer_format", ""),
+        generated_task_type=draft.get("task_type", ""),
+        validation_quality=validation.get("quality_score", 0),
+        validation_is_valid=validation.get("is_valid", False),
+        validation_errors=json.dumps(validation.get("errors", [])),
+        validation_warnings=json.dumps(validation.get("warnings", [])),
+        success=True,
+        elapsed_ms=0,
+    )
+
     return TEMPLATES.TemplateResponse(
         request, "_author_draft.html",
         {"draft": draft, "validation": validation, "error": "", "upload_id": upload_id, "difficulty": difficulty},
@@ -325,7 +369,7 @@ async def api_draft_qa(
 
 
 @router.post("/api/image/discard", response_class=HTMLResponse)
-async def api_discard_image(
+def api_discard_image(
     request: Request,
     upload_id: str = Form(...),
 ):
@@ -340,7 +384,7 @@ async def api_discard_image(
 
 
 @router.post("/api/image/propose")
-async def api_propose_task(
+def api_propose_task(
     upload_id: str = Form(...),
     question: str = Form(...),
     answer: str = Form(...),
@@ -355,66 +399,68 @@ async def api_propose_task(
     logger.info("propose upload_id=%s type=%s format=%s", upload_id, task_type, answer_format)
 
     session = get_session()
+    try:
+        img_path = UPLOADS_DIR / f"{upload_id}.jpg"
+        if not img_path.exists():
+            for ext in (".png", ".webp", ".jpeg"):
+                p = UPLOADS_DIR / f"{upload_id}{ext}"
+                if p.exists():
+                    img_path = p
+                    break
+        if not img_path.exists():
+            logger.warning("propose failed: upload not found upload_id=%s", upload_id)
+            return HTMLResponse("Upload not found", status_code=404)
 
-    img_path = UPLOADS_DIR / f"{upload_id}.jpg"
-    if not img_path.exists():
-        for ext in (".png", ".webp", ".jpeg"):
-            p = UPLOADS_DIR / f"{upload_id}{ext}"
-            if p.exists():
-                img_path = p
-                break
-    if not img_path.exists():
-        logger.warning("propose failed: upload not found upload_id=%s", upload_id)
-        return HTMLResponse("Upload not found", status_code=404)
+        img_hash = compute_file_hash(img_path)
+        img = PILImage.open(img_path)
+        w, h = img.size
+        audit = audit_figure(img_path)
 
-    img_hash = compute_file_hash(img_path)
-    img = PILImage.open(img_path)
-    w, h = img.size
-    audit = audit_figure(img_path)
+        fig_path = f"figures/user_{upload_id}.jpg"
+        fig_dest = STORAGE_DIR / fig_path
+        import shutil
+        shutil.copy2(str(img_path), str(fig_dest))
 
-    fig_path = f"figures/user_{upload_id}.jpg"
-    fig_dest = STORAGE_DIR / fig_path
-    import shutil
-    shutil.copy2(str(img_path), str(fig_dest))
+        figure = Figure(
+            paper_id="user_upload",
+            image_path=fig_path,
+            image_hash=img_hash,
+            caption="",
+            page_num=0,
+            figure_num="",
+            width=audit["width"],
+            height=audit["height"],
+            width_height_ratio=audit["width_height_ratio"],
+            filesize_bytes=audit["filesize_bytes"],
+            complexity_score=audit["complexity_score"],
+            figure_type=audit["figure_type"],
+            is_dense=audit["is_dense"],
+            is_suitable=audit["is_suitable"],
+            status=ImageStatus.USED.value,
+        )
+        session.add(figure)
+        session.commit()
+        session.refresh(figure)
+        logger.info("propose figure created id=%d", figure.id)
 
-    figure = Figure(
-        paper_id="user_upload",
-        image_path=fig_path,
-        image_hash=img_hash,
-        caption="",
-        page_num=0,
-        figure_num="",
-        width=audit["width"],
-        height=audit["height"],
-        width_height_ratio=audit["width_height_ratio"],
-        filesize_bytes=audit["filesize_bytes"],
-        complexity_score=audit["complexity_score"],
-        figure_type=audit["figure_type"],
-        is_dense=audit["is_dense"],
-        is_suitable=audit["is_suitable"],
-        status=ImageStatus.USED.value,
-    )
-    session.add(figure)
-    session.commit()
-    session.refresh(figure)
-    logger.info("propose figure created id=%d", figure.id)
-
-    # Create task
-    task = create_task(
-        figure_id=figure.id,
-        title=title or f"User upload — {upload_id[:12]}",
-        domain=domain,
-        question=question,
-        answer=answer,
-        answer_format=answer_format,
-        task_type=task_type,
-        ai_generated=True,
-    )
-    return RedirectResponse(url=f"/task/{task.id}", status_code=303)
+        # Create task
+        task = create_task(
+            figure_id=figure.id,
+            title=title or f"User upload — {upload_id[:12]}",
+            domain=domain,
+            question=question,
+            answer=answer,
+            answer_format=answer_format,
+            task_type=task_type,
+            ai_generated=True,
+        )
+        return RedirectResponse(url=f"/task/{task.id}", status_code=303)
+    finally:
+        session.close()
 
 
 @router.get("/api/arxiv/search", response_class=HTMLResponse)
-async def api_arxiv_search(
+def api_arxiv_search(
     request: Request,
     q: str = Query(""),
     domain: str = Query(""),
@@ -441,17 +487,13 @@ async def api_arxiv_search(
 
 
 @router.post("/api/arxiv/extract", response_class=HTMLResponse)
-async def api_arxiv_extract(
+def api_arxiv_extract(
     request: Request,
     arxiv_id: str = Form(...),
 ):
     """Download a paper PDF, extract figures, and return top candidates."""
     logger.info("arxiv extract arxiv_id=%s", arxiv_id)
     try:
-        import sqlite3
-        conn = sqlite3.connect(str(STORAGE_DIR / "arxiv-manager.db"))
-        c = conn.cursor()
-
         pdf_path = download_pdf(arxiv_id)
         extracted = extract_figures(pdf_path)
         logger.info("arxiv extract extracted %d raw figures", len(extracted))
@@ -480,7 +522,6 @@ async def api_arxiv_extract(
         figures = figures[:3]
         logger.info("arxiv extract %d suitable figures (top 3)", len(figures))
 
-        conn.close()
         return TEMPLATES.TemplateResponse(
             request, "_arxiv_figures.html", {"figures": figures, "error": ""}
         )
@@ -579,7 +620,7 @@ def _compute_metrics() -> dict:
 
 
 @router.get("/metrics", response_class=HTMLResponse)
-async def metrics_page(request: Request):
+def metrics_page(request: Request):
     """AI draft performance dashboard."""
     logger.info("metrics page")
     metrics = _compute_metrics()
@@ -589,7 +630,7 @@ async def metrics_page(request: Request):
 # ─── HTMX API ENDPOINTS ─────────────────────────────────────────
 
 @router.post("/api/task/create", response_class=HTMLResponse)
-async def api_create_task(
+def api_create_task(
     request: Request,
     figure_id: int = Form(...),
     title: str = Form(""),
@@ -619,7 +660,11 @@ async def api_create_task(
         return RedirectResponse(url=f"/task/{task.id}", status_code=303)
 
     logger.warning("task create validation failed errors=%d", len(validation.errors))
-    figure = get_session().get(Figure, figure_id)
+    s = get_session()
+    try:
+        figure = s.get(Figure, figure_id)
+    finally:
+        s.close()
     return TEMPLATES.TemplateResponse(request, "task_form.html", {
         "figure": figure,
         "task": None,
@@ -629,7 +674,7 @@ async def api_create_task(
 
 
 @router.post("/api/task/{task_id}/update", response_class=HTMLResponse)
-async def api_update_task(
+def api_update_task(
     request: Request,
     task_id: int,
     title: str = Form(""),
@@ -645,7 +690,13 @@ async def api_update_task(
     logger.info("task update task_id=%d type=%s format=%s", task_id, task_type, answer_format)
     validation = validate_task(question, answer, answer_format)
     task = update_task(task_id, title=title, domain=domain, question=question, answer=answer, answer_format=answer_format, task_type=task_type)
-    figure = get_session().get(Figure, task.figure_id) if task else None
+    figure = None
+    if task:
+        s = get_session()
+        try:
+            figure = s.get(Figure, task.figure_id)
+        finally:
+            s.close()
     logger.info("task updated id=%d valid=%s", task_id, validation.is_valid)
 
     return TEMPLATES.TemplateResponse(request, "task_form.html", {
@@ -656,148 +707,291 @@ async def api_update_task(
 
 
 @router.post("/api/task/{task_id}/validate", response_class=HTMLResponse)
-async def api_validate_task(request: Request, task_id: int):
+def api_validate_task(request: Request, task_id: int):
     """Re-validate a task (HTMX endpoint)."""
     logger.info("task revalidate task_id=%d", task_id)
     session = get_session()
-    task = session.get(Task, task_id)
-    if not task:
-        logger.warning("task revalidate not found task_id=%d", task_id)
-        return HTMLResponse("Not found", status_code=404)
+    try:
+        task = session.get(Task, task_id)
+        if not task:
+            logger.warning("task revalidate not found task_id=%d", task_id)
+            return HTMLResponse("Not found", status_code=404)
 
-    figure = session.get(Figure, task.figure_id)
-    figure_type = getattr(figure, "figure_type", "") if figure else ""
-    validation = validate_task(task.question, task.answer, task.answer_format,
-                               figure_type=figure_type, task_type=task.task_type)
-    logger.info("task revalidate ok task_id=%d valid=%s score=%.1f", task_id, validation.is_valid, validation.quality_score)
+        figure = session.get(Figure, task.figure_id)
+        figure_type = getattr(figure, "figure_type", "") if figure else ""
+        validation = validate_task(task.question, task.answer, task.answer_format,
+                                   figure_type=figure_type, task_type=task.task_type)
+        logger.info("task revalidate ok task_id=%d valid=%s score=%.1f", task_id, validation.is_valid, validation.quality_score)
 
-    return TEMPLATES.TemplateResponse(request, "_validation.html", {
-        "validation": validation,
-    })
+        return TEMPLATES.TemplateResponse(request, "_validation.html", {
+            "validation": validation,
+        })
+    finally:
+        session.close()
+
+
+@router.get("/api/task/{task_id}/history", response_class=HTMLResponse)
+def api_generation_history(request: Request, task_id: int):
+    """Return generation history for a task's figure as HTML partial."""
+    import json as _json
+
+    from ..models import GenerationAttempt
+
+    session = get_session()
+    try:
+        task = session.get(Task, task_id)
+        if not task:
+            return HTMLResponse("Task not found", status_code=404)
+
+        # Query attempts for this task or its figure, newest first
+        rows = list(
+            session.exec(
+                select(GenerationAttempt)
+                .where(
+                    (GenerationAttempt.task_id == task_id)
+                    | ((GenerationAttempt.figure_id == task.figure_id) & (GenerationAttempt.task_id != task_id))
+                )
+                .order_by(GenerationAttempt.created_at.desc())
+                .limit(50)
+            ).all()
+        )
+
+        attempts = []
+        for r in rows:
+            errors_list = []
+            if r.validation_errors and r.validation_errors.strip() not in ("", "[]"):
+                try:
+                    errors_list = _json.loads(r.validation_errors)
+                except _json.JSONDecodeError:
+                    pass
+
+            attempts.append({
+                "generation_type": r.generation_type,
+                "difficulty": r.difficulty or "",
+                "model_name": r.model_name or "",
+                "prompt_version_id": r.prompt_version_id or "",
+                "generated_question": r.generated_question or "",
+                "generated_answer": r.generated_answer or "",
+                "generated_answer_format": r.generated_answer_format or "",
+                "validation_quality": r.validation_quality,
+                "errors": errors_list,
+                "reasoning_trace": r.reasoning_trace or "",
+                "created_at": r.created_at.strftime("%Y-%m-%d %H:%M") if r.created_at else "",
+            })
+
+        return TEMPLATES.TemplateResponse(
+            request, "_generation_history.html",
+            {"attempts": attempts},
+        )
+    finally:
+        session.close()
 
 
 @router.post("/api/task/{task_id}/regenerate")
-async def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("challenging")):
+def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("challenging")):
     """Regenerate Q&A for a task using AI draft."""
     logger.info("task regenerate task_id=%d difficulty=%s", task_id, difficulty)
-    import os as os_mod
-    api_key = os_mod.environ.get("OPENCODE_API_KEY")
+    api_key = os.environ.get("OPENCODE_API_KEY")
     if not api_key:
         return {"error": "No OPENCODE_API_KEY set", "ok": False}
 
     session = get_session()
-    task = session.get(Task, task_id)
-    if not task:
-        return {"error": "Task not found", "ok": False}
+    try:
+        task = session.get(Task, task_id)
+        if not task:
+            return {"error": "Task not found", "ok": False}
 
-    img_path = STORAGE_DIR / task.image_path
-    if not img_path.exists():
-        logger.warning("task regenerate: image not found at %s", img_path)
-        return {"error": "Image not found", "ok": False}
+        img_path = STORAGE_DIR / task.image_path
+        if not img_path.exists():
+            logger.warning("task regenerate: image not found at %s", img_path)
+            return {"error": "Image not found", "ok": False}
 
-    figure = session.get(Figure, task.figure_id) if task.figure_id else None
-    figure_type = getattr(figure, "figure_type", "") if figure else ""
-    complexity = getattr(figure, "complexity_score", 0.0) if figure else 0.0
-    prev_question = task.question
+        figure = session.get(Figure, task.figure_id) if task.figure_id else None
+        figure_type = getattr(figure, "figure_type", "") if figure else ""
+        complexity = getattr(figure, "complexity_score", 0.0) if figure else 0.0
+        prev_question = task.question
 
-    if difficulty in ("challenging", "hardest"):
-        draft = draft_with_self_critique(
-            image_path=img_path, max_rounds=1, provider="opencode",
-            api_key=api_key, difficulty=difficulty,
-            figure_type=figure_type, complexity_score=complexity,
-            previous_question=prev_question,
-        )
-        if not draft:
-            draft = draft_qa(
-                image_path=img_path, provider="opencode",
-                api_key=api_key, difficulty=difficulty,
-                figure_type=figure_type, complexity_score=complexity,
-                previous_question=prev_question,
-            )
-    else:
-        draft = draft_qa(
-            image_path=img_path, provider="opencode",
-            api_key=api_key, difficulty=difficulty,
-            figure_type=figure_type, complexity_score=complexity,
-            previous_question=prev_question,
-        )
-
-    if not draft:
-        return {"error": "Draft generation failed", "ok": False}
-
-    # Dedup: if answer unchanged or question too similar, try harder
-    same_answer = draft["answer"].strip().lower() == task.answer.strip().lower()
-    if same_answer or draft["question"].strip().lower() == task.question.strip().lower():
-        for _ in range(2):
+        try:
+            from ..authoring._draft_telemetry import log_generation_attempt
             if difficulty in ("challenging", "hardest"):
-                draft2 = draft_with_self_critique(
+                draft = draft_with_self_critique(
                     image_path=img_path, max_rounds=1, provider="opencode",
                     api_key=api_key, difficulty=difficulty,
                     figure_type=figure_type, complexity_score=complexity,
-                    previous_question=prev_question,
+                    previous_question=prev_question, figure_id=task.figure_id,
                 )
+                if draft is None:
+                    draft = draft_qa(
+                        image_path=img_path, provider="opencode",
+                        api_key=api_key, difficulty=difficulty,
+                        figure_type=figure_type, complexity_score=complexity,
+                        previous_question=prev_question, figure_id=task.figure_id,
+                    )
             else:
-                draft2 = draft_qa(
+                draft = draft_qa(
                     image_path=img_path, provider="opencode",
                     api_key=api_key, difficulty=difficulty,
                     figure_type=figure_type, complexity_score=complexity,
-                    previous_question=prev_question,
+                    previous_question=prev_question, figure_id=task.figure_id,
                 )
-            if draft2 and draft2["answer"].strip().lower() != task.answer.strip().lower():
-                draft = draft2
-                break
+        except ValueError as e:
+            return {"error": str(e), "ok": False}
 
-    task.question = draft["question"]
-    task.answer = draft["answer"]
-    task.answer_format = draft.get("answer_format", "number")
-    task.task_type = draft.get("task_type", "chart")
-    task.difficulty = difficulty
-    session.add(task)
-    session.commit()
-    logger.info("task regenerate ok task_id=%d", task_id)
+        if not draft:
+            return {"error": "Draft generation failed", "ok": False}
 
-    return {
-        "ok": True,
-        "question": draft["question"],
-        "answer": draft["answer"],
-        "answer_format": draft.get("answer_format", "number"),
-        "task_type": draft.get("task_type", "chart"),
-    }
+        log_generation_attempt(
+            figure_id=task.figure_id,
+            task_id=task.id,
+            attempt_number=1,
+            generation_type="regenerate_initial",
+            source_route="api_regenerate_task",
+            prompt_template_name=f"{difficulty}_{figure_type}" if figure_type else difficulty,
+            prompt_version_id=draft.get("_prompt_version_id", ""),
+            prompt_text_hash=draft.get("_prompt_text_hash", ""),
+            difficulty=difficulty,
+            figure_type=figure_type,
+            complexity_score=complexity,
+            previous_question=prev_question,
+            model_name="minimax-m3",
+            raw_response=draft.get("_raw_response", ""),
+            reasoning_trace=draft.get("_reasoning_trace", ""),
+            generated_question=draft.get("question", ""),
+            generated_answer=draft.get("answer", ""),
+            generated_answer_format=draft.get("answer_format", ""),
+            generated_task_type=draft.get("task_type", ""),
+            success=True,
+        )
+
+        # Dedup: if answer unchanged or question too similar, try harder
+        same_answer = draft["answer"].strip().lower() == task.answer.strip().lower()
+        if same_answer or draft["question"].strip().lower() == task.question.strip().lower():
+            dedup_attempt = 0
+            for _ in range(2):
+                dedup_attempt += 1
+                try:
+                    if difficulty in ("challenging", "hardest"):
+                        draft2 = draft_with_self_critique(
+                            image_path=img_path, max_rounds=1, provider="opencode",
+                            api_key=api_key, difficulty=difficulty,
+                            figure_type=figure_type, complexity_score=complexity,
+                            previous_question=prev_question, figure_id=task.figure_id,
+                        )
+                    else:
+                        draft2 = draft_qa(
+                            image_path=img_path, provider="opencode",
+                            api_key=api_key, difficulty=difficulty,
+                            figure_type=figure_type, complexity_score=complexity,
+                            previous_question=prev_question, figure_id=task.figure_id,
+                        )
+                except ValueError:
+                    draft2 = None
+                log_generation_attempt(
+                    figure_id=task.figure_id,
+                    task_id=task.id,
+                    attempt_number=1 + dedup_attempt,
+                    generation_type="dedup_retry",
+                    source_route="api_regenerate_task",
+                    prompt_version_id=draft2.get("_prompt_version_id", "") if draft2 else "",
+                    prompt_text_hash=draft2.get("_prompt_text_hash", "") if draft2 else "",
+                    difficulty=difficulty,
+                    figure_type=figure_type,
+                    complexity_score=complexity,
+                    previous_question=prev_question,
+                    raw_response=draft2.get("_raw_response", "") if draft2 else "",
+                    reasoning_trace=draft2.get("_reasoning_trace", "") if draft2 else "",
+                    generated_question=draft2.get("question", "") if draft2 else "",
+                    generated_answer=draft2.get("answer", "") if draft2 else "",
+                    generated_answer_format=draft2.get("answer_format", "") if draft2 else "",
+                    generated_task_type=draft2.get("task_type", "") if draft2 else "",
+                    success=draft2 is not None,
+                )
+                if draft2 and draft2["answer"].strip().lower() != task.answer.strip().lower():
+                    draft = draft2
+                    break
+
+        task.question = draft["question"]
+        task.answer = draft["answer"]
+        task.answer_format = draft.get("answer_format", "number")
+        task.task_type = draft.get("task_type", "chart")
+        task.difficulty = difficulty
+        session.add(task)
+        session.commit()
+        logger.info("task regenerate ok task_id=%d", task_id)
+
+        log_generation_attempt(
+            figure_id=task.figure_id,
+            task_id=task.id,
+            attempt_number=2,
+            generation_type="regenerate_final",
+            source_route="api_regenerate_task",
+            prompt_template_name=f"{difficulty}_{figure_type}" if figure_type else difficulty,
+            prompt_version_id=draft.get("_prompt_version_id", ""),
+            prompt_text_hash=draft.get("_prompt_text_hash", ""),
+            difficulty=difficulty,
+            figure_type=figure_type,
+            complexity_score=complexity,
+            previous_question=prev_question,
+            model_name="minimax-m3",
+            raw_response=draft.get("_raw_response", ""),
+            reasoning_trace=draft.get("_reasoning_trace", ""),
+            generated_question=draft.get("question", ""),
+            generated_answer=draft.get("answer", ""),
+            generated_answer_format=draft.get("answer_format", ""),
+            generated_task_type=draft.get("task_type", ""),
+            success=True,
+        )
+
+        return {
+            "ok": True,
+            "question": draft["question"],
+            "answer": draft["answer"],
+            "answer_format": draft.get("answer_format", "number"),
+            "task_type": draft.get("task_type", "chart"),
+        }
+    finally:
+        session.close()
 
 
 @router.post("/api/figure/{figure_id}/status")
-async def update_figure_status(figure_id: int, status: str = Form(...)):
+def update_figure_status(figure_id: int, status: str = Form(...)):
     """Update figure status (HTMX endpoint)."""
     logger.info("figure status figure_id=%d -> %s", figure_id, status)
     session = get_session()
-    figure = session.get(Figure, figure_id)
-    if figure:
-        figure.status = status
-        session.add(figure)
-        session.commit()
-        logger.info("figure status updated figure_id=%d status=%s", figure_id, status)
+    try:
+        figure = session.get(Figure, figure_id)
+        if figure:
+            figure.status = status
+            session.add(figure)
+            session.commit()
+            logger.info("figure status updated figure_id=%d status=%s", figure_id, status)
+    finally:
+        session.close()
     return RedirectResponse(url="/images", status_code=303)
 
 
 @router.post("/api/figures/bulk-reject")
-async def bulk_reject_figures(figure_ids: list[int] = Form(default=[])):
+def bulk_reject_figures(figure_ids: list[int] = Form(default=[])):
     """Bulk reject multiple figures at once."""
     logger.info("bulk reject ids=%s", figure_ids)
     session = get_session()
-    rejected = 0
-    for fid in figure_ids:
-        figure = session.get(Figure, fid)
-        if figure:
-            figure.status = "rejected"
-            session.add(figure)
-            rejected += 1
-    session.commit()
-    logger.info("bulk reject done count=%d", rejected)
+    try:
+        rejected = 0
+        for fid in figure_ids:
+            figure = session.get(Figure, fid)
+            if figure:
+                figure.status = "rejected"
+                session.add(figure)
+                rejected += 1
+        session.commit()
+        logger.info("bulk reject done count=%d", rejected)
+    finally:
+        session.close()
     return RedirectResponse(url="/images", status_code=303)
 
 
 @router.post("/api/task/{task_id}/difficulty")
-async def update_task_difficulty(
+def update_task_difficulty(
     task_id: int,
     difficulty: str = Form(...),
     qwen: int = Form(0),
@@ -811,7 +1005,7 @@ async def update_task_difficulty(
 
 
 @router.post("/api/task/{task_id}/submit")
-async def submit_task(task_id: int):
+def submit_task(task_id: int):
     """Mark task as submitted (HTMX endpoint)."""
     logger.info("task submit task_id=%d", task_id)
     from ..tracking import mark_submitted
@@ -820,7 +1014,7 @@ async def submit_task(task_id: int):
 
 
 @router.post("/api/task/{task_id}/rhea")
-async def update_rhea(
+def update_rhea(
     request: Request,
     task_id: int,
     rhea_reviewed: bool = Form(False),
@@ -830,19 +1024,22 @@ async def update_rhea(
     """Update Rhea review status (HTMX endpoint)."""
     logger.info("task rhea task_id=%d reviewed=%s passed=%s", task_id, rhea_reviewed, rhea_passed)
     session = get_session()
-    task = session.get(Task, task_id)
-    if task:
-        task.rhea_reviewed = rhea_reviewed
-        task.rhea_passed = rhea_passed
-        task.rhea_notes = rhea_notes
-        session.add(task)
-        session.commit()
-        logger.info("task rhea updated task_id=%d", task_id)
+    try:
+        task = session.get(Task, task_id)
+        if task:
+            task.rhea_reviewed = rhea_reviewed
+            task.rhea_passed = rhea_passed
+            task.rhea_notes = rhea_notes
+            session.add(task)
+            session.commit()
+            logger.info("task rhea updated task_id=%d", task_id)
+    finally:
+        session.close()
     return RedirectResponse(url=f"/task/{task_id}", status_code=303)
 
 
 @router.post("/api/task/{task_id}/rhea-override")
-async def save_rhea_override(
+def save_rhea_override(
     request: Request,
     task_id: int,
     rhea_override_notes: str = Form(...),
@@ -855,11 +1052,14 @@ async def save_rhea_override(
     """
     logger.info("task rhea override task_id=%d passed=%s notes_len=%d", task_id, rhea_passed, len(rhea_override_notes))
     session = get_session()
-    task = session.get(Task, task_id)
-    if task:
-        task.rhea_override_notes = rhea_override_notes
-        task.rhea_passed = rhea_passed
-        session.add(task)
-        session.commit()
-        logger.info("task rhea override saved task_id=%d", task_id)
+    try:
+        task = session.get(Task, task_id)
+        if task:
+            task.rhea_override_notes = rhea_override_notes
+            task.rhea_passed = rhea_passed
+            session.add(task)
+            session.commit()
+            logger.info("task rhea override saved task_id=%d", task_id)
+    finally:
+        session.close()
     return RedirectResponse(url=f"/task/{task_id}", status_code=303)

@@ -1,7 +1,11 @@
 """Tests for AI draft response parser — locks in think-tag handling."""
 
 import json
-from arxiv_manager.authoring.ai_draft import _parse_llm_response
+from arxiv_manager.authoring.ai_draft import (
+    _parse_llm_response,
+    _parse_critique_response,
+    _extract_reasoning,
+)
 
 
 def test_parses_clean_json():
@@ -119,3 +123,96 @@ def test_parses_partial_json_only_q_and_a():
     assert r["answer"] == "5"
     assert r["answer_format"] == "number"
     assert r["task_type"] == "chart"
+
+
+# ─── _extract_reasoning ──────────────────────────────────────────────
+
+
+def test_extract_reasoning_think_block():
+    """<think> block is extracted and removed from text."""
+    from arxiv_manager.authoring.ai_draft import _extract_reasoning
+    cleaned, reasoning = _extract_reasoning(
+        "<think>I need to count the bars.</think>{\"question\": \"Q?\", \"answer\": \"3\"}"
+    )
+    assert reasoning == "I need to count the bars."
+    assert "<think>" not in cleaned
+    assert "Q?" in cleaned
+
+
+def test_extract_reasoning_no_think():
+    """No <think> block returns empty reasoning."""
+    cleaned, reasoning = _extract_reasoning('{"question": "Q?", "answer": "3"}')
+    assert reasoning == ""
+    assert cleaned == '{"question": "Q?", "answer": "3"}'
+
+
+def test_extract_reasoning_multiple_think_blocks():
+    """Multiple <think> blocks are extracted and concatenated."""
+    cleaned, reasoning = _extract_reasoning(
+        "<think>First thought.</think>{\"q\":1}<think>Second thought.</think>"
+    )
+    assert "First thought." in reasoning
+    assert "Second thought." in reasoning
+
+
+def test_extract_reasoning_empty_input():
+    """Empty string returns empty tuple."""
+    cleaned, reasoning = _extract_reasoning("")
+    assert reasoning == ""
+    assert cleaned == ""
+
+
+# ─── _parse_critique_response ────────────────────────────────────────
+
+
+def test_parse_critique_valid():
+    """Valid critique response with score and rewrite."""
+    text = '{"score": 2, "rewrite_question": "Harder Q?", "rewrite_answer": "7"}'
+    r = _parse_critique_response(text)
+    assert r is not None
+    assert r["score"] == 2
+    assert r["rewrite_question"] == "Harder Q?"
+    assert r["rewrite_answer"] == "7"
+
+
+def test_parse_critique_missing_score():
+    """Missing score key returns None."""
+    text = '{"rewrite_question": "Q?", "rewrite_answer": "A"}'
+    r = _parse_critique_response(text)
+    assert r is None
+
+
+def test_parse_critique_empty():
+    """Empty input returns None."""
+    r = _parse_critique_response("")
+    assert r is None
+
+
+def test_parse_critique_with_think():
+    """Think block stripped before parsing critique."""
+    text = "<think>This is easy.</think>{\"score\": 4, \"rewrite_question\": \"\", \"rewrite_answer\": \"\"}"
+    r = _parse_critique_response(text)
+    assert r is not None
+    assert r["score"] == 4
+    assert "_reasoning_trace" in r
+    assert r["_reasoning_trace"] == "This is easy."
+
+
+# ─── _parse_llm_response with raw_text ───────────────────────────────
+
+
+def test_parse_llm_response_returns_raw_response_key():
+    """_raw_response key is present in parsed result."""
+    text = '{"question": "Q?", "answer": "A", "answer_format": "word", "task_type": "chart"}'
+    r = _parse_llm_response(text, raw_text=text)
+    assert r is not None
+    assert r["_raw_response"] == text
+
+
+def test_parse_llm_response_returns_reasoning_trace():
+    """_reasoning_trace key is present when think block exists."""
+    text = "<think>Count the bars.</think>{\"question\": \"Q?\", \"answer\": \"3\", \"answer_format\": \"number\", \"task_type\": \"chart\"}"
+    r = _parse_llm_response(text, raw_text=text)
+    assert r is not None
+    assert r["_reasoning_trace"] == "Count the bars."
+    assert r["answer"] == "3"

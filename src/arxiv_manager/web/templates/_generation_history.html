@@ -1,0 +1,56 @@
+{% if attempts %}
+<div class="space-y-3">
+{% for a in attempts %}
+  {% set q_score = a.validation_quality %}
+  <div class="border rounded-lg p-3 {% if q_score >= 80 %}border-green-200 bg-green-50{% elif q_score >= 50 %}border-yellow-200 bg-yellow-50{% else %}border-red-200 bg-red-50{% endif %}">
+    <div class="flex items-center gap-2 text-xs text-gray-500 mb-1 flex-wrap">
+      <span class="font-medium text-gray-700 px-1.5 py-0.5 rounded bg-white/60 text-xs">{{ a.generation_type }}</span>
+      {% if a.difficulty %}
+      <span class="px-1.5 py-0.5 rounded text-xs
+        {% if a.difficulty == 'hardest' %}bg-red-100 text-red-700
+        {% elif a.difficulty == 'challenging' %}bg-yellow-100 text-yellow-700
+        {% elif a.difficulty == 'easy' %}bg-green-100 text-green-700
+        {% else %}bg-gray-100 text-gray-600{% endif %}">{{ a.difficulty }}</span>
+      {% endif %}
+      {% if a.model_name %}
+      <span class="text-gray-400">{{ a.model_name }}</span>
+      {% endif %}
+      {% if a.prompt_version_id %}
+      <span class="text-gray-300 font-mono text-[10px]" title="{{ a.prompt_version_id }}">{{ a.prompt_version_id[:20] }}</span>
+      {% endif %}
+      <span class="ml-auto text-gray-400">{{ a.created_at | default('') }}</span>
+    </div>
+
+    <p class="text-sm font-medium text-gray-900">{{ a.generated_question[:150] }}{% if a.generated_question|length > 150 %}...{% endif %}</p>
+
+    <div class="flex items-center gap-2 mt-1.5">
+      <span class="text-sm text-gray-600">Answer: <strong class="text-gray-900">{{ a.generated_answer }}</strong></span>
+      <span class="text-xs px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">{{ a.generated_answer_format }}</span>
+      {% if q_score > 0 %}
+      <span class="ml-auto text-sm font-bold {% if q_score >= 80 %}text-green-600{% elif q_score >= 50 %}text-yellow-600{% else %}text-red-600{% endif %}">{{ "%.0f"|format(q_score) }}/100</span>
+      {% endif %}
+    </div>
+
+    {% if a.errors %}
+    <div class="mt-1.5 text-xs text-red-600 space-y-0.5">
+      {% for e in a.errors[:2] %}
+      <div>❌ {{ e[:120] }}</div>
+      {% endfor %}
+      {% if a.errors|length > 2 %}
+      <div class="text-gray-400">+ {{ a.errors|length - 2 }} more errors</div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if a.reasoning_trace %}
+    <details class="mt-1.5">
+      <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">Reasoning trace</summary>
+      <pre class="text-xs text-gray-500 mt-1 p-2 bg-white/50 rounded max-h-24 overflow-y-auto">{{ a.reasoning_trace[:300] }}</pre>
+    </details>
+    {% endif %}
+  </div>
+{% endfor %}
+</div>
+{% else %}
+<p class="text-gray-400 text-sm text-center py-8">No previous generations recorded for this figure.</p>
+{% endif %}

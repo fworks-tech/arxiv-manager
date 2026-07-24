@@ -21,37 +21,39 @@ def create_task(
     from ..models import Figure
 
     session = get_session()
+    try:
+        # Auto-generate title from caption if not provided
+        if not title:
+            figure = session.get(Figure, figure_id)
+            if figure and figure.caption:
+                title = figure.caption[:60].strip()
+            else:
+                title = question[:60].strip()
 
-    # Auto-generate title from caption if not provided
-    if not title:
-        figure = session.get(Figure, figure_id)
-        if figure and figure.caption:
-            title = figure.caption[:60].strip()
-        else:
-            title = question[:60].strip()
+        # Auto-set image_path from figure if not provided
+        if not image_path:
+            figure = session.get(Figure, figure_id)
+            if figure:
+                image_path = figure.image_path
 
-    # Auto-set image_path from figure if not provided
-    if not image_path:
-        figure = session.get(Figure, figure_id)
-        if figure:
-            image_path = figure.image_path
-
-    task = Task(
-        figure_id=figure_id,
-        title=title,
-        image_path=image_path,
-        question=question.strip(),
-        answer=answer.strip(),
-        answer_format=answer_format,
-        task_type=task_type,
-        domain=domain,
-        ai_generated=ai_generated,
-        status=TaskStatus.DRAFT.value,
-    )
-    session.add(task)
-    session.commit()
-    session.refresh(task)
-    return task
+        task = Task(
+            figure_id=figure_id,
+            title=title,
+            image_path=image_path,
+            question=question.strip(),
+            answer=answer.strip(),
+            answer_format=answer_format,
+            task_type=task_type,
+            domain=domain,
+            ai_generated=ai_generated,
+            status=TaskStatus.DRAFT.value,
+        )
+        session.add(task)
+        session.commit()
+        session.refresh(task)
+        return task
+    finally:
+        session.close()
 
 
 def update_task(task_id: int, **kwargs) -> Task | None:
@@ -59,25 +61,31 @@ def update_task(task_id: int, **kwargs) -> Task | None:
     from ..db import get_session
 
     session = get_session()
-    task = session.get(Task, task_id)
-    if not task:
-        return None
+    try:
+        task = session.get(Task, task_id)
+        if not task:
+            return None
 
-    for key, value in kwargs.items():
-        if hasattr(task, key):
-            setattr(task, key, value)
+        for key, value in kwargs.items():
+            if hasattr(task, key):
+                setattr(task, key, value)
 
-    session.add(task)
-    session.commit()
-    session.refresh(task)
-    return task
+        session.add(task)
+        session.commit()
+        session.refresh(task)
+        return task
+    finally:
+        session.close()
 
 
 def get_task(task_id: int) -> Task | None:
     """Get a task by ID."""
     from ..db import get_session
     session = get_session()
-    return session.get(Task, task_id)
+    try:
+        return session.get(Task, task_id)
+    finally:
+        session.close()
 
 
 def list_tasks(status: str | None = None, limit: int = 50) -> list[Task]:
@@ -86,8 +94,11 @@ def list_tasks(status: str | None = None, limit: int = 50) -> list[Task]:
     from sqlmodel import select
 
     session = get_session()
-    query = select(Task)
-    if status:
-        query = query.where(Task.status == status)
-    query = query.order_by(Task.created_at.desc()).limit(limit)
-    return list(session.exec(query).all())
+    try:
+        query = select(Task)
+        if status:
+            query = query.where(Task.status == status)
+        query = query.order_by(Task.created_at.desc()).limit(limit)
+        return list(session.exec(query).all())
+    finally:
+        session.close()

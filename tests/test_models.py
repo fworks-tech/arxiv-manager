@@ -1,6 +1,6 @@
 """Tests for model instantiation and defaults."""
 
-from arxiv_manager.models import Task, Figure, Paper, ImageStatus, TaskStatus
+from arxiv_manager.models import Task, Figure, Paper, ImageStatus, TaskStatus, GenerationAttempt
 
 
 def test_task_defaults():
@@ -91,3 +91,49 @@ def test_task_status_enum():
     """TaskStatus enum values match expected string values."""
     assert TaskStatus.DRAFT == "draft"
     assert TaskStatus.SUBMITTED == "submitted"
+
+
+# ─── GenerationAttempt ───────────────────────────────────────────────
+
+
+def test_generation_attempt_defaults():
+    """GenerationAttempt() with minimum fields has sensible defaults."""
+    a = GenerationAttempt(figure_id=1)
+    assert a.figure_id == 1
+    assert a.task_id is None
+    assert a.attempt_number == 0
+    assert a.generation_type == ""
+    assert a.prompt_text_hash == ""
+    assert a.prompt_version_id == ""
+    assert a.success is False
+    assert a.validation_quality == 0.0
+
+
+def test_generation_attempt_custom_values():
+    """GenerationAttempt stores custom values including new prompt fields."""
+    a = GenerationAttempt(
+        figure_id=1,
+        task_id=2,
+        attempt_number=3,
+        generation_type="draft",
+        prompt_template_name="CHALLENGING_PROMPT",
+        prompt_text_hash="a1b2c3d4e5f6a1b2c3d4",
+        prompt_version_id="CHALLENGING_PROMPT@a1b2c3d4e5f6",
+        difficulty="challenging",
+        success=True,
+        validation_quality=90.0,
+    )
+    assert a.figure_id == 1
+    assert a.task_id == 2
+    assert a.attempt_number == 3
+    assert a.prompt_text_hash == "a1b2c3d4e5f6a1b2c3d4"
+    assert a.prompt_version_id == "CHALLENGING_PROMPT@a1b2c3d4e5f6"
+    assert a.success is True
+    assert a.validation_quality == 90.0
+
+
+def test_generation_attempt_nullable_figure_id():
+    """figure_id and task_id are nullable for draft-before-propose flow."""
+    a = GenerationAttempt()
+    assert a.figure_id is None
+    assert a.task_id is None

@@ -586,3 +586,41 @@ class TestEdgeCases:
             data={"status": "rejected"},
         )
         assert resp.status_code in (200, 303, 302)
+
+
+# ─── Generation History ──────────────────────────────────────────────
+
+
+class TestGenerationHistory:
+    def test_history_not_found(self, test_client):
+        """GET /api/task/99999/history returns 404 for non-existent task."""
+        resp = test_client.get("/api/task/99999/history")
+        assert resp.status_code == 404
+
+    def test_history_empty(self, test_client, sample_task):
+        """History for a task with no attempts returns empty-state partial."""
+        resp = test_client.get(f"/api/task/{sample_task.id}/history")
+        assert resp.status_code == 200
+        assert "No previous generations" in resp.text
+
+    def test_history_with_attempts(self, test_client, sample_task, sample_figure, db_session):
+        """History renders attempt records when they exist."""
+        from arxiv_manager.models import GenerationAttempt
+        db_session.add(GenerationAttempt(
+            figure_id=sample_figure.id,
+            task_id=sample_task.id,
+            generation_type="draft",
+            difficulty="challenging",
+            generated_question="Test historical question?",
+            generated_answer="42",
+            validation_quality=85.0,
+            success=True,
+            model_name="minimax-m3",
+        ))
+        db_session.commit()
+        resp = test_client.get(f"/api/task/{sample_task.id}/history")
+        assert resp.status_code == 200
+        assert "Test historical question?" in resp.text
+        assert "draft" in resp.text
+        assert "challenging" in resp.text
+        assert "42" in resp.text

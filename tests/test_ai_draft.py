@@ -126,3 +126,101 @@ def test_verify_draft_no_key(sample_image_chart_path, mock_no_api_key):
     )
     # Falls back to the original draft (no verification possible)
     assert result == original
+
+
+def test_verify_draft_returns_original_dict(sample_image_chart_path, mock_no_api_key):
+    """verify_draft returns the same dict object (not a copy) when no API key."""
+    original = {"question": "Q?", "answer": "A", "answer_format": "word", "task_type": "chart"}
+    result = verify_draft(
+        image_path=sample_image_chart_path,
+        draft=original,
+        provider="opencode",
+        api_key=None,
+    )
+    assert result is original
+
+
+def test_draft_qa_figure_id_passthrough(sample_image_chart_path, mock_api_key, monkeypatch):
+    """draft_qa accepts figure_id without error."""
+    from arxiv_manager.authoring.ai_draft import draft_qa
+
+    def fake_call(*a, **kw):
+        return {"question": "Q?", "answer": "5", "answer_format": "number", "task_type": "chart"}
+
+    import arxiv_manager.authoring.ai_draft as draft_mod
+    monkeypatch.setattr(draft_mod, "_call_opencode", fake_call)
+
+    result = draft_qa(
+        image_path=sample_image_chart_path,
+        provider="opencode",
+        api_key="test-key",
+        difficulty="easy",
+        figure_id=42,
+    )
+    assert result is not None
+    assert result["question"] == "Q?"
+    assert result["answer"] == "5"
+
+
+def test_draft_qa_includes_prompt_version_in_dict(sample_image_chart_path, mock_api_key, monkeypatch):
+    """draft_qa returns _prompt_version_id and _prompt_text_hash in the dict."""
+    from arxiv_manager.authoring.ai_draft import draft_qa
+
+    def fake_call(*a, **kw):
+        return {"question": "Q?", "answer": "5", "answer_format": "number", "task_type": "chart"}
+
+    import arxiv_manager.authoring.ai_draft as draft_mod
+    monkeypatch.setattr(draft_mod, "_call_opencode", fake_call)
+
+    result = draft_qa(
+        image_path=sample_image_chart_path,
+        provider="opencode",
+        api_key="test-key",
+        difficulty="easy",
+    )
+    assert result is not None
+    assert "_prompt_version_id" in result
+    assert "_prompt_text_hash" in result
+    assert result["_prompt_version_id"].startswith("EASY_PROMPT@")
+
+
+def test_draft_qa_prompt_template_selection(sample_image_chart_path, mock_api_key, monkeypatch):
+    """draft_qa selects correct prompt template per difficulty."""
+    from arxiv_manager.authoring.ai_draft import draft_qa
+
+    captured = []
+
+    def fake_call(*a, **kw):
+        captured.append(True)
+        return {"question": "Q?", "answer": "5", "answer_format": "number", "task_type": "chart"}
+
+    import arxiv_manager.authoring.ai_draft as draft_mod
+    monkeypatch.setattr(draft_mod, "_call_opencode", fake_call)
+
+    result = draft_qa(
+        image_path=sample_image_chart_path,
+        provider="opencode",
+        api_key="test-key",
+        difficulty="hardest",
+        figure_type="chart_graph_text",
+    )
+    assert result is not None
+    assert len(captured) == 1
+    assert "_prompt_version_id" in result
+    assert result["_prompt_version_id"].startswith("HARDEST_PROMPT@")
+
+
+def test_parse_critique_response_valid_critique():
+    """_parse_critique_response accepts the critique format."""
+    from arxiv_manager.authoring.ai_draft import _parse_critique_response
+    text = '{"score": 3, "rewrite_question": "Rewrite Q?", "rewrite_answer": "7"}'
+    result = _parse_critique_response(text)
+    assert result is not None
+    assert result["score"] == 3
+    assert result["rewrite_question"] == "Rewrite Q?"
+
+
+def test_parse_critique_response_none_for_empty():
+    """_parse_critique_response returns None for empty input."""
+    from arxiv_manager.authoring.ai_draft import _parse_critique_response
+    assert _parse_critique_response("") is None

@@ -97,7 +97,7 @@ def tmp_db_path(tmp_path):
 @pytest.fixture
 def db_engine(tmp_db_path):
     """Creates a file-based SQLite engine with all tables (thread-safe)."""
-    from arxiv_manager.models import Task, Figure, Paper
+    from arxiv_manager.models import Task, Figure, Paper, GenerationAttempt
     engine = create_engine(f"sqlite:///{tmp_db_path}", echo=False, connect_args={"check_same_thread": False})
     SQLModel.metadata.create_all(engine)
     return engine
@@ -119,7 +119,7 @@ def sample_figure(db_session):
     from arxiv_manager.models import Figure
     fig = Figure(
         paper_id="9999.99999",
-        page=1,
+        page_num=1,
         width=600,
         height=400,
         figure_type="chart_graph_text",

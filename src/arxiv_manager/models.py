@@ -131,3 +131,65 @@ class SubmissionLog(SQLModel, table=True):
     submitted_at: datetime = Field(default_factory=datetime.now)
     review_status: str = "pending"  # pending | approved | rework
     reviewer_notes: str = ""
+
+
+class GenerationAttempt(SQLModel, table=True):
+    """Records every Q&A generation attempt for traceability and learning.
+
+    Links to the figure (always) and optionally to the resulting task.
+    The parent_attempt_id field builds iteration trees (draft → critique → regen).
+    """
+    __tablename__ = "generation_attempts"
+
+    id: int | None = Field(default=None, primary_key=True)
+    figure_id: int | None = Field(default=None, foreign_key="figures.id", index=True)
+    task_id: int | None = Field(default=None, foreign_key="tasks.id", index=True)
+    parent_attempt_id: int | None = Field(default=None, foreign_key="generation_attempts.id")
+
+    attempt_number: int = 0
+    generation_type: str = ""  # draft | critique | verify | regen | consensus
+    source_route: str = ""     # which endpoint triggered it: api_draft_qa | api_regenerate_task | cli
+
+    # Prompt context
+    prompt_template_name: str = ""
+    prompt_text: str = ""
+    prompt_text_hash: str = ""      # SHA-256 of the final assembled prompt, first 20 chars
+    prompt_version_id: str = ""     # e.g. "CHALLENGING_PROMPT@a1b2c3d4e5f6"
+    difficulty: str = ""
+    figure_type: str = ""
+    complexity_score: float = 0.0
+    previous_question: str = ""
+    feedback_text: str = ""
+
+    # Model parameters
+    model_name: str = ""
+    max_tokens: int = 0
+    timeout_s: int = 0
+
+    # Raw model output
+    raw_response: str = ""
+    reasoning_trace: str = ""  # <think> blocks from models like minimax-m3
+
+    # Parsed output
+    generated_question: str = ""
+    generated_answer: str = ""
+    generated_answer_format: str = ""
+    generated_task_type: str = ""
+
+    # Validation result
+    validation_quality: float = 0.0
+    validation_is_valid: bool = False
+    validation_errors: str = ""     # JSON list
+    validation_warnings: str = ""   # JSON list
+
+    # Self-critique result (for critique/regen flows)
+    critique_score: int = 0
+    critique_rewrite_question: str = ""
+    critique_rewrite_answer: str = ""
+
+    # Outcome
+    success: bool = False
+    error_message: str = ""
+    elapsed_ms: int = 0
+
+    created_at: datetime = Field(default_factory=datetime.now)

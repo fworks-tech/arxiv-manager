@@ -709,7 +709,7 @@ def create_task(
                 figure.full_path, caption=figure.caption, provider="opencode",
                 api_key=os.environ.get("OPENCODE_API_KEY"), difficulty=difficulty,
                 figure_type=figure.figure_type, complexity_score=figure.complexity_score,
-                model=model,
+                model=model, figure_id=figure.id,
             )
         if draft:
             console.print(f"[green]AI drafted:[/]\n  Q: {draft['question']}\n  A: {draft['answer']}")
@@ -825,6 +825,7 @@ def validate_existing(
             figure_type=figure.figure_type,
             complexity_score=figure.complexity_score,
             model=model,
+            figure_id=figure.id,
         )
 
         if draft:
@@ -1050,6 +1051,7 @@ def create_task_batch(
                 figure_type=fig.figure_type,
                 complexity_score=fig.complexity_score,
                 model=model,
+                figure_id=fig.id,
             )
 
         if not draft:
@@ -1099,6 +1101,147 @@ def create_task_batch(
 
     session.commit()
     console.print(f"[bold green]Done. {submitted}/{len(candidates)} tasks created.[/]")
+
+
+# ─── ANALYTICS COMMANDS ──────────────────────────────────────────
+
+
+@task_app.command("analytics")
+def analytics(
+    limit: int = typer.Option(50, "--limit", "-l", help="Recent attempts to analyze"),
+):
+    """Analyze generation attempt history for quality insights.
+
+    Reads the GenerationAttempt table and shows:
+    - Success rate by difficulty, figure_type, generation_type
+    - Average quality by model
+    - Most common validation errors
+    - Best-performing configurations
+    """
+    from sqlmodel import select, desc, func
+    from .db import get_session
+    from .models import GenerationAttempt
+    import json
+
+    session = get_session()
+
+    # Total attempts
+    total = session.exec(select(func.count(GenerationAttempt.id))).one()
+    if total == 0:
+        console.print("[yellow]No generation attempts recorded yet. Generate some Q&A first.[/]")
+        return
+
+    # Recent attempts
+    recent = list(
+        session.exec(
+            select(GenerationAttempt)
+            .order_by(desc(GenerationAttempt.created_at))
+            .limit(limit)
+        ).all()
+    )
+
+    # --- Summary table ---
+    console.print(f"\n[bold]Generation Analytics (last {len(recent)} of {total} attempts)[/]\n")
+
+    # By difficulty
+    diff_table = Table(title="Success Rate by Difficulty")
+    diff_table.add_column("Difficulty", style="cyan")
+    diff_table.add_column("Attempts", justify="right")
+    diff_table.add_column("Success", justify="right")
+    diff_table.add_column("Avg Quality", justify="right")
+    diff_by_diff: dict[str, list[float]] = {}
+    for r in recent:
+        d = r.difficulty or "unknown"
+        diff_by_diff.setdefault(d, []).append(1.0 if r.success else 0.0)
+    for d, scores in sorted(diff_by_diff.items()):
+        ok = sum(scores)
+        total_d = len(scores)
+        # Compute avg quality for successful attempts
+        qualities = [r.validation_quality for r in recent if r.difficulty == d and r.validation_quality > 0]
+        avg_q = sum(qualities) / len(qualities) if qualities else 0
+        diff_table.add_row(d, str(total_d), f"{ok:.0f}/{total_d}", f"{avg_q:.1f}")
+    console.print(diff_table)
+
+    # By model
+    model_table = Table(title="Performance by Model")
+    model_table.add_column("Model", style="cyan")
+    model_table.add_column("Attempts", justify="right")
+    model_table.add_column("Avg Quality", justify="right")
+    by_model: dict[str, list[float]] = {}
+    for r in recent:
+        m = r.model_name or "unknown"
+        by_model.setdefault(m, [])
+        if r.validation_quality > 0:
+            by_model[m].append(r.validation_quality)
+    for m, qs in sorted(by_model.items()):
+        avg_q = sum(qs) / len(qs) if qs else 0
+        model_table.add_row(m, str(len(qs)), f"{avg_q:.1f}")
+    console.print(model_table)
+
+    # By figure_type
+    ft_table = Table(title="Success Rate by Figure Type")
+    ft_table.add_column("Figure Type", style="cyan")
+    ft_table.add_column("Attempts", justify="right")
+    ft_table.add_column("Avg Quality", justify="right")
+    by_ft: dict[str, list[float]] = {}
+    for r in recent:
+        ft = r.figure_type or "unknown"
+        by_ft.setdefault(ft, [])
+        if r.validation_quality > 0:
+            by_ft[ft].append(r.validation_quality)
+    for ft, qs in sorted(by_ft.items()):
+        avg_q = sum(qs) / len(qs) if qs else 0
+        ft_table.add_row(ft, str(len(qs)), f"{avg_q:.1f}")
+    console.print(ft_table)
+
+    # Most common validation errors
+    error_counts: dict[str, int] = {}
+    for r in recent:
+        if r.validation_errors and r.validation_errors != "[]":
+            try:
+                errs = json.loads(r.validation_errors)
+                for e in errs:
+                    error_counts[e] = error_counts.get(e, 0) + 1
+            except json.JSONDecodeError:
+                pass
+    if error_counts:
+        err_table = Table(title="Most Common Validation Errors")
+        err_table.add_column("Error", style="red")
+        err_table.add_column("Count", justify="right")
+        for e, cnt in sorted(error_counts.items(), key=lambda x: -x[1])[:10]:
+            err_table.add_row(e[:80], str(cnt))
+        console.print(err_table)
+
+    # Best config recommendation
+    config_scores: dict[tuple[str, str, str], list[float]] = {}
+    for r in recent:
+        if r.validation_quality > 0:
+            key = (r.figure_type or "any", r.difficulty or "any", r.model_name or "any")
+            config_scores.setdefault(key, []).append(r.validation_quality)
+    if config_scores:
+        best = max(config_scores.items(), key=lambda x: sum(x[1]) / len(x[1]))
+        (ft, diff, model), qs = best
+        console.print(f"\n[bold green]Best config:[/] figure_type={ft}, difficulty={diff}, model={model} "
+                      f"(avg quality={sum(qs)/len(qs):.1f}, n={len(qs)})")
+
+    # Low-quality generation examples (for debugging)
+    low_quality = [r for r in recent if 0 < r.validation_quality < 60]
+    if low_quality:
+        console.print(f"\n[yellow]Low-quality generations ({len(low_quality)}):[/]")
+        for r in low_quality[:3]:
+            console.print(f"  Attempt #{r.id}: quality={r.validation_quality:.0f}, "
+                         f"type={r.generation_type}, difficulty={r.difficulty}")
+            if r.generated_question:
+                console.print(f"    Q: {r.generated_question[:80]}")
+            if r.validation_errors and r.validation_errors != "[]":
+                try:
+                    errs = json.loads(r.validation_errors)
+                    for e in errs[:2]:
+                        console.print(f"    ❌ {e}")
+                except json.JSONDecodeError:
+                    pass
+
+    session.close()
 
 
 # ─── WEB SERVER ───────────────────────────────────────────────────
