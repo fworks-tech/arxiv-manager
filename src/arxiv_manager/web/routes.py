@@ -266,7 +266,7 @@ async def api_draft_qa(
         logger.info("draft using self_critique flow difficulty=%s", difficulty)
         draft = draft_with_self_critique(
             image_path=img_path,
-            max_rounds=2,
+            max_rounds=1,
             provider="opencode",
             api_key=api_key,
             difficulty=difficulty,
@@ -681,7 +681,7 @@ async def api_regenerate_task(request: Request, task_id: int, difficulty: str = 
 
     if difficulty in ("challenging", "hardest"):
         draft = draft_with_self_critique(
-            image_path=img_path, max_rounds=2, provider="opencode",
+            image_path=img_path, max_rounds=1, provider="opencode",
             api_key=api_key, difficulty=difficulty,
             figure_type=figure_type, complexity_score=complexity,
         )
