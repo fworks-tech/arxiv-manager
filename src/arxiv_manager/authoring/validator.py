@@ -115,7 +115,7 @@ REASONING_INDICATORS = [
     r"\b(rank|order|sort|compare|relative|ratio|factor)\b",
     r"\b(first|second|third|top|bottom)\b.*\b(first|second|third|top|bottom)\b",
     r"\b(sum|total|average|difference|ratio|factor|proportion)\b",
-    r"\b(larger|smaller|greater|less|fewer)\s+than\b",
+    r"\b(larger|smaller|greater|less|fewer)\b.{0,40}\bthan\b",
     r"\b(magnitude)\b",
 ]
 

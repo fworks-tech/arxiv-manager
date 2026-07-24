@@ -365,3 +365,161 @@ def test_validate_mcq_helper():
         answer_format="word",
     )
     assert result.is_valid
+
+
+# ─── New validator rules (chart anti-patterns, answer-in-question, etc.) ──
+
+
+def test_chart_anti_pattern_tick_labels():
+    """Tick/axis label counting is flagged as error for chart figures."""
+    result = validate_task(
+        "How many tick labels are on the x-axis?",
+        "12", "number",
+        figure_type="chart_graph_text", task_type="chart",
+    )
+    assert not result.is_valid
+    assert any("anti-pattern" in e.lower() for e in result.errors)
+
+
+def test_chart_anti_pattern_colorbar():
+    """Colorbar number counting is flagged as error for chart figures."""
+    result = validate_task(
+        "Count the labeled numbers on the colorbar of Panel A.",
+        "7", "number",
+        figure_type="chart_graph_text", task_type="chart",
+    )
+    assert not result.is_valid
+    assert any("anti-pattern" in e.lower() for e in result.errors)
+
+
+def test_chart_anti_pattern_good_question():
+    """A chart question referencing data values (peaks) passes."""
+    result = validate_task(
+        "What is the difference between the maximum z-axis value in panel A and the minimum in panel B?",
+        "0.7", "number",
+        figure_type="chart_graph_text", task_type="chart",
+    )
+    assert result.is_valid
+    assert result.quality_score >= 90
+
+
+def test_chart_anti_pattern_not_fired_for_general_image():
+    """Chart anti-patterns only fire for chart types, not general images."""
+    result = validate_task(
+        "How many tick marks are on the ruler in the image?",
+        "15", "number",
+        figure_type="general_image", task_type="general_image",
+    )
+    # Should not fire because figure_type != chart
+    assert result.is_valid
+
+
+def test_chart_math_only_ratio_in_text():
+    """Ratio question with data stated inline is flagged."""
+    result = validate_task(
+        "Panel A's surface covers dsc from 0.0 to 1.0 and beta from 1 to 5. "
+        "Panel B's surface covers dsc from 0.0 to 1.0 and beta from -5 to 0. "
+        "What is the ratio of panel B's area to panel A's area?",
+        "1.25", "number",
+        figure_type="chart_graph_text", task_type="chart",
+    )
+    assert not result.is_valid
+    assert any("math" in e.lower() or "image not required" in e.lower() for e in result.errors)
+
+
+def test_chart_math_only_good_ratio():
+    """Ratio question requiring image reading (no inline data) passes."""
+    result = validate_task(
+        "What is the ratio of the absolute minimum weight value shown on "
+        "panel A's colorbar to the maximum weight value shown on panel B's colorbar?",
+        "8", "number",
+        figure_type="chart_graph_text", task_type="chart",
+    )
+    assert result.is_valid
+
+
+def test_answer_in_question_covers_range():
+    """Question listing 'N to M' ranges twice triggers answer-in-question."""
+    result = validate_task(
+        "Panel A ranges from 0 to 10 and panel B ranges from 5 to 15. "
+        "What is the difference between the ranges?",
+        "10", "number",
+        figure_type="chart_graph_text", task_type="chart",
+    )
+    assert not result.is_valid
+    assert any("visual-dependence" in e.lower() for e in result.errors)
+
+
+def test_answer_in_question_clean():
+    """Question without inline data passes answer-in-question check."""
+    result = validate_task(
+        "How many local peaks are visible on the surface in Panel A?",
+        "3", "number",
+        figure_type="chart_graph_text", task_type="chart",
+    )
+    assert result.is_valid
+
+
+def test_generic_count_how_many_in_image():
+    """'How many X are in the image?' without filter is flagged."""
+    result = validate_task(
+        "How many objects are in the image?",
+        "5", "number",
+    )
+    assert not result.is_valid
+    assert any("generic count" in e.lower() for e in result.errors)
+
+
+def test_generic_count_with_filter_passes():
+    """Count with filter/comparison passes generic count check."""
+    result = validate_task(
+        "How many bars exceed a value of 10 in the chart?",
+        "3", "number",
+        figure_type="chart_graph_text", task_type="chart",
+    )
+    # Should NOT match generic count pattern (has filter: 'exceed a value of 10')
+    assert result.is_valid
+
+
+def test_reasoning_factor_recognized():
+    """'factor' is recognized as a reasoning indicator."""
+    result = validate_task(
+        "By what factor is the peak value in panel B larger than the peak value in panel A?",
+        "3.5", "number",
+        figure_type="chart_graph_text", task_type="chart",
+    )
+    assert result.is_valid
+    assert any("multi-step" in c.lower() for c in result.passed_checks)
+
+
+def test_reasoning_larger_than_recognized():
+    """'larger than' is recognized as a reasoning indicator."""
+    result = validate_task(
+        "How much larger is panel A's minimum than panel B's maximum?",
+        "0.5", "number",
+        figure_type="chart_graph_text", task_type="chart",
+    )
+    assert result.is_valid
+    assert any("multi-step" in c.lower() for c in result.passed_checks)
+
+
+def test_reasoning_magnitude_recognized():
+    """'magnitude' is recognized as a reasoning indicator."""
+    result = validate_task(
+        "What is the magnitude of the z-axis range in panel B?",
+        "0.8", "number",
+        figure_type="chart_graph_text", task_type="chart",
+    )
+    assert result.is_valid
+    assert any("multi-step" in c.lower() for c in result.passed_checks)
+
+
+def test_reasoning_ratio_recognized():
+    """'ratio' is recognized as a reasoning indicator."""
+    result = validate_task(
+        "What is the ratio of the minimum to maximum in panel A?",
+        "0.25", "number",
+        figure_type="chart_graph_text", task_type="chart",
+    )
+    assert result.is_valid
+    assert any("multi-step" in c.lower() for c in result.passed_checks)

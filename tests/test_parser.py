@@ -84,3 +84,38 @@ def test_think_does_not_consume_json_braces():
     r = _parse_llm_response(text)
     assert r is not None
     assert r["answer"] == "a"
+
+
+# ─── New lenient parsing (missing optional fields) ──────────────────
+
+
+def test_parses_partial_json_missing_answer_format():
+    """Missing answer_format defaults to 'number'."""
+    text = '{"question": "What is X?", "answer": "42", "task_type": "chart"}'
+    r = _parse_llm_response(text)
+    assert r is not None
+    assert r["question"] == "What is X?"
+    assert r["answer"] == "42"
+    assert r["answer_format"] == "number"
+    assert r["task_type"] == "chart"
+
+
+def test_parses_partial_json_missing_task_type():
+    """Missing task_type defaults to 'chart'."""
+    text = '{"question": "What is Y?", "answer": "7", "answer_format": "number"}'
+    r = _parse_llm_response(text)
+    assert r is not None
+    assert r["answer"] == "7"
+    assert r["answer_format"] == "number"
+    assert r["task_type"] == "chart"
+
+
+def test_parses_partial_json_only_q_and_a():
+    """Only question + answer: both defaults applied."""
+    text = '{"question": "Count the bars?", "answer": "5"}'
+    r = _parse_llm_response(text)
+    assert r is not None
+    assert r["question"] == "Count the bars?"
+    assert r["answer"] == "5"
+    assert r["answer_format"] == "number"
+    assert r["task_type"] == "chart"
