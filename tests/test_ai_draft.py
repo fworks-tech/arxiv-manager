@@ -9,11 +9,11 @@ import pytest
 
 from arxiv_manager.authoring.ai_draft import (
     _get_api_key,
-    _log_draft,
     draft_qa,
     draft_qa_consensus,
     verify_draft,
 )
+from arxiv_manager.authoring._draft_telemetry import log_draft
 
 
 def test_get_api_key_opencode(monkeypatch):
@@ -48,13 +48,13 @@ def test_get_api_key_unknown_provider():
 
 
 def test_log_draft_writes_jsonl(tmp_path):
-    """_log_draft appends a JSONL record to storage/_draft_telemetry.jsonl."""
-    import arxiv_manager.authoring.ai_draft as draft_mod
-    original_path = draft_mod._TELEMETRY_PATH
+    """log_draft appends a JSONL record to storage/_draft_telemetry.jsonl."""
+    import arxiv_manager.authoring._draft_telemetry as tel_mod
+    original_path = tel_mod._TELEMETRY_PATH
     test_path = tmp_path / "_draft_telemetry.jsonl"
-    draft_mod._TELEMETRY_PATH = test_path
+    tel_mod._TELEMETRY_PATH = test_path
     try:
-        _log_draft(
+        log_draft(
             model="test-model",
             ok=True,
             elapsed=1.5,
@@ -71,18 +71,18 @@ def test_log_draft_writes_jsonl(tmp_path):
         assert record["elapsed_s"] == 1.5
         assert record["difficulty"] == "challenging"
     finally:
-        draft_mod._TELEMETRY_PATH = original_path
+        tel_mod._TELEMETRY_PATH = original_path
 
 
 def test_log_draft_handles_error(tmp_path):
-    """_log_draft truncates error to 100 chars."""
-    import arxiv_manager.authoring.ai_draft as draft_mod
-    original_path = draft_mod._TELEMETRY_PATH
+    """log_draft truncates error to 100 chars."""
+    import arxiv_manager.authoring._draft_telemetry as tel_mod
+    original_path = tel_mod._TELEMETRY_PATH
     test_path = tmp_path / "_draft_telemetry.jsonl"
-    draft_mod._TELEMETRY_PATH = test_path
+    tel_mod._TELEMETRY_PATH = test_path
     try:
         long_error = "x" * 200
-        _log_draft(
+        log_draft(
             model="test", ok=False, elapsed=2.0,
             difficulty="easy", figure_type="", figure_path="/tmp/t.png",
             error=long_error,
@@ -90,7 +90,7 @@ def test_log_draft_handles_error(tmp_path):
         record = json.loads(test_path.read_text().strip())
         assert len(record["error"]) == 100
     finally:
-        draft_mod._TELEMETRY_PATH = original_path
+        tel_mod._TELEMETRY_PATH = original_path
 
 
 def test_draft_qa_no_key(sample_image_chart_path, mock_no_api_key):
