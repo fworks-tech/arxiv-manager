@@ -180,6 +180,20 @@ GENERIC_COUNT_PATTERNS = [
     r"^count\s+(?:the\s+)?(?:total\s+)?(?:number\s+of\s+)?[\w\s]+(?:in|across)\s+(?:the\s+)?(?:image|figure|chart|diagram)\s*[\?\.]?$",
 ]
 
+# "Answer-in-question" anti-pattern: the question provides specific numerical
+# data (axis ranges, peak values) that the answer can be computed from WITHOUT
+# the image. This is the visual-dependence failure mode.
+ANSWER_IN_QUESTION_PATTERNS = [
+    # "X covers/ranges/spans N to M; Y covers N to M" (two range statements in one question)
+    r"\b\w+\s+(?:covers|ranges|spans|goes)\s+(?:\w+\s+)?(?:from\s+)?-?\d+(?:\.\d+)?\s*(?:to|-)\s*-?\d+(?:\.\d+)?\b.*\b\w+\s+(?:covers|ranges|spans|goes)\s+(?:\w+\s+)?(?:from\s+)?-?\d+(?:\.\d+)?\s*(?:to|-)\s*-?\d+(?:\.\d+)?",
+    # "axis X from N to M and axis Y from N to M"
+    r"\baxis\s+\w+\s+(?:from\s+)?-?\d+(?:\.\d+)?\s*(?:to|-)\s*-?\d+(?:\.\d+)?\s*(?:and|,).{0,40}(?:from\s+)?-?\d+(?:\.\d+)?\s*(?:to|-)\s*-?\d+(?:\.\d+)?",
+    # "values are N, M, K" (explicit value listing)
+    r"\b(?:values?|scores?|numbers?)\s+(?:are|of|=)\s+-?\d+(?:\.\d+)?\s*(?:,|and|;)\s*-?\d+(?:\.\d+)?\s*(?:,|and|;)\s*-?\d+(?:\.\d+)?",
+    # Generic "X is N, Y is M" pattern with multiple values
+    r"\b\w+\s+is\s+-?\d+(?:\.\d+)?\s*(?:,|;|and)\s*\w+\s+is\s+-?\d+(?:\.\d+)?\s*(?:,|;|and)\s*\w+\s+is\s+-?\d+(?:\.\d+)?",
+]
+
 # Spatial reasoning patterns (general image type)
 SPATIAL_PATTERNS = [
     r"\bto the (?:left|right) of\b",
@@ -408,6 +422,14 @@ def validate_task(
             "Question is a generic count ('How many X in the image?') without a filter, comparison, or arithmetic — too easy for Qwen"
         )
 
+    # --- Rule 12d: Chart math-only check (no visual element required) ---
+    if figure_type in ("chart_graph_text", "chart") or task_type == "chart":
+        if _is_chart_math_only(q):
+            result.errors.append(
+                "Chart question is pure math (ratio/difference of values stated in text) — the image is not required. "
+                "Rewrite to ask about a SPECIFIC visual element (peak, trough, color region, data point) that requires reading the chart"
+            )
+
     # --- Rule 13: Answer derivability ---
     if _answer_seems_derivable(q, a):
         result.passed_checks.append("Answer appears derivable from question")
@@ -457,6 +479,13 @@ def validate_task(
         result.warnings.append("Test 2 WARNING: Answer may be subjective / two reasonable people could give different answers")
     else:
         result.passed_checks.append("Passes one-answer test (handbook §3)")
+
+    # --- Rule 20b: Answer-in-question check (visual-dependence) ---
+    if _has_answer_in_question(q, a):
+        result.errors.append(
+            "Question provides the data needed to compute the answer in the text (visual-dependence failure). "
+            "Rewrite so the image is REQUIRED — ask about a SPECIFIC visual element (peak, region, color), not a math operation on values stated in the question"
+        )
 
     # --- Rule 21: Math-heavy (handbook common error) ---
     if any(re.search(p, q, re.IGNORECASE) for p in MATH_HEAVY_PATTERNS):
@@ -679,6 +708,62 @@ def _is_generic_count_question(q: str) -> bool:
         if re.match(pattern, q_stripped):
             return True
     return False
+
+
+def _has_answer_in_question(q: str, a: str) -> bool:
+    """Detect if the question provides the data needed to compute the answer
+    in the text itself (visual-dependence failure).
+
+    Pattern: question lists specific numerical values (axis ranges, peaks, etc.)
+    that are sufficient to derive the answer without the image.
+    """
+    q_lower = q.lower()
+    if not any(re.search(p, q_lower) for p in ANSWER_IN_QUESTION_PATTERNS):
+        return False
+    # Additional check: if answer is a simple ratio/difference of two numbers
+    # in the question, it's almost certainly answerable from text alone
+    numbers = re.findall(r"-?\d+(?:\.\d+)?", q)
+    if len(numbers) >= 2:
+        try:
+            nums = [float(n) for n in numbers]
+            # Check if any simple operation on the numbers in the question gives the answer
+            ans = float(a.strip())
+            for n1 in nums:
+                for n2 in nums:
+                    if n2 != 0 and abs(n1 / n2 - ans) < 0.01 * abs(ans) + 0.01:
+                        return True
+                    if abs(n1 - n2 - ans) < 0.01 * abs(ans) + 0.01:
+                        return True
+                    if abs(n1 + n2 - ans) < 0.01 * abs(ans) + 0.01:
+                        return True
+        except (ValueError, ZeroDivisionError):
+            pass
+    return True  # Pattern matched, assume answer is in question
+
+
+def _is_chart_math_only(q: str) -> bool:
+    """Detect chart questions that are pure math (no visual reading required).
+
+    These are ratio/difference/sum questions on values stated in the text,
+    where the image is not needed to answer.
+    """
+    q_lower = q.lower()
+    # Pure math operations
+    math_op = (
+        re.search(r"\b(ratio|factor)\b", q_lower)
+        or re.search(r"\b(what\s+is\s+the\s+sum|sum\s+of)\b", q_lower)
+        or re.search(r"\b(what\s+is\s+the\s+difference|difference\s+between)\b", q_lower)
+        or re.search(r"\b(what\s+is\s+the\s+product|product\s+of)\b", q_lower)
+    )
+    if not math_op:
+        return False
+    # Check if the question provides the data inline (e.g., "dsc from 0.0 to 1.0")
+    has_inline_data = (
+        re.search(r"\b\w+\s+(?:covers|ranges|spans|goes)\s+(?:\w+\s+)?(?:from\s+)?-?\d", q_lower)
+        or re.search(r"\baxis\s+\w+\s+(?:from\s+)?-?\d", q_lower)
+        or re.search(r"\b(?:values?|scores?)\s+(?:are|of)\s+-?\d", q_lower)
+    )
+    return bool(has_inline_data)
 
 
 def _has_threshold_filter(q: str) -> bool:

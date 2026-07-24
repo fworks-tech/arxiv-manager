@@ -767,20 +767,28 @@ A: {answer}
 
 Rate 1-5: would Qwen 3.6-35B-A3B likely FAIL on this? A "5" means definitely fails, "1" means definitely solves.
 
-A question deserves a HIGH score (4-5) only if it requires:
-- Reading a SPECIFIC data value (peak, trough, value at intersection) from the chart
-- COMPARING values across panels or regions
-- ARITHMETIC on data values (sum, difference, ratio)
-- A TRICK or non-obvious visual element that Qwen misses
+CRITICAL CHECK FIRST: Could a smart person answer this WITHOUT seeing the image?
+- If the question provides all the numerical data needed to compute the answer in the text (e.g., "Panel A's X covers 0 to 5, Panel B's X covers 0 to 4. What is the ratio?" — answerable from text alone), score it 1 regardless of math complexity. The IMAGE must be REQUIRED.
+- If the question references a SPECIFIC visual element (peak, trough, color region, data point) that requires looking at the image, it's valid.
+
+A question deserves a HIGH score (4-5) only if it:
+- References a visual element (peak, trough, color region, specific data point, position on chart)
+- Requires READING a value from the image (not extracting it from text)
+- Cannot be answered from text alone
 
 A question deserves a LOW score (1-2) if it is:
-- A simple COUNT of axis labels, tick marks, colorbar values, or other OCR-able elements
+- Pure math (ratio/difference/sum) of values stated in the question text
+- A simple COUNT of axis labels, tick marks, colorbar values
 - A generic "How many X are in the image?" with no filter
 - Mechanical counting of chart furniture
+- Answerable without the image (provide all needed data in text)
 
-If score is 1-3, REWRITE the question to score 4-5. Keep the answer in sync.
+If score is 1-3, REWRITE the question to:
+- REMOVE any explicit data values from the text (no "X covers 0 to 5")
+- ASK about a SPECIFIC visual element (peak position, color, region, intersection)
+- Make the image REQUIRED (no way to answer without seeing it)
 
-Return JSON only: {{"score": <1-5>, "rewrite_question": "...", "rewrite_answer": "..."}}"""
+Keep the answer in sync. Return JSON only: {{"score": <1-5>, "rewrite_question": "...", "rewrite_answer": "..."}}"""
 
 
 def draft_with_self_critique(
