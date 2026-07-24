@@ -126,6 +126,25 @@ Use these PROVEN Challenging strategies:
 6. Cross-attribute filter + arithmetic: "How many more [type A] than [type B] are visible in the image?"
 7. Spatial + count: "How many of the visible [objects] are in the back row vs. the front row?"
 
+CHART-SPECIFIC strategies (when figure_type = chart_graph_text or chart):
+8. Read-and-compare: "What is the difference between the maximum [axis] value in panel A and the maximum in panel B?" (requires reading peaks from each chart)
+9. Value-at-intersection: "At the x-value of [value], what is the approximate y-value in panel [panel]?" (requires reading a specific point on a curve)
+10. Ratio across panels: "What is the ratio of [quantity A] in panel [panel] to [quantity A] in panel [panel]?" (requires reading values then dividing)
+11. Threshold-based reading: "How many of the bars in panel A exceed a value of [number]?" (requires reading each bar's value, comparing to threshold)
+12. Cross-panel arithmetic: "Sum the peak z-values across all panels in the figure." (requires reading each panel's peak then adding)
+
+🚫 ANTI-PATTERNS (DO NOT USE) for chart figures:
+- "How many tick labels are on the [axis]?" — Qwen can OCR these perfectly. USELESS.
+- "Count the [axis] labels in panel A" — same problem, mechanical counting.
+- Any question whose answer is the count of axis labels, colorbar ticks, legends, or similar OCR-able elements.
+- "How many [elements] are visible in the image?" without a filter, comparison, or arithmetic operation.
+- "Count the number of X, Y, and Z" where X/Y/Z are visual artifacts (labels, ticks, grids) rather than data values.
+
+The question MUST:
+- Reference specific axis VALUES, data POINTS, peaks, regions, or numerical features of the data (not just chart furniture)
+- Require COMPARISON across panels OR ARITHMETIC on values OR READING a specific value at a specific location
+- Be UNANSWERABLE from text alone — must require the actual chart data
+
 Even if the image looks simple or has few elements, FORCE a multi-step question — combine attributes, apply filters, or do arithmetic on counts. A simple question defeats the purpose. The author explicitly chose Challenging.
 
 QA handbook rules:
@@ -723,3 +742,129 @@ def draft_qa_consensus(
                 return verified
 
     return best
+
+
+SELF_CRITIQUE_PROMPT = """You drafted this question for a CHALLENGING visual-reasoning task:
+
+Q: {question}
+A: {answer}
+
+Rate 1-5: would Qwen 3.6-35B-A3B likely FAIL on this? A "5" means definitely fails, "1" means definitely solves.
+
+A question deserves a HIGH score (4-5) only if it requires:
+- Reading a SPECIFIC data value (peak, trough, value at intersection) from the chart
+- COMPARING values across panels or regions
+- ARITHMETIC on data values (sum, difference, ratio)
+- A TRICK or non-obvious visual element that Qwen misses
+
+A question deserves a LOW score (1-2) if it is:
+- A simple COUNT of axis labels, tick marks, colorbar values, or other OCR-able elements
+- A generic "How many X are in the image?" with no filter
+- Mechanical counting of chart furniture
+
+If score is 1-3, REWRITE the question to score 4-5. Keep the answer in sync.
+
+Return JSON only: {{"score": <1-5>, "rewrite_question": "...", "rewrite_answer": "..."}}"""
+
+
+def draft_with_self_critique(
+    image_path: str | Path,
+    max_rounds: int = 2,
+    provider: str = "opencode",
+    model: str | None = None,
+    api_key: str | None = None,
+    difficulty: str = "",
+    figure_type: str = "",
+    complexity_score: float = 0.0,
+    caption: str = "",
+) -> dict | None:
+    """Draft a Q&A pair and self-critique the question's difficulty.
+
+    Flow:
+    1. Generate initial draft via draft_qa().
+    2. Call model again with the draft + image: rate 1-5 (would Qwen fail?).
+    3. If score < 4, use the model's rewrite.
+    4. Repeat up to max_rounds.
+
+    The self-critique is what catches generic counting questions like
+    "How many tick labels are on the z-axis?" — the model rates itself
+    low and rewrites to a chart-specific question.
+    """
+    logger.info("self_critique entry difficulty=%s figure_type=%s max_rounds=%d", difficulty, figure_type, max_rounds)
+
+    if not api_key:
+        api_key = _get_api_key(provider)
+    if not api_key:
+        logger.warning("self_critique: no api key for provider=%s", provider)
+        return None
+
+    # Reuse the JPEG base64 preparation from draft_qa to keep image small
+    from PIL import Image
+    img = Image.open(image_path)
+    if img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
+    img.thumbnail((1024, 1024))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=85, optimize=True)
+    b64 = base64.b64encode(buf.getvalue()).decode()
+
+    # Round 1: initial draft
+    draft = draft_qa(
+        image_path=image_path,
+        provider=provider,
+        model=model,
+        api_key=api_key,
+        difficulty=difficulty,
+        figure_type=figure_type,
+        complexity_score=complexity_score,
+        caption=caption,
+    )
+    if not draft:
+        logger.warning("self_critique: initial draft failed")
+        return None
+
+    for round_idx in range(max_rounds):
+        prompt = SELF_CRITIQUE_PROMPT.format(
+            question=draft["question"],
+            answer=draft["answer"],
+        )
+
+        try:
+            if provider == "opencode":
+                critique = _call_opencode(
+                    api_key, prompt, b64, model, retries=2, difficulty=difficulty,
+                    media_type="image/jpeg",
+                )
+            elif provider == "openai":
+                critique = _call_openai(api_key, prompt, b64, model, media_type="image/jpeg")
+            elif provider == "anthropic":
+                critique = _call_anthropic(api_key, prompt, b64, model, media_type="image/jpeg")
+            else:
+                break
+        except Exception as e:
+            logger.warning("self_critique: model call failed round=%d err=%s", round_idx, str(e)[:100])
+            break
+
+        if not critique:
+            break
+
+        score = critique.get("score", 0)
+        rewrite_q = critique.get("rewrite_question", "").strip()
+        rewrite_a = critique.get("rewrite_answer", "").strip()
+        logger.info("self_critique round=%d score=%d", round_idx, score)
+
+        if score >= 4 or not rewrite_q or not rewrite_a:
+            break
+
+        # Use the rewrite
+        rewrite_format = critique.get("answer_format", draft.get("answer_format", "word"))
+        rewrite_type = critique.get("task_type", draft.get("task_type", "chart"))
+        draft = {
+            "question": rewrite_q,
+            "answer": rewrite_a,
+            "answer_format": rewrite_format,
+            "task_type": rewrite_type,
+        }
+        logger.info("self_critique: applied rewrite round=%d", round_idx)
+
+    return draft

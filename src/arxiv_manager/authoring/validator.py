@@ -148,6 +148,36 @@ MULTI_PANEL_PATTERNS = [
     r"\btop\b.*\bbottom\b",
 ]
 
+# Chart anti-patterns: questions that count chart FURNITURE (labels, ticks, colorbars)
+# rather than DATA. These are mechanical OCR tasks that Qwen 3.6 solves easily.
+# Note: pattern is "X labels/marks/ticks/numbers" where X is a chart furniture word.
+# "z-axis value" or "axis at x=5" are NOT matched (those are data questions).
+CHART_FURNITURE_ANTI_PATTERNS = [
+    (r"\b(?:tick|axis|colorbar|legend)\s+(?:labels?|marks?|ticks?|numbers?)\b", "axis/label/tick counting"),
+    (r"\b(?:count|how\s+many)\s+(?:the\s+)?(?:tick|axis|colorbar|legend)\b", "axis counting"),
+    (r"\b(?:labeled|numerical)\s+(?:tick|values?|labels?|numbers?)\b.*\b(?:axis|colorbar|legend|tick)\b", "labeled value counting"),
+]
+
+# Chart data references: phrases that indicate the question is about actual data
+CHART_DATA_REFS = [
+    r"\b(?:peak|maximum|minimum|max|min|valley|trough)\b",
+    r"\b(?:x|y|z)\s*(?:-\s*axis|axis)?\s*(?:value|coordinate|position|at)\b",
+    r"\b(?:surface|curve|bar|line|series|column|histogram)\b",
+    r"\b(?:panel|figure)\s*[ab]\b.*\b(?:panel|figure)\s*[ab]\b",
+    r"\b(?:ratio|difference|sum|total|average|mean)\b.*\b(?:panel|figure|between|across)\b",
+    r"\b(?:exceed|above|below|greater|less|threshold|over|under)\s+(?:than\s+)?-?\d",
+    r"\b(?:at\s+(?:the\s+)?(?:x|y|t)\s*=\s*-?\d)",
+    r"\b(?:steepest|flattest|highest|lowest)\s+(?:point|value|region|peak)\b",
+    r"\b(?:gradient|slope|derivative)\b",
+]
+
+# Generic simple-count questions: "How many X are in the image?" without
+# filter, comparison, or arithmetic. Always too easy for Qwen.
+GENERIC_COUNT_PATTERNS = [
+    r"^how\s+many\s+[\w\s]+\s+(?:are|appear|exist|visible)\s+(?:in\s+)?(?:the\s+)?(?:image|figure|chart|diagram|plot)\s*[\?\.]?$",
+    r"^count\s+(?:the\s+)?(?:total\s+)?(?:number\s+of\s+)?[\w\s]+(?:in|across)\s+(?:the\s+)?(?:image|figure|chart|diagram)\s*[\?\.]?$",
+]
+
 # Spatial reasoning patterns (general image type)
 SPATIAL_PATTERNS = [
     r"\bto the (?:left|right) of\b",
@@ -353,6 +383,28 @@ def validate_task(
         result.passed_checks.append("Question requires multi-step reasoning")
     else:
         result.warnings.append("Question may be too simple — consider adding comparison or ranking")
+
+    # --- Rule 12b: Chart-specific anti-patterns (counting chart furniture) ---
+    if figure_type in ("chart_graph_text", "chart") or task_type == "chart":
+        anti_pattern_hits = _matches_chart_anti_pattern(q)
+        if anti_pattern_hits:
+            for hit in anti_pattern_hits:
+                result.errors.append(
+                    f"Chart anti-pattern: '{hit}' — chart questions must reference data values, not just chart furniture (labels/ticks/colorbars)"
+                )
+        else:
+            if _references_chart_data(q):
+                result.passed_checks.append("References chart data (axis values, peaks, regions) — not just furniture")
+            else:
+                result.warnings.append(
+                    "Chart question may not reference actual data — consider referencing axis values, peaks, regions, or cross-panel comparisons"
+                )
+
+    # --- Rule 12c: Generic simple-count check (no filter/comparison) ---
+    if _is_generic_count_question(q):
+        result.errors.append(
+            "Question is a generic count ('How many X in the image?') without a filter, comparison, or arithmetic — too easy for Qwen"
+        )
 
     # --- Rule 13: Answer derivability ---
     if _answer_seems_derivable(q, a):
@@ -591,6 +643,38 @@ def _has_extreme_seeking(q: str) -> bool:
     q_lower = q.lower()
     for pattern in EXTREME_SEEKING:
         if re.search(pattern, q_lower):
+            return True
+    return False
+
+
+def _matches_chart_anti_pattern(q: str) -> list[str]:
+    """Detect chart-furniture counting questions (labels/ticks/colorbars).
+
+    Returns the list of anti-pattern descriptions matched. Empty list = good.
+    """
+    q_lower = q.lower()
+    hits = []
+    for pattern, desc in CHART_FURNITURE_ANTI_PATTERNS:
+        if re.search(pattern, q_lower):
+            hits.append(desc)
+    return hits
+
+
+def _references_chart_data(q: str) -> bool:
+    """Detect whether question references actual chart data (values, peaks, regions)
+    rather than chart furniture (labels, ticks, colorbars)."""
+    q_lower = q.lower()
+    return any(re.search(p, q_lower) for p in CHART_DATA_REFS)
+
+
+def _is_generic_count_question(q: str) -> bool:
+    """Detect 'How many X are in the image?' questions without filter/comparison.
+
+    These are uniformly too easy for Qwen. Always flagged as error.
+    """
+    q_stripped = q.strip().lower()
+    for pattern in GENERIC_COUNT_PATTERNS:
+        if re.match(pattern, q_stripped):
             return True
     return False
 

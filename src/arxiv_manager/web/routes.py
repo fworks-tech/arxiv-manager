@@ -21,7 +21,7 @@ from ..db import get_session
 from ..models import Figure, Paper, Task, ImageStatus, TaskStatus
 from ..authoring.validator import validate_task
 from ..authoring.image_analyzer import analyze_uploaded_image, validate_draft
-from ..authoring.ai_draft import draft_qa
+from ..authoring.ai_draft import draft_qa, draft_with_self_critique
 from ..sourcing.arxiv import search_papers
 from ..sourcing.downloader import download_pdf
 from ..sourcing.extractor import extract_figures
@@ -262,14 +262,36 @@ async def api_draft_qa(
         logger.info("draft override difficulty=%s but suitability=%s (using requested difficulty)", difficulty, suitability)
     logger.info("draft calling draft_qa figure_type=%s complexity=%.3f", figure_type, complexity)
 
-    draft = draft_qa(
-        image_path=img_path,
-        provider="opencode",
-        api_key=api_key,
-        difficulty=difficulty,
-        figure_type=figure_type,
-        complexity_score=complexity,
-    )
+    if difficulty in ("challenging", "hardest"):
+        logger.info("draft using self_critique flow difficulty=%s", difficulty)
+        draft = draft_with_self_critique(
+            image_path=img_path,
+            max_rounds=2,
+            provider="opencode",
+            api_key=api_key,
+            difficulty=difficulty,
+            figure_type=figure_type,
+            complexity_score=complexity,
+        )
+        if not draft:
+            logger.info("self_critique returned None, falling back to plain draft_qa")
+            draft = draft_qa(
+                image_path=img_path,
+                provider="opencode",
+                api_key=api_key,
+                difficulty=difficulty,
+                figure_type=figure_type,
+                complexity_score=complexity,
+            )
+    else:
+        draft = draft_qa(
+            image_path=img_path,
+            provider="opencode",
+            api_key=api_key,
+            difficulty=difficulty,
+            figure_type=figure_type,
+            complexity_score=complexity,
+        )
 
     if not draft:
         logger.error("draft generation returned None for upload_id=%s", upload_id)
@@ -624,12 +646,77 @@ async def api_validate_task(request: Request, task_id: int):
         return HTMLResponse("Not found", status_code=404)
 
     figure = session.get(Figure, task.figure_id)
-    validation = validate_task(task.question, task.answer, task.answer_format)
+    figure_type = getattr(figure, "figure_type", "") if figure else ""
+    validation = validate_task(task.question, task.answer, task.answer_format,
+                               figure_type=figure_type, task_type=task.task_type)
     logger.info("task revalidate ok task_id=%d valid=%s score=%.1f", task_id, validation.is_valid, validation.quality_score)
 
     return TEMPLATES.TemplateResponse(request, "_validation.html", {
         "validation": validation,
     })
+
+
+@router.post("/api/task/{task_id}/regenerate")
+async def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("challenging")):
+    """Regenerate Q&A for a task using AI draft."""
+    logger.info("task regenerate task_id=%d difficulty=%s", task_id, difficulty)
+    import os as os_mod
+    api_key = os_mod.environ.get("OPENCODE_API_KEY")
+    if not api_key:
+        return {"error": "No OPENCODE_API_KEY set", "ok": False}
+
+    session = get_session()
+    task = session.get(Task, task_id)
+    if not task:
+        return {"error": "Task not found", "ok": False}
+
+    img_path = STORAGE_DIR / task.image_path
+    if not img_path.exists():
+        logger.warning("task regenerate: image not found at %s", img_path)
+        return {"error": "Image not found", "ok": False}
+
+    figure = session.get(Figure, task.figure_id) if task.figure_id else None
+    figure_type = getattr(figure, "figure_type", "") if figure else ""
+    complexity = getattr(figure, "complexity_score", 0.0) if figure else 0.0
+
+    if difficulty in ("challenging", "hardest"):
+        draft = draft_with_self_critique(
+            image_path=img_path, max_rounds=2, provider="opencode",
+            api_key=api_key, difficulty=difficulty,
+            figure_type=figure_type, complexity_score=complexity,
+        )
+        if not draft:
+            draft = draft_qa(
+                image_path=img_path, provider="opencode",
+                api_key=api_key, difficulty=difficulty,
+                figure_type=figure_type, complexity_score=complexity,
+            )
+    else:
+        draft = draft_qa(
+            image_path=img_path, provider="opencode",
+            api_key=api_key, difficulty=difficulty,
+            figure_type=figure_type, complexity_score=complexity,
+        )
+
+    if not draft:
+        return {"error": "Draft generation failed", "ok": False}
+
+    task.question = draft["question"]
+    task.answer = draft["answer"]
+    task.answer_format = draft.get("answer_format", "number")
+    task.task_type = draft.get("task_type", "chart")
+    task.difficulty = difficulty
+    session.add(task)
+    session.commit()
+    logger.info("task regenerate ok task_id=%d", task_id)
+
+    return {
+        "ok": True,
+        "question": draft["question"],
+        "answer": draft["answer"],
+        "answer_format": draft.get("answer_format", "number"),
+        "task_type": draft.get("task_type", "chart"),
+    }
 
 
 @router.post("/api/figure/{figure_id}/status")

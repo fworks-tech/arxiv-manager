@@ -103,6 +103,12 @@
                         {% if task %}
                         <button type="button" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
                                 hx-post="/api/task/{{ task.id }}/validate" hx-target="#validation-box">Validate</button>
+                        <select id="regenerate-difficulty" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="easy">Easy</option>
+                            <option value="challenging" selected>Challenging</option>
+                            <option value="hardest">HARDEST</option>
+                        </select>
+                        <button type="button" id="regenerate-btn" class="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm font-medium hover:bg-yellow-700 transition-colors">Regenerate</button>
                         {% endif %}
                     </div>
                 </div>
@@ -189,6 +195,38 @@ Type: {{ task.task_type }}</textarea>
         {% endif %}
     </div>
 </div>
+
+<script>
+document.getElementById('regenerate-btn')?.addEventListener('click', function() {
+    var btn = this;
+    var diff = document.getElementById('regenerate-difficulty').value;
+    var origText = btn.textContent;
+    btn.textContent = 'Regenerating...';
+    btn.disabled = true;
+    fetch('/api/task/{{ task.id }}/regenerate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'difficulty=' + encodeURIComponent(diff),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.ok) {
+            document.getElementById('question').value = data.question;
+            document.getElementById('answer').value = data.answer;
+            document.getElementById('answer_format').value = data.answer_format;
+            document.getElementById('task_type').value = data.task_type;
+            document.getElementById('validation-box').innerHTML = '';
+        } else {
+            alert('Regenerate failed: ' + (data.error || 'unknown error'));
+        }
+    })
+    .catch(function(e) { alert('Regenerate error: ' + e.message); })
+    .finally(function() {
+        btn.textContent = origText;
+        btn.disabled = false;
+    });
+});
+</script>
 
 <div id="rhea-override-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
