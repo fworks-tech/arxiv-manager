@@ -197,10 +197,12 @@ Type: {{ task.task_type }}</textarea>
 </div>
 
 <script>
+var _regenerating = false;
 document.getElementById('regenerate-btn')?.addEventListener('click', function() {
+    if (_regenerating) return;
+    _regenerating = true;
     var btn = this;
     var diff = document.getElementById('regenerate-difficulty').value;
-    var origText = btn.textContent;
     btn.textContent = 'Regenerating (may take ~90s)...';
     btn.disabled = true;
     fetch('/api/task/{{ task.id }}/regenerate', {
@@ -222,9 +224,10 @@ document.getElementById('regenerate-btn')?.addEventListener('click', function() 
         }
     })
     .catch(function(e) { showToast('Regenerate error: ' + e.message, 'error'); })
-    .finally(function() {
-        btn.textContent = origText;
+    .then(function() {
+        btn.textContent = 'Regenerate';
         btn.disabled = false;
+        _regenerating = false;
     });
 });
 </script>
