@@ -20,10 +20,7 @@ class TaskType(str, Enum):
 
 class TaskStatus(str, Enum):
     DRAFT = "draft"
-    VALIDATED = "validated"
     SUBMITTED = "submitted"
-    APPROVED = "approved"
-    REWORK = "rework"
 
 
 class Difficulty(str, Enum):
@@ -34,7 +31,6 @@ class Difficulty(str, Enum):
 
 class ImageStatus(str, Enum):
     NEW = "new"
-    REVIEWED = "reviewed"
     USED = "used"
     REJECTED = "rejected"
 

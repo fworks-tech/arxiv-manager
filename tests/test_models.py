@@ -83,7 +83,6 @@ def test_paper_defaults():
 def test_image_status_enum():
     """ImageStatus enum values match expected string values."""
     assert ImageStatus.NEW == "new"
-    assert ImageStatus.REVIEWED == "reviewed"
     assert ImageStatus.USED == "used"
     assert ImageStatus.REJECTED == "rejected"
 
@@ -91,7 +90,4 @@ def test_image_status_enum():
 def test_task_status_enum():
     """TaskStatus enum values match expected string values."""
     assert TaskStatus.DRAFT == "draft"
-    assert TaskStatus.VALIDATED == "validated"
     assert TaskStatus.SUBMITTED == "submitted"
-    assert TaskStatus.APPROVED == "approved"
-    assert TaskStatus.REWORK == "rework"
