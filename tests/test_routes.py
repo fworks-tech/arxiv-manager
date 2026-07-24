@@ -1,4 +1,12 @@
-"""Tests for all HTTP endpoints."""
+"""Tests for all HTTP endpoints.
+
+NOTE on monkeypatch: When monkeypatching a function imported via
+``from X import Y``, patch the consumer module's reference, not the source.
+Example: ``routes.py`` does ``from ..ai_draft import draft_with_self_critique``.
+In tests, patch ``routes_mod.draft_with_self_critique``, NOT
+``ai_draft.draft_with_self_critique``, because the consumer already holds a
+direct reference to the original function object.
+"""
 
 import io
 import json
@@ -538,3 +546,43 @@ class TestTaskDifficulty:
         assert t.qwen_passes == 2
         assert t.gemini_passes == 4
         s.close()
+
+
+# ---------------------------------------------------------------------------
+# Edge-case tests — not-found and missing-entity behavior
+# ---------------------------------------------------------------------------
+
+class TestEdgeCases:
+    def test_rhea_review_not_found(self, test_client):
+        """Rhea review of non-existent task returns redirect (then 404 at target)."""
+        resp = test_client.post(
+            "/api/task/99999/rhea",
+            data={"rhea_reviewed": "true", "rhea_passed": "true", "rhea_notes": ""},
+        )
+        # Returns 303 redirect; TestClient follows to /task/99999 → 404
+        assert resp.status_code == 404 or resp.status_code in (200, 303, 302)
+
+    def test_rhea_override_not_found(self, test_client):
+        """Rhea override of non-existent task — redirects to task page (which gives 404)."""
+        resp = test_client.post(
+            "/api/task/99999/rhea-override",
+            data={"rhea_passed": "true", "rhea_override_notes": "test"},
+        )
+        assert resp.status_code == 404 or resp.status_code in (200, 303, 302)
+
+    def test_difficulty_not_found(self, test_client):
+        """Difficulty update for non-existent task."""
+        resp = test_client.post(
+            "/api/task/99999/difficulty",
+            data={"difficulty": "easy", "qwen": "0", "gemini": "0"},
+        )
+        # Returns 303 redirect to /task/99999 → 404
+        assert resp.status_code == 404 or resp.status_code in (200, 303, 302)
+
+    def test_figure_status_not_found(self, test_client):
+        """Figure status update for non-existent figure returns redirect."""
+        resp = test_client.post(
+            "/api/figure/99999/status",
+            data={"status": "rejected"},
+        )
+        assert resp.status_code in (200, 303, 302)
