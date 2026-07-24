@@ -227,6 +227,7 @@ async def api_draft_qa(
     request: Request,
     upload_id: str = Form(...),
     difficulty: str = Form("challenging"),
+    previous_question: str = Form(""),
 ):
     """Generate a Q&A draft for the uploaded image."""
     import os as os_mod
@@ -281,6 +282,7 @@ async def api_draft_qa(
             difficulty=difficulty,
             figure_type=figure_type,
             complexity_score=complexity,
+            previous_question=previous_question,
         )
         if not draft:
             logger.info("self_critique returned None, falling back to plain draft_qa")
@@ -291,6 +293,7 @@ async def api_draft_qa(
                 difficulty=difficulty,
                 figure_type=figure_type,
                 complexity_score=complexity,
+                previous_question=previous_question,
             )
     else:
         draft = draft_qa(
@@ -300,6 +303,7 @@ async def api_draft_qa(
             difficulty=difficulty,
             figure_type=figure_type,
             complexity_score=complexity,
+            previous_question=previous_question,
         )
 
     if not draft:

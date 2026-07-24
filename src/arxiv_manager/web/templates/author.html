@@ -155,7 +155,13 @@ function draftQA(uploadId, difficulty) {
     _draftAbort = thisController;
     var status = document.getElementById('upload-status');
     status.innerHTML = '<div class="flex items-center gap-2 text-sm text-gray-600"><svg class="spinner w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="4" stroke-linecap="round" class="opacity-75"/></svg> Generating draft...</div>';
+    var draftBtns = document.querySelectorAll('#draft-results button, #analysis-results button');
+    for (var i = 0; i < draftBtns.length; i++) { draftBtns[i].disabled = true; }
     var body = new URLSearchParams({upload_id: uploadId, difficulty: difficulty});
+    var draftContainer = document.querySelector('#draft-results [data-previous-question]');
+    if (draftContainer) {
+        body.append('previous_question', draftContainer.dataset.previousQuestion);
+    }
     fetch('/api/image/draft', {
         method: 'POST', body: body,
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -211,8 +217,9 @@ function proposeTask(uploadId) {
         });
 }
 
-function discardUpload(uploadId) {
+function discardUpload(uploadId, btn) {
     if (!confirm('Discard this image?')) return;
+    if (btn) { btn.disabled = true; btn.textContent = 'Discarding...'; }
     var body = new URLSearchParams({upload_id: uploadId});
     fetch('/api/image/discard', { method: 'POST', body: body, headers: {'Content-Type': 'application/x-www-form-urlencoded'} })
         .then(function(r) {
@@ -222,7 +229,7 @@ function discardUpload(uploadId) {
             currentUploadId = '';
             showToast('Image discarded', 'info');
         })
-        .catch(function(err) { showToast(err.message, 'error'); });
+        .catch(function(err) { showToast(err.message, 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Discard'; } });
 }
 
 function useArxivFigure(path) {
