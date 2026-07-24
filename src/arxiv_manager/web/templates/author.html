@@ -94,7 +94,8 @@ function uploadFile(file) {
                 showToast('Image uploaded and analyzed', 'success');
                 var diff = el.dataset.recommendedDifficulty;
                 if (diff && diff !== 'rejected') {
-                    setTimeout(function() { draftQA(currentUploadId, diff); }, 300);
+                    var capturedId = currentUploadId;
+                    setTimeout(function() { draftQA(capturedId, diff); }, 300);
                 }
             }
         })
@@ -113,25 +114,17 @@ function handleDrop(e) {
 }
 
 // Clipboard paste
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'v' && (e.ctrlKey || e.metaKey)) {
-        if (document.querySelector('input:focus, textarea:focus, select:focus')) return;
-        setTimeout(function() {
-            navigator.clipboard.read().then(function(items) {
-                var found = false;
-                for (var item of items) {
-                    var imgType = item.types.find(function(t) { return t.startsWith('image/'); });
-                    if (imgType) {
-                        found = true;
-                        item.getType(imgType).then(function(blob) {
-                            var file = new File([blob], 'pasted-' + Date.now() + '.png', {type: blob.type});
-                            uploadFile(file);
-                        });
-                    }
-                }
-                if (!found) showToast('No image found in clipboard', 'info');
-            }).catch(function() { showToast('Cannot read clipboard — try right-click paste or browse', 'error'); });
-        }, 100);
+document.addEventListener('paste', function(e) {
+    if (document.querySelector('input:focus, textarea:focus, select:focus')) return;
+    var items = e.clipboardData.items;
+    for (var i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+            var file = items[i].getAsFile();
+            if (file) {
+                uploadFile(file);
+                e.preventDefault();
+            }
+        }
     }
 });
 
@@ -158,14 +151,15 @@ function searchArxiv() {
 function draftQA(uploadId, difficulty) {
     if (!uploadId) { showToast('Upload an image first', 'error'); return; }
     if (_draftAbort) _draftAbort.abort();
-    _draftAbort = new AbortController();
+    var thisController = new AbortController();
+    _draftAbort = thisController;
     var status = document.getElementById('upload-status');
     status.innerHTML = '<div class="flex items-center gap-2 text-sm text-gray-600"><svg class="spinner w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="4" stroke-linecap="round" class="opacity-75"/></svg> Generating draft...</div>';
     var body = new URLSearchParams({upload_id: uploadId, difficulty: difficulty});
     fetch('/api/image/draft', {
         method: 'POST', body: body,
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        signal: _draftAbort.signal
+        signal: thisController.signal
     })
     .then(function(r) { if (!r.ok) throw new Error('Draft failed (' + r.status + ')'); return r.text(); })
     .then(function(html) {
@@ -178,7 +172,7 @@ function draftQA(uploadId, difficulty) {
         showToast(err.message || 'Draft failed', 'error');
     })
     .finally(function() {
-        _draftAbort = null;
+        if (_draftAbort === thisController) _draftAbort = null;
     });
 }
 
@@ -206,6 +200,9 @@ function proposeTask(uploadId) {
         .then(function(r) {
             if (r.redirected) { window.location.href = r.url; return; }
             if (!r.ok) throw new Error('Propose failed (' + r.status + ')');
+            btn.disabled = false;
+            btn.textContent = 'Propose';
+            showToast('Task proposed', 'success');
         })
         .catch(function(err) {
             btn.disabled = false;
@@ -218,7 +215,8 @@ function discardUpload(uploadId) {
     if (!confirm('Discard this image?')) return;
     var body = new URLSearchParams({upload_id: uploadId});
     fetch('/api/image/discard', { method: 'POST', body: body, headers: {'Content-Type': 'application/x-www-form-urlencoded'} })
-        .then(function() {
+        .then(function(r) {
+            if (!r.ok) throw new Error('Discard failed (' + r.status + ')');
             document.getElementById('analysis-results').innerHTML = '<div class="bg-gray-50 rounded-xl p-6 text-center"><p class="text-gray-400 text-sm">Upload an image or search arXiv to begin.</p></div>';
             document.getElementById('draft-results').innerHTML = '';
             currentUploadId = '';
@@ -242,7 +240,8 @@ function useArxivFigure(path) {
                 currentUploadId = el.dataset.uploadId;
                 var diff = el.dataset.recommendedDifficulty;
                 if (diff && diff !== 'rejected') {
-                    setTimeout(function() { draftQA(currentUploadId, diff); }, 300);
+                    var capturedId = currentUploadId;
+                    setTimeout(function() { draftQA(capturedId, diff); }, 300);
                 }
             }
         })

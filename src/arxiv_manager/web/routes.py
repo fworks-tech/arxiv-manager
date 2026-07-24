@@ -244,9 +244,14 @@ async def api_draft_qa(
     analysis = _upload_cache.get(upload_id)
     if not analysis:
         logger.info("draft: cache miss, re-analyzing from disk")
-        img_path = UPLOADS_DIR / f"{upload_id}.jpg"
-        if not img_path.exists():
-            logger.warning("draft failed: upload not found at %s", img_path)
+        img_path = None
+        for ext in [".jpg", ".png", ".webp", ".jpeg"]:
+            p = UPLOADS_DIR / f"{upload_id}{ext}"
+            if p.exists():
+                img_path = p
+                break
+        if not img_path:
+            logger.warning("draft failed: upload not found for upload_id=%s", upload_id)
             return TEMPLATES.TemplateResponse(
                 request, "_author_draft.html",
                 {"draft": None, "validation": None, "error": "Upload not found — please re-upload", "upload_id": upload_id, "difficulty": difficulty},
@@ -255,12 +260,16 @@ async def api_draft_qa(
         _upload_cache[upload_id] = analysis
 
     img_path = UPLOADS_DIR / f"{upload_id}.jpg"
+    if not img_path.exists():
+        for ext in (".png", ".webp", ".jpeg"):
+            p = UPLOADS_DIR / f"{upload_id}{ext}"
+            if p.exists():
+                img_path = p
+                break
     figure_type = analysis["audit"].get("figure_type", "")
     complexity = analysis["audit"].get("complexity_score", 0.0)
     suitability = analysis.get("suitability", "")
-    if difficulty.upper() != suitability:
-        logger.info("draft override difficulty=%s but suitability=%s (using requested difficulty)", difficulty, suitability)
-    logger.info("draft calling draft_qa figure_type=%s complexity=%.3f", figure_type, complexity)
+    logger.info("draft difficulty=%s suitability=%s figure_type=%s complexity=%.3f", difficulty, suitability, figure_type, complexity)
 
     if difficulty in ("challenging", "hardest"):
         logger.info("draft using self_critique flow difficulty=%s", difficulty)
@@ -344,7 +353,13 @@ async def api_propose_task(
 
     img_path = UPLOADS_DIR / f"{upload_id}.jpg"
     if not img_path.exists():
-        logger.warning("propose failed: upload not found at %s", img_path)
+        for ext in (".png", ".webp", ".jpeg"):
+            p = UPLOADS_DIR / f"{upload_id}{ext}"
+            if p.exists():
+                img_path = p
+                break
+    if not img_path.exists():
+        logger.warning("propose failed: upload not found upload_id=%s", upload_id)
         return HTMLResponse("Upload not found", status_code=404)
 
     img_hash = compute_file_hash(img_path)
