@@ -201,7 +201,7 @@ document.getElementById('regenerate-btn')?.addEventListener('click', function() 
     var btn = this;
     var diff = document.getElementById('regenerate-difficulty').value;
     var origText = btn.textContent;
-    btn.textContent = 'Regenerating...';
+    btn.textContent = 'Regenerating (may take ~90s)...';
     btn.disabled = true;
     fetch('/api/task/{{ task.id }}/regenerate', {
         method: 'POST',
@@ -216,11 +216,12 @@ document.getElementById('regenerate-btn')?.addEventListener('click', function() 
             document.getElementById('answer_format').value = data.answer_format;
             document.getElementById('task_type').value = data.task_type;
             document.getElementById('validation-box').innerHTML = '';
+            showToast('Regeneration complete — review and save', 'success');
         } else {
-            alert('Regenerate failed: ' + (data.error || 'unknown error'));
+            showToast('Regenerate failed: ' + (data.error || 'unknown error'), 'error');
         }
     })
-    .catch(function(e) { alert('Regenerate error: ' + e.message); })
+    .catch(function(e) { showToast('Regenerate error: ' + e.message, 'error'); })
     .finally(function() {
         btn.textContent = origText;
         btn.disabled = false;
