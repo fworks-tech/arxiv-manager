@@ -193,8 +193,6 @@ def mock_api_key(monkeypatch):
 def mock_no_api_key(monkeypatch):
     """Clears OPENCODE_API_KEY for tests that expect no key."""
     monkeypatch.delenv("OPENCODE_API_KEY", raising=False)
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
 
 
 # ---------------------------------------------------------------------------

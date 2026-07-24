@@ -337,13 +337,8 @@ def draft_qa(
     start = time.time()
     result: dict | None = None
     try:
-        if provider == "opencode":
-            time.sleep(1)
-            result = _call_opencode(api_key, prompt, b64, model, difficulty=difficulty, media_type=image_media_type)
-        elif provider == "openai":
-            result = _call_openai(api_key, prompt, b64, model, media_type=image_media_type)
-        elif provider == "anthropic":
-            result = _call_anthropic(api_key, prompt, b64, model, media_type=image_media_type)
+        time.sleep(1)
+        result = _call_opencode(api_key, prompt, b64, model, difficulty=difficulty, media_type=image_media_type)
         ok = result is not None
     except Exception as e:
         ok = False
@@ -362,12 +357,7 @@ def draft_qa(
 
 def _get_api_key(provider: str) -> str | None:
     """Get API key from environment."""
-    env_map = {
-        "opencode": "OPENCODE_API_KEY",
-        "openai": "OPENAI_API_KEY",
-        "anthropic": "ANTHROPIC_API_KEY",
-    }
-    return os.environ.get(env_map.get(provider, ""))
+    return os.environ.get("OPENCODE_API_KEY") if provider == "opencode" else None
 
 
 def _call_opencode(api_key: str, prompt: str, b64_image: str, model: str | None = None, retries: int = 3, difficulty: str = "", media_type: str = "image/jpeg") -> dict | None:
@@ -445,96 +435,6 @@ def _call_opencode(api_key: str, prompt: str, b64_image: str, model: str | None 
             if attempt == retries - 1:
                 raise
 
-    return None
-
-
-def _call_openai(api_key: str, prompt: str, b64_image: str, model: str | None = None, retries: int = 3, media_type: str = "image/jpeg") -> dict | None:
-    """Call OpenAI API with image (with retry)."""
-    import httpx
-
-    for attempt in range(retries):
-        if attempt > 0:
-            time.sleep(2 ** attempt)
-        try:
-            resp = httpx.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}"},
-                json={
-                    "model": model or "gpt-4o",
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": prompt},
-                                {
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:{media_type};base64,{b64_image}",
-                                        "detail": "low",
-                                    },
-                                },
-                            ],
-                        }
-                    ],
-                    "max_tokens": 4000,
-                },
-                timeout=90,
-            )
-            resp.raise_for_status()
-            text = resp.json()["choices"][0]["message"]["content"]
-            result = _parse_llm_response(text)
-            if result:
-                return result
-        except Exception:
-            if attempt == retries - 1:
-                raise
-    return None
-
-
-def _call_anthropic(api_key: str, prompt: str, b64_image: str, model: str | None = None, retries: int = 3, media_type: str = "image/jpeg") -> dict | None:
-    """Call Anthropic API with image (with retry)."""
-    import httpx
-
-    for attempt in range(retries):
-        if attempt > 0:
-            time.sleep(2 ** attempt)
-        try:
-            resp = httpx.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key": api_key,
-                    "anthropic-version": "2023-06-01",
-                },
-                json={
-                    "model": model or "claude-sonnet-4-20250514",
-                    "max_tokens": 4000,
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "image",
-                                    "source": {
-                                        "type": "base64",
-                                        "media_type": media_type,
-                                        "data": b64_image,
-                                    },
-                                },
-                                {"type": "text", "text": prompt},
-                            ],
-                        }
-                    ],
-                },
-                timeout=60,
-            )
-            resp.raise_for_status()
-            text = resp.json()["content"][0]["text"]
-            result = _parse_llm_response(text)
-            if result:
-                return result
-        except Exception:
-            if attempt == retries - 1:
-                raise
     return None
 
 
@@ -856,17 +756,10 @@ def draft_with_self_critique(
         )
 
         try:
-            if provider == "opencode":
-                critique = _call_opencode(
-                    api_key, prompt, b64, model, retries=2, difficulty=difficulty,
-                    media_type="image/jpeg",
-                )
-            elif provider == "openai":
-                critique = _call_openai(api_key, prompt, b64, model, media_type="image/jpeg")
-            elif provider == "anthropic":
-                critique = _call_anthropic(api_key, prompt, b64, model, media_type="image/jpeg")
-            else:
-                break
+            critique = _call_opencode(
+                api_key, prompt, b64, model, retries=2, difficulty=difficulty,
+                media_type="image/jpeg",
+            )
         except Exception as e:
             logger.warning("self_critique: model call failed round=%d err=%s", round_idx, str(e)[:100])
             break
