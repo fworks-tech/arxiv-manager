@@ -34,7 +34,6 @@ router = APIRouter()
 
 # Cache for uploaded image analysis (keyed by upload_id)
 _upload_cache: dict[str, dict] = {}
-_upload_cache_ts: dict[str, float] = {}
 
 
 # ─── PAGES ────────────────────────────────────────────────────────
@@ -154,9 +153,13 @@ def _save_upload(file_bytes: bytes, filename: str = "upload") -> tuple[str, Path
             img = img.convert("RGB")
         img.save(str(dest), "JPEG", quality=92)
     except Exception:
-        # Fallback: save raw
-        dest = UPLOADS_DIR / f"{upload_id}{ext}"
-        dest.write_bytes(file_bytes)
+        # Fallback: save raw (only known image types)
+        raw_ext = ext.lower()
+        if raw_ext in (".png", ".jpg", ".jpeg", ".webp"):
+            dest = UPLOADS_DIR / f"{upload_id}{raw_ext}"
+            dest.write_bytes(file_bytes)
+        else:
+            raise
     return upload_id, dest
 
 
@@ -208,7 +211,6 @@ async def api_upload_image(
             )
 
         _upload_cache[upload_id] = result
-        _upload_cache_ts[upload_id] = time_module.time()
 
         return TEMPLATES.TemplateResponse(
             request, "_author_analysis.html",
@@ -334,7 +336,6 @@ async def api_discard_image(
         if p.exists():
             p.unlink()
     _upload_cache.pop(upload_id, None)
-    _upload_cache_ts.pop(upload_id, None)
     return HTMLResponse("")
 
 

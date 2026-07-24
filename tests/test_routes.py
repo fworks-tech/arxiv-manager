@@ -82,6 +82,19 @@ class TestUploadImage:
         resp = test_client.post("/api/image/upload")
         assert resp.status_code in (200, 422)
 
+    def test_upload_non_image_bytes_rejected(self, test_client, override_storage):
+        """Uploading non-image bytes with non-image extension returns error."""
+        resp = test_client.post(
+            "/api/image/upload",
+            files={"image": ("malware.exe", b"not an image", "application/octet-stream")},
+        )
+        # Route catches exception and returns 200 with error message in response
+        assert resp.status_code == 200
+        assert b"cannot identify" in resp.content.lower() or b"upload" in resp.content.lower()
+        # No .exe file should exist in uploads directory (security fix)
+        uploads = list(override_storage.glob("_uploads/*.exe"))
+        assert len(uploads) == 0
+
 
 # ---------------------------------------------------------------------------
 # POST: Draft QA
