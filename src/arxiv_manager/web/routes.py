@@ -678,28 +678,54 @@ async def api_regenerate_task(request: Request, task_id: int, difficulty: str = 
     figure = session.get(Figure, task.figure_id) if task.figure_id else None
     figure_type = getattr(figure, "figure_type", "") if figure else ""
     complexity = getattr(figure, "complexity_score", 0.0) if figure else 0.0
+    prev_question = task.question
 
     if difficulty in ("challenging", "hardest"):
         draft = draft_with_self_critique(
             image_path=img_path, max_rounds=1, provider="opencode",
             api_key=api_key, difficulty=difficulty,
             figure_type=figure_type, complexity_score=complexity,
+            previous_question=prev_question,
         )
         if not draft:
             draft = draft_qa(
                 image_path=img_path, provider="opencode",
                 api_key=api_key, difficulty=difficulty,
                 figure_type=figure_type, complexity_score=complexity,
+                previous_question=prev_question,
             )
     else:
         draft = draft_qa(
             image_path=img_path, provider="opencode",
             api_key=api_key, difficulty=difficulty,
             figure_type=figure_type, complexity_score=complexity,
+            previous_question=prev_question,
         )
 
     if not draft:
         return {"error": "Draft generation failed", "ok": False}
+
+    # Dedup: if answer unchanged or question too similar, try harder
+    same_answer = draft["answer"].strip().lower() == task.answer.strip().lower()
+    if same_answer or draft["question"].strip().lower() == task.question.strip().lower():
+        for _ in range(2):
+            if difficulty in ("challenging", "hardest"):
+                draft2 = draft_with_self_critique(
+                    image_path=img_path, max_rounds=1, provider="opencode",
+                    api_key=api_key, difficulty=difficulty,
+                    figure_type=figure_type, complexity_score=complexity,
+                    previous_question=prev_question,
+                )
+            else:
+                draft2 = draft_qa(
+                    image_path=img_path, provider="opencode",
+                    api_key=api_key, difficulty=difficulty,
+                    figure_type=figure_type, complexity_score=complexity,
+                    previous_question=prev_question,
+                )
+            if draft2 and draft2["answer"].strip().lower() != task.answer.strip().lower():
+                draft = draft2
+                break
 
     task.question = draft["question"]
     task.answer = draft["answer"]

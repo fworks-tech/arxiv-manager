@@ -288,6 +288,7 @@ def draft_qa(
     difficulty: str = "",
     figure_type: str = "",
     complexity_score: float = 0.0,
+    previous_question: str = "",
 ) -> dict | None:
     """Draft a Q&A pair from an image using an LLM."""
     logger.info("draft_qa entry image=%s provider=%s difficulty=%s figure_type=%s complexity=%.3f",
@@ -329,6 +330,8 @@ def draft_qa(
         prompt += f"\nFigure complexity: {complexity_score:.2f}/1.0 (higher = more complex, candidate for hard multi-step counting)"
     if task_type_hint:
         prompt += f"\nType: {task_type_hint}"
+    if previous_question:
+        prompt += f"\n\nThe previous question for this image was: {previous_question}\nGenerate a SUBSTANTIALLY DIFFERENT question — different strategy, different data references, different answer. Do NOT reuse the same pattern (e.g., if previous was ratio of minima, use threshold counting or cross-panel sum instead)."
 
     model_id = model or "minimax-m3"
     start = time.time()
@@ -777,6 +780,7 @@ def draft_with_self_critique(
     figure_type: str = "",
     complexity_score: float = 0.0,
     caption: str = "",
+    previous_question: str = "",
 ) -> dict | None:
     """Draft a Q&A pair and self-critique the question's difficulty.
 
@@ -818,6 +822,7 @@ def draft_with_self_critique(
         figure_type=figure_type,
         complexity_score=complexity_score,
         caption=caption,
+        previous_question=previous_question,
     )
     if not draft:
         logger.warning("self_critique: initial draft failed")
