@@ -290,7 +290,6 @@ def api_draft_qa(
             draft = draft_with_self_critique(
                 image_path=img_path,
                 max_rounds=1,
-                provider="opencode",
                 api_key=api_key,
                 difficulty=difficulty,
                 figure_type=figure_type,
@@ -301,8 +300,7 @@ def api_draft_qa(
                 logger.info("self_critique returned None, falling back to plain draft_qa")
                 draft = draft_qa(
                     image_path=img_path,
-                    provider="opencode",
-                    api_key=api_key,
+                        api_key=api_key,
                     difficulty=difficulty,
                     figure_type=figure_type,
                     complexity_score=complexity,
@@ -311,7 +309,6 @@ def api_draft_qa(
         else:
             draft = draft_qa(
                 image_path=img_path,
-                provider="opencode",
                 api_key=api_key,
                 difficulty=difficulty,
                 figure_type=figure_type,
@@ -815,22 +812,19 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
             from ..authoring._draft_telemetry import log_generation_attempt
             if difficulty in ("challenging", "hardest"):
                 draft = draft_with_self_critique(
-                    image_path=img_path, max_rounds=1, provider="opencode",
-                    api_key=api_key, difficulty=difficulty,
+                    image_path=img_path, max_rounds=1,                     api_key=api_key, difficulty=difficulty,
                     figure_type=figure_type, complexity_score=complexity,
                     previous_question=prev_question, figure_id=task.figure_id,
                 )
                 if draft is None:
                     draft = draft_qa(
-                        image_path=img_path, provider="opencode",
-                        api_key=api_key, difficulty=difficulty,
+                image_path=img_path,                         api_key=api_key, difficulty=difficulty,
                         figure_type=figure_type, complexity_score=complexity,
                         previous_question=prev_question, figure_id=task.figure_id,
                     )
             else:
                 draft = draft_qa(
-                    image_path=img_path, provider="opencode",
-                    api_key=api_key, difficulty=difficulty,
+                    image_path=img_path,                     api_key=api_key, difficulty=difficulty,
                     figure_type=figure_type, complexity_score=complexity,
                     previous_question=prev_question, figure_id=task.figure_id,
                 )
@@ -872,15 +866,13 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
                 try:
                     if difficulty in ("challenging", "hardest"):
                         draft2 = draft_with_self_critique(
-                            image_path=img_path, max_rounds=1, provider="opencode",
-                            api_key=api_key, difficulty=difficulty,
+                    image_path=img_path, max_rounds=1,                             api_key=api_key, difficulty=difficulty,
                             figure_type=figure_type, complexity_score=complexity,
                             previous_question=prev_question, figure_id=task.figure_id,
                         )
                     else:
                         draft2 = draft_qa(
-                            image_path=img_path, provider="opencode",
-                            api_key=api_key, difficulty=difficulty,
+                    image_path=img_path,                             api_key=api_key, difficulty=difficulty,
                             figure_type=figure_type, complexity_score=complexity,
                             previous_question=prev_question, figure_id=task.figure_id,
                         )

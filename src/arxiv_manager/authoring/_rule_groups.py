@@ -199,7 +199,7 @@ def _run_visual_tests(result, q: str, a: str) -> None:
         )
 
 
-def _run_handbook_errors(result, q: str, a: str, options: list[str] | None,
+def _run_final_checks(result, q: str, a: str, options: list[str] | None,
                           figure_type: str, task_type: str, image_path: str) -> None:
     """Rules 21-28: Math-heavy, text-only, long-winded, noise, list answer, MCQ, watermark, type mismatch."""
     if any(re.search(p, q, re.IGNORECASE) for p in MATH_HEAVY_PATTERNS):

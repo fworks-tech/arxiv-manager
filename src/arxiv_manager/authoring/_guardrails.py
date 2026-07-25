@@ -140,7 +140,6 @@ def run_guardrails(
             from .ai_draft import draft_qa
             retry_draft = draft_qa(
                 image_path=image_path,
-                provider=context.get("provider", "opencode"),
                 api_key=api_key,
                 feedback=feedback,
                 difficulty=context.get("difficulty", ""),

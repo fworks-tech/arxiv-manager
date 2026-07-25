@@ -16,8 +16,8 @@ from ._rule_groups import (
     _run_complexity_checks,
     _run_content_checks,
     _run_format_checks,
+    _run_final_checks,
     _run_handbook_basics,
-    _run_handbook_errors,
     _run_visual_tests,
 )
 
@@ -82,7 +82,7 @@ def validate_task(
     _run_complexity_checks(result, q, figure_type, task_type)
     _run_handbook_basics(result, q, a, caption)
     _run_visual_tests(result, q, a)
-    _run_handbook_errors(result, q, a, options, figure_type, task_type, image_path)
+    _run_final_checks(result, q, a, options, figure_type, task_type, image_path)
 
     result.quality_score = _calculate_score(result)
     logger.info("validate_task result valid=%s score=%.1f errors=%d warnings=%d",
