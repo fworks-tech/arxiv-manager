@@ -230,6 +230,9 @@ def test_client(override_storage, mock_api_key, tmp_db_path, monkeypatch):
     from sqlmodel import create_engine
     new_engine = create_engine(f"sqlite:///{tmp_db_path}", echo=False, connect_args={"check_same_thread": False})
     monkeypatch.setattr(db_mod, "engine", new_engine)
+    # Clear shared upload cache between tests
+    import arxiv_manager.web.routes as routes_mod
+    routes_mod._upload_cache.clear()
     from arxiv_manager.web.app import create_app
     app = create_app()
     with TestClient(app) as client:
@@ -245,6 +248,8 @@ def test_client_no_key(override_storage, mock_no_api_key, tmp_db_path, monkeypat
     from sqlmodel import create_engine
     new_engine = create_engine(f"sqlite:///{tmp_db_path}", echo=False, connect_args={"check_same_thread": False})
     monkeypatch.setattr(db_mod, "engine", new_engine)
+    import arxiv_manager.web.routes as routes_mod
+    routes_mod._upload_cache.clear()
     from arxiv_manager.web.app import create_app
     app = create_app()
     with TestClient(app) as client:

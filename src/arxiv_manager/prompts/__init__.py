@@ -38,10 +38,12 @@ def load_prompts(force: bool = False) -> None:
 
     try:
         session = get_session()
-        rows = list(session.query(PromptTemplateRecord).filter(
-            PromptTemplateRecord.status == "active"
-        ).all())
-        session.close()
+        try:
+            rows = list(session.query(PromptTemplateRecord).filter(
+                PromptTemplateRecord.status == "active"
+            ).all())
+        finally:
+            session.close()
 
         for row in rows:
             vid = _compute_version_id(row.name, row.text)
@@ -142,26 +144,25 @@ def list_prompts() -> list[dict[str, Any]]:
             PromptTemplateRecord.name,
             PromptTemplateRecord.version.desc(),
         ).all())
+    finally:
         session.close()
 
-        seen: set[str] = set()
-        results = []
-        for row in rows:
-            if row.name not in seen:
-                seen.add(row.name)
-                results.append({
-                    "name": row.name,
-                    "version": row.version,
-                    "status": row.status,
-                    "author": row.author,
-                    "description": row.description,
-                    "tags": row.tags.split(",") if row.tags else [],
-                    "updated_at": row.updated_at.isoformat(),
-                    "version_id": _compute_version_id(row.name, row.text),
-                })
-        return results
-    except Exception:
-        return []
+    seen: set[str] = set()
+    results = []
+    for row in rows:
+        if row.name not in seen:
+            seen.add(row.name)
+            results.append({
+                "name": row.name,
+                "version": row.version,
+                "status": row.status,
+                "author": row.author,
+                "description": row.description,
+                "tags": row.tags.split(",") if row.tags else [],
+                "updated_at": row.updated_at.isoformat(),
+                "version_id": _compute_version_id(row.name, row.text),
+            })
+    return results
 
 
 def rollback_prompt(name: str, target_version: int) -> bool:

@@ -101,6 +101,7 @@ def draft_with_self_critique(
     complexity_score: float = 0.0,
     caption: str = "",
     previous_question: str = "",
+    validation_context: str = "",
     figure_id: int | None = None,
 ) -> dict | None:
     """Draft a Q&A pair and self-critique the question's difficulty."""
@@ -114,12 +115,12 @@ def draft_with_self_critique(
         return None
 
     from PIL import Image
-    img = Image.open(image_path)
-    if img.mode in ("RGBA", "P"):
-        img = img.convert("RGB")
-    img.thumbnail(CONFIG.thumbnail_size)
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=CONFIG.jpeg_quality, optimize=True)
+    with Image.open(image_path) as img:
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        img.thumbnail(CONFIG.thumbnail_size)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=CONFIG.jpeg_quality, optimize=True)
     b64 = base64.b64encode(buf.getvalue()).decode()
 
     draft = draft_qa(
@@ -131,6 +132,7 @@ def draft_with_self_critique(
         complexity_score=complexity_score,
         caption=caption,
         previous_question=previous_question,
+        validation_context=validation_context,
         figure_id=figure_id,
     )
     if draft is None:

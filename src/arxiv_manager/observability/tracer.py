@@ -2,19 +2,21 @@
 
 Provides a `Tracer` context manager for per-request tracing and a
 structured JSON log handler that emits machine-parseable log lines.
+Uses buffered writes to avoid per-line filesystem overhead.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 import time
 import uuid
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any, TextIO
 
 from ..storage import STORAGE_DIR
 
@@ -25,19 +27,26 @@ _trace_ctx: threading.local = threading.local()
 
 
 # ---------------------------------------------------------------------------
-# Structured JSON log handler
+# Structured JSON log handler (buffered)
 # ---------------------------------------------------------------------------
 
 class StructuredLogHandler(logging.Handler):
     """Emits structured JSON log records, one per line.
 
-    Appends to a rotating JSONL file under storage/.
+    Keeps the file handle open and flushes periodically for performance.
     """
 
     def __init__(self, log_path: Path | None = None) -> None:
         super().__init__()
         self.log_path = log_path or STORAGE_DIR / "_structured_log.jsonl"
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
+        self._file: TextIO | None = None
+        self._lock = threading.Lock()
+
+    def _open(self) -> TextIO:
+        if self._file is None:
+            self._file = open(self.log_path, "a", encoding="utf-8")
+        return self._file
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
@@ -53,11 +62,19 @@ class StructuredLogHandler(logging.Handler):
                 entry["exc_type"] = record.exc_info[0].__name__
             if hasattr(record, "extra_fields"):
                 entry.update(record.extra_fields)
-            line = json.dumps(entry, default=str)
-            with open(self.log_path, "a", encoding="utf-8") as f:
-                f.write(line + "\n")
+            line = json.dumps(entry, default=str) + "\n"
+            with self._lock:
+                f = self._open()
+                f.write(line)
         except Exception:
             self.handleError(record)
+
+    def close(self) -> None:
+        with self._lock:
+            if self._file is not None:
+                self._file.close()
+                self._file = None
+        super().close()
 
 
 # ---------------------------------------------------------------------------
@@ -147,9 +164,10 @@ def log_event(
 def setup_structured_logging(
     log_path: Path | None = None,
     level: int = logging.INFO,
-) -> None:
-    """Add a StructuredLogHandler to the root logger."""
+) -> StructuredLogHandler:
+    """Add a StructuredLogHandler to the root logger and return it."""
     handler = StructuredLogHandler(log_path=log_path)
     handler.setFormatter(logging.Formatter("%(asctime)s.%(msecs)03dZ"))
     handler.setLevel(level)
     logging.getLogger().addHandler(handler)
+    return handler

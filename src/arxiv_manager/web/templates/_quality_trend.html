@@ -1,0 +1,27 @@
+{% if scores %}
+<div class="flex items-center gap-2 text-xs text-gray-500 mt-2">
+  <span class="text-gray-400">Quality trend:</span>
+  <div class="flex items-end gap-0.5 h-6">
+    {% set max_score = scores|max %}
+    {% for s in scores %}
+      {% set bar_h = (s / max_score * 20)|int if max_score > 0 else 0 %}
+      {% set bar_h = bar_h if bar_h >= 2 else 2 %}
+      <div class="w-2 rounded-t"
+           style="height: {{ bar_h }}px;
+                  background: {% if s >= 80 %}#22c55e{% elif s >= 50 %}#eab308{% else %}#ef4444{% endif %};"
+           title="Score: {{ s|int }}/100"></div>
+    {% endfor %}
+  </div>
+  {% if scores|length > 1 %}
+    {% set last = scores[-1] %}
+    {% set first = scores[0] %}
+    {% if last > first %}
+    <span class="text-green-500">▲ improving</span>
+    {% elif last < first %}
+    <span class="text-red-500">▼ declining</span>
+    {% else %}
+    <span class="text-gray-300">— stable</span>
+    {% endif %}
+  {% endif %}
+</div>
+{% endif %}

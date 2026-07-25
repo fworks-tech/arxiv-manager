@@ -6,6 +6,9 @@ Orchestrates:
 3. Rerank results using cross-encoder
 4. Inject retrieved context into the generation prompt
 5. Cache the new result for future queries
+
+Uses a module-level lazy singleton to avoid reloading the embedding
+model and ChromaDB client on every request.
 """
 
 from __future__ import annotations
@@ -13,26 +16,29 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from ..components.hybrid_retriever import HybridRetriever
-from ..components.reranker import rerank
 from ..components.retriever_config import DEFAULT_TOP_K
-from .semantic_cache import SemanticCache
 
 logger = logging.getLogger(__name__)
+
+# Lazy singleton
+_pipeline: RAGPipeline | None = None
+
+
+def get_pipeline() -> RAGPipeline:
+    """Get or create the singleton RAGPipeline instance."""
+    global _pipeline
+    if _pipeline is None:
+        _pipeline = RAGPipeline()
+        logger.info("rag_pipeline: singleton created")
+    return _pipeline
 
 
 class RAGPipeline:
     """CRAG pipeline: CAG (semantic cache) → RAG (retrieve + rerank) → generate.
 
     Usage:
-        rag = RAGPipeline()
-        context = rag.get_context(
-            prompt="Generate a visual-reasoning question...",
-            figure_id=42,
-            figure_type="chart_graph_text",
-        )
-        # context.context_str contains the injected text
-        # Append context.context_str to your prompt before calling the LLM
+        rag = get_pipeline()
+        context = rag.get_context(prompt="...", figure_id=42, ...)
     """
 
     def __init__(
@@ -42,8 +48,17 @@ class RAGPipeline:
     ) -> None:
         self._use_cache = use_cache
         self._use_reranker = use_reranker
-        self._cache = SemanticCache() if use_cache else None
+        self._cache = None
+        self._retriever = None
+
+    def _lazy_init(self) -> None:
+        if self._retriever is not None:
+            return
+        from ..components.hybrid_retriever import HybridRetriever
+        from ..services.semantic_cache import SemanticCache
         self._retriever = HybridRetriever()
+        if self._use_cache:
+            self._cache = SemanticCache()
 
     def get_context(
         self,
@@ -54,12 +69,9 @@ class RAGPipeline:
         top_k: int = DEFAULT_TOP_K,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Build a context string for injection into a generation prompt.
+        """Build a context string for injection into a generation prompt."""
+        self._lazy_init()
 
-        Returns:
-            Dict with 'context_str' (the text to inject) and
-            'sources' (list of source metadata for traceability).
-        """
         # 1. Check semantic cache (CAG)
         if self._cache and figure_id:
             cached = self._cache.get(query, figure_id=figure_id)
@@ -78,19 +90,23 @@ class RAGPipeline:
         if difficulty:
             filter_clause["difficulty"] = difficulty
 
+        if len(filter_clause) > 1:
+            filter_clause = {"$and": [{k: {"$eq": v}} for k, v in filter_clause.items()]}
+
         results = self._retriever.search(
             query=query,
-            k=top_k * 2,  # Fetch more for reranking
+            k=top_k * 2,
             filter=filter_clause or None,
         )
 
         # 3. Rerank if enabled
         if self._use_reranker and results and len(results) > 1:
+            from ..components.reranker import rerank
             results = rerank(query, results, top_k=top_k)
         else:
             results = results[:top_k]
 
-        # 4. Build context string from results
+        # 4. Build context string
         if not results:
             return {"context_str": "", "sources": [], "from_cache": False}
 
@@ -120,6 +136,7 @@ class RAGPipeline:
         metadata: dict[str, Any] | None = None,
     ) -> None:
         """Store a generation result in the semantic cache."""
+        self._lazy_init()
         if self._cache:
             self._cache.set(prompt, result, figure_id=figure_id, metadata=metadata)
 
@@ -134,6 +151,7 @@ class RAGPipeline:
         metadata: dict[str, Any] | None = None,
     ) -> str:
         """Index a figure into the vector store for future retrieval."""
+        self._lazy_init()
         return self._retriever.add_figure(
             figure_id=figure_id,
             caption=caption,

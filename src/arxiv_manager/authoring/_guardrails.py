@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def check_answer_plausible(draft: dict, context: dict) -> tuple[bool, str]:
     """Reject empty, trivial, or impossible answers."""
-    answer = draft.get("answer", "").strip().lower()
+    answer = (draft.get("answer") or "").strip().lower()
     if not answer:
         return False, "Answer is empty"
     if answer in ("none", "n/a", "na", "cannot be determined", "unknown", "null", "undefined"):
@@ -25,7 +25,7 @@ def check_answer_plausible(draft: dict, context: dict) -> tuple[bool, str]:
 
 def check_extreme_answer(draft: dict, context: dict) -> tuple[bool, str]:
     """Reject answers that are statistically improbable (LLM hallucination markers)."""
-    answer = draft.get("answer", "").strip()
+    answer = (draft.get("answer") or "").strip()
     if not answer:
         return True, ""
     answer_format = draft.get("answer_format", "")
@@ -45,7 +45,7 @@ def check_extreme_answer(draft: dict, context: dict) -> tuple[bool, str]:
 
 def check_answer_format_match(draft: dict, context: dict) -> tuple[bool, str]:
     """Verify answer matches the declared format."""
-    answer = draft.get("answer", "").strip()
+    answer = (draft.get("answer") or "").strip()
     fmt = draft.get("answer_format", "")
     if not answer or not fmt:
         return True, ""
@@ -70,7 +70,7 @@ def check_diversity(draft: dict, context: dict) -> tuple[bool, str]:
     prev = context.get("previous_question", "")
     if not prev:
         return True, ""
-    q = draft.get("question", "").strip().lower()
+    q = (draft.get("question") or "").strip().lower()
     p = prev.strip().lower()
     if q == p:
         return False, "Question is identical to previous question"
@@ -162,8 +162,8 @@ def run_guardrails(
                         attempt + 1, max_retries + 1, len(failed_checks), "; ".join(failed_checks))
 
         if attempt >= max_retries:
-            logger.warning("guardrail: max retries exhausted, returning draft with failures")
-            return draft
+            logger.warning("guardrail: max retries exhausted, returning None")
+            return None
 
         feedback = "; ".join(failed_checks)
 
@@ -172,6 +172,6 @@ def run_guardrails(
             draft = retry
             continue
 
-        return draft
+        return None
 
-    return draft
+    return None

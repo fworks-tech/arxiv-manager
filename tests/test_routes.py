@@ -193,10 +193,10 @@ class TestProposeTask:
             "/api/image/propose",
             data={
                 "upload_id": upload_id,
-                "question": "Test question?",
-                "answer": "42",
+                "question": "How many distinct colored regions are visible in this image?",
+                "answer": "2",
                 "answer_format": "number",
-                "task_type": "chart",
+                "task_type": "general_image",
                 "domain": "Physics",
                 "title": "Test",
             },

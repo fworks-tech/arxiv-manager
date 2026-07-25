@@ -47,10 +47,30 @@ Answer is 1 word or 1 number.
 Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"chart|general_image|spatial"}}""")
 
 
-REGEN_PROMPT = PromptTemplate("REGEN_PROMPT", """Create a hard visual-reasoning question for this image.
+REGEN_PROMPT = PromptTemplate("REGEN_PROMPT", """Create a hard visual-reasoning question for this image that Qwen 3.6-35B-A3B will FAIL on.
 The previous attempt had validation errors — fix ALL of them:
 
 {feedback}
+
+Qwen's known weaknesses (from benchmarks):
+- ODInW13 (object detection/counting): 50.8 — weak at counting many visual elements
+- ZEROBench_sub (zero-shot reasoning): 34.4 — weak at novel task formats
+
+Proven Challenging strategies:
+1. Multi-type count + sum: "Count these three types of elements, then give their sum: (1) [type A], (2) [type B], (3) [type C]"
+2. Multi-type count + sum + exclusion: "Count [type A], [type B], and [type C] excluding anything inside [region]. Sum all three counts."
+3. Subjective classification + count: "Count [elements] that contain color (not gray or blank). How many are there?"
+4. Threshold filter + count: "Count [elements] with [attribute] greater than [value] across all panels."
+5. Read-and-compare (charts): "What is the difference between the maximum [axis] value in panel A and the maximum in panel B?"
+6. Cross-panel arithmetic: "Sum the peak z-values across all panels in the figure."
+7. Value-at-intersection: "At the x-value of [value], what is the approximate y-value in panel [panel]?"
+
+ANTI-PATTERNS (DO NOT USE):
+- Counting axis labels, tick marks, colorbar ticks, legends, or similar OCR-able elements
+- Any question answerable from text alone (must require the image)
+- "How many X" without a filter, comparison, or arithmetic operation
+- Generic "How many [elements] are visible?" without constraints
+- Providing all numerical data in the question text (the model must READ from the chart)
 
 Authoring principles (from QA handbook):
 - Prefer REASONING over recognition: compose multiple series, filter by attribute, compare across panels
@@ -60,7 +80,7 @@ Authoring principles (from QA handbook):
 - Question must require the image
 - Answer must be objective
 
-Rules: English, 1 sentence, must need the image, no yes/no, answer is 1 word or number. No option restriction. No "how does" / "what trend" / no "none" / "cannot be determined".
+Rules: English, 1 sentence, must need the image, no yes/no, answer is 1 word or number. No option restriction. No "how does" / "what trend" / no "none" / "cannot be determined". Answer must be an UNUSUAL number (not 2, 3, 4, 5) to avoid Qwen guessing.
 Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"chart|general_image|spatial"}}""")
 
 
@@ -280,11 +300,37 @@ If score is 1-3, REWRITE the question to:
 Keep the answer in sync. Return JSON only: {{"score": <1-5>, "rewrite_question": "...", "rewrite_answer": "..."}}""")
 
 
+FIX_PROMPT = PromptTemplate(
+    "FIX_PROMPT",
+    """You are fixing an existing visual-reasoning Q&A pair based on validation feedback.
+
+Current Question: {question}
+Current Answer: {answer}
+Answer Format: {answer_format}
+Task Type: {task_type}
+
+Validation Errors:
+{errors}
+
+Validation Warnings:
+{warnings}
+
+Fix ALL of the above issues. Keep the same task type and figure context.
+Output ONLY valid JSON with these keys:
+  "question": the fixed question
+  "answer": the fixed answer
+  "answer_format": "{answer_format}"
+  "task_type": "{task_type}"
+  "fix_summary": brief explanation of what changed""",
+)
+
+
 PROMPT_TEMPLATES: dict[str, PromptTemplate] = {
     p.name: p for p in [
         DRAFT_PROMPT, EASY_PROMPT, REGEN_PROMPT, SPATIAL_REGEN_PROMPT,
         HARDEST_PROMPT, CHALLENGING_PROMPT, SPATIAL_DRAFT_PROMPT,
         SPATIAL_CHALLENGING_PROMPT, SPATIAL_HARDEST_PROMPT,
         VERIFY_PROMPT, SELF_CRITIQUE_PROMPT,
+        FIX_PROMPT,
     ]
 }

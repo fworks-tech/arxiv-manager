@@ -108,7 +108,7 @@ class TestRAGPipeline:
         assert "context_str" in ctx
         assert "sources" in ctx
 
-    def test_rag_pipeline_with_mock(self, monkeypatch):
+    def test_rag_pipeline_with_mock(self):
         """RAGPipeline returns mock context when retriever is mocked."""
         from arxiv_manager.services.rag_pipeline import RAGPipeline
 
@@ -116,7 +116,6 @@ class TestRAGPipeline:
             def search(self, *args, **kwargs):
                 return [{"content": "neural network diagram", "metadata": {"figure_id": 1}, "score": 0.9}]
 
-        monkeypatch.setattr("arxiv_manager.services.rag_pipeline.HybridRetriever", FakeRetriever)
         rag = RAGPipeline(use_cache=False, use_reranker=False)
         rag._retriever = FakeRetriever()
         ctx = rag.get_context(query="neural network", figure_id=1)

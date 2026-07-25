@@ -48,7 +48,8 @@ def get_few_shot_examples(
     """Fetch high-quality past generation attempts as few-shot examples.
 
     Matches on figure_type, difficulty, task_type and prefers attempts
-    with validation_quality >= 80. Falls back to relaxing filters.
+    with validation_quality >= 80. Excludes user-reported issues.
+    Prefers Rhea-approved examples. Falls back to relaxing filters.
     Returns empty list if no data or table doesn't exist yet.
     """
     from ..db import get_session
@@ -56,12 +57,34 @@ def get_few_shot_examples(
 
     session = get_session()
     try:
+        # Get IDs of reported issues to exclude
+        reported_ids = set()
+        try:
+            reported = list(session.exec(select(IssueReport.generation_attempt_id)).all())
+            reported_ids = {r for r in reported if r is not None}
+        except Exception:
+            pass
+
         query = select(GenerationAttempt).where(
             GenerationAttempt.success == True,
             GenerationAttempt.validation_is_valid == True,
             GenerationAttempt.validation_quality >= 80,
             GenerationAttempt.generated_question != "",
         )
+        if reported_ids:
+            query = query.where(~GenerationAttempt.id.in_(reported_ids))
+
+        # Prefer Rhea-approved examples, then examples where Qwen failed (challenging)
+        if reported_ids:
+            query = query.order_by(GenerationAttempt.rhea_passed.desc())
+        query = query.order_by(GenerationAttempt.qwen_passes.asc())
+        query = query.order_by(GenerationAttempt.gemini_passes.desc())
+        if complexity_score > 0:
+            query = query.order_by(
+                abs(GenerationAttempt.complexity_score - complexity_score)
+            )
+        else:
+            query = query.order_by(desc(GenerationAttempt.validation_quality))
 
         if figure_type:
             query = query.where(GenerationAttempt.figure_type == figure_type)
@@ -95,7 +118,7 @@ def build_figure_history(figure_id: int, max_attempts: int = 5) -> str:
     if no history exists.
     """
     from ..db import get_session
-    from ..models import GenerationAttempt
+    from ..models import GenerationAttempt, IssueReport
 
     session = get_session()
     try:
@@ -108,7 +131,34 @@ def build_figure_history(figure_id: int, max_attempts: int = 5) -> str:
             ).all()
         )
 
-        if not rows:
+        # Query IssueReport feedback for this figure
+        seen_feedback: set[str] = set()
+        reports: dict[int, list[str]] = {}
+        general_reports: list[str] = []
+        try:
+            issue_rows = list(
+                session.exec(
+                    select(IssueReport).where(IssueReport.figure_id == figure_id)
+                    .order_by(IssueReport.created_at.asc())
+                ).all()
+            )
+            for r in issue_rows:
+                line = f"reason={r.reason}"
+                if r.description:
+                    line += f" ({r.description})"
+                if r.corrected_answer:
+                    line += f" | CORRECTED ANSWER: {r.corrected_answer}"
+                if line in seen_feedback:
+                    continue
+                seen_feedback.add(line)
+                if r.generation_attempt_id:
+                    reports.setdefault(r.generation_attempt_id, []).append(line)
+                else:
+                    general_reports.append(line)
+        except Exception:
+            pass
+
+        if not rows and not general_reports:
             return ""
 
         blocks: list[str] = []
@@ -132,7 +182,15 @@ def build_figure_history(figure_id: int, max_attempts: int = 5) -> str:
                     pass
             if r.critique_score > 0:
                 parts.append(f"critique_score={r.critique_score}")
+            if r.qwen_passes > 0 or r.gemini_passes > 0:
+                parts.append(f"model_runs: Qwen={r.qwen_passes}/{r.qwen_passes + r.gemini_passes} Gemini={r.gemini_passes}/{r.qwen_passes + r.gemini_passes}")
             blocks.append(" | ".join(parts))
+            if r.id in reports:
+                for fb_line in reports[r.id]:
+                    blocks.append(f"  ⚠️ USER FEEDBACK on this attempt: {fb_line}")
+
+        for line in general_reports:
+            blocks.append(f"  ⚠️ USER FEEDBACK: {line}")
 
         return "\n".join(blocks)
     except Exception:
@@ -147,12 +205,13 @@ def select_best_model(
     difficulty: str = "",
     default_model: str = "minimax-m3",
     min_attempts: int = 3,
+    allowed_models: set[str] | None = None,
 ) -> str:
     """Pick the best-performing model for a given (figure_type, difficulty).
 
     Queries past GenerationAttempt records and returns the model with the
     highest average validation quality. Falls back to default_model if
-    insufficient data exists.
+    insufficient data exists. Only considers models in allowed_models if set.
     """
     from ..db import get_session
     from ..models import GenerationAttempt
@@ -176,7 +235,12 @@ def select_best_model(
 
         model_scores: dict[str, list[float]] = {}
         for r in rows:
+            if allowed_models and r.model_name not in allowed_models:
+                continue
             model_scores.setdefault(r.model_name, []).append(r.validation_quality)
+
+        if not model_scores:
+            return default_model
 
         best_model = default_model
         best_avg = 0.0
@@ -208,13 +272,15 @@ def inject_history_into_prompt(
     complexity_score: float = 0.0,
     task_type: str = "",
     previous_question: str = "",
+    validation_context: str = "",
 ) -> str:
     """Enrich a prompt with figure history and few-shot examples.
 
-    Appends three sections to the base prompt if data is available:
-    1. Past generation history for this figure
+    Appends sections to the base prompt if data is available:
+    1. Past generation history for this figure (including user issue reports)
     2. Few-shot examples from successful past generations
-    3. Previous question reminder (existing mechanism, enhanced)
+    3. Previous question reminder
+    4. Current task validation issues to fix
     """
     parts: list[str] = []
 
@@ -252,6 +318,13 @@ def inject_history_into_prompt(
             f"The previous question for this image was: {previous_question}\n"
             "Generate a SUBSTANTIALLY DIFFERENT question — different strategy, "
             "different data references, different answer."
+        )
+
+    # 4. Current task validation issues to fix
+    if validation_context:
+        parts.append(
+            "VALIDATION ISSUES TO FIX in the current task:\n"
+            + validation_context
         )
 
     if not parts:

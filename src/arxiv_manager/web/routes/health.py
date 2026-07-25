@@ -20,12 +20,14 @@ def _check_db() -> dict:
     """Check database connectivity and return status + counts."""
     try:
         session = get_session()
-        from sqlmodel import func, select
-        from ...models import Figure, Paper, Task
-        paper_count = session.exec(select(func.count(Paper.id))).one()
-        fig_count = session.exec(select(func.count(Figure.id))).one()
-        task_count = session.exec(select(func.count(Task.id))).one()
-        session.close()
+        try:
+            from sqlmodel import func, select
+            from ...models import Figure, Paper, Task
+            paper_count = session.exec(select(func.count(Paper.id))).one()
+            fig_count = session.exec(select(func.count(Figure.id))).one()
+            task_count = session.exec(select(func.count(Task.id))).one()
+        finally:
+            session.close()
         return {
             "status": "ok",
             "papers": paper_count,

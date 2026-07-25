@@ -51,7 +51,8 @@ src/arxiv_manager/
 - **Paper:** arXiv paper metadata
 - **Figure:** Extracted figure image with type, complexity, audit results
 - **Task:** Q&A task with question, answer, format, type, difficulty, status
-- **GenerationAttempt:** Full trace of every LLM call (38+ fields incl. token usage)
+- **GenerationAttempt:** Full trace of every LLM call (38+ fields incl. token usage, Rhea feedback, model run results)
+- **IssueReport:** User-reported issues on generation attempts (reason, description, corrected_answer) — fed back into generation prompts
 - **PromptTemplateRecord:** DB-backed prompt templates with versioning, rollback support
 - **SubmissionLog:** Task submission tracking with review status
 
@@ -59,12 +60,15 @@ src/arxiv_manager/
 
 - **CRAG (CAG + RAG):** Semantic cache check first, then hybrid retrieve + rerank
 - **History injection:** Past attempts are injected as few-shot examples + "don't repeat" guidance
-- **Self-critique loop:** LLM scores own draft (1-5) and rewrites
+- **Self-critique loop:** LLM scores own draft (1-5) and rewrites, now with 2 rounds
 - **Consensus drafting:** Multiple drafts → validate → pick best
 - **Guardrails + auto-retry:** Quality checks trigger regeneration with feedback
 - **Dynamic model selection:** Best model per (figure_type, difficulty) from historical quality
 - **Hot-swappable prompts:** DB-backed templates with API for save/rollback/reload
 - **Cost tracking:** Token usage captured from API responses, cost estimated per model
+- **IssueReport feedback loop:** User-reported issues (too_easy, wrong_answer) and corrected answers are injected into the generation prompt via `build_figure_history`. Model run results (Qwen/Gemini passes) are copied onto GenerationAttempt on submit and influence few-shot ordering.
+- **Arithmetic consistency check:** Validation warns when a question asks for product/sum but the answer may be a simple count.
+- **AI Fix with image context:** The AI Fix endpoint now sends the figure image, figure history, and validation context to the LLM for context-aware fixes.
 
 ## Key Files
 

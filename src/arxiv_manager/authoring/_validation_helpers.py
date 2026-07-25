@@ -278,7 +278,7 @@ def _has_answer_in_question(q: str, a: str) -> bool:
                         return True
         except (ValueError, ZeroDivisionError):
             pass
-    return True
+    return False
 
 
 def _is_chart_math_only(q: str) -> bool:
@@ -365,6 +365,17 @@ def _check_mcq_options(options: list[str] | None) -> list[str]:
         if opt.strip().lower() in TRICK_ANSWERS:
             issues.append(f"MCQ option '{opt}' is a trick answer (handbook ban)")
     return issues
+
+
+ARITHMETIC_KEYWORDS = re.compile(
+    r"\b(?:product|sum|difference|quotient|multipl(?:y|ied)|add(?:ed)?|subtract(?:ed)?|divide?)\b",
+    re.IGNORECASE,
+)
+
+
+def _requires_arithmetic(q: str) -> bool:
+    """Check if the question asks for an arithmetic operation on multiple values."""
+    return bool(ARITHMETIC_KEYWORDS.search(q))
 
 
 # _calculate_score is kept in validator.py to avoid circular import with ValidationResult

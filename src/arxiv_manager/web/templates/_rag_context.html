@@ -1,0 +1,27 @@
+{% if sources %}
+<div class="mt-2 pt-2 border-t border-gray-200">
+  <p class="text-xs font-medium text-gray-500 mb-1 uppercase tracking-wide">🔍 Retrieved Context</p>
+  {% for s in sources %}
+  <div class="flex items-center gap-2 text-xs text-gray-500 py-0.5">
+    <span class="{% if s.from_cache %}text-purple-500{% else %}text-blue-500{% endif %}">
+      {% if s.from_cache %}📦{% else %}📄{% endif %}
+    </span>
+    {% if s.figure_id %}
+    <span>Figure #{{ s.figure_id }}</span>
+    {% endif %}
+    {% if s.figure_type %}
+    <span class="text-gray-400">· {{ s.figure_type }}</span>
+    {% endif %}
+    {% if s.score is defined %}
+    <span class="text-gray-300">· score: {{ "%.2f"|format(s.score) }}</span>
+    {% endif %}
+    {% if s.from_cache %}
+    <span class="text-purple-400 font-medium">from cache</span>
+    {% endif %}
+  </div>
+  {% if s.snippet %}
+  <p class="text-xs text-gray-400 ml-5 truncate">{{ s.snippet[:120] }}</p>
+  {% endif %}
+  {% endfor %}
+</div>
+{% endif %}

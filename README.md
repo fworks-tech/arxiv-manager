@@ -66,7 +66,7 @@ python run.py
 
 Development mode:
 ```bash
-uvicorn src.arxiv_manager.web.app:create_app --reload --host 0.0.0.0 --port 8000
+uvicorn src.arxiv_manager.web.app:create_app --reload --reload-exclude storage/ --host 0.0.0.0 --port 8000
 ```
 
 ## Testing

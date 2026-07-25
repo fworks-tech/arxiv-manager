@@ -38,12 +38,12 @@ def verify_draft(
         answer=draft.get("answer", ""),
     )
 
-    img = Image.open(image_path)
-    if img.mode in ("RGBA", "P"):
-        img = img.convert("RGB")
-    img.thumbnail(CONFIG.thumbnail_size)
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=CONFIG.jpeg_quality, optimize=True)
+    with Image.open(image_path) as img:
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        img.thumbnail(CONFIG.thumbnail_size)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=CONFIG.jpeg_quality, optimize=True)
     b64 = base64.b64encode(buf.getvalue()).decode()
     media_type = "image/jpeg"
 
