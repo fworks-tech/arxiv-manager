@@ -124,8 +124,10 @@ def test_draft_qa_figure_id_passthrough(sample_image_chart_path, mock_api_key, m
     def fake_call(*a, **kw):
         return {"question": "Q?", "answer": "5", "answer_format": "number", "task_type": "chart"}
 
-    import arxiv_manager.authoring.ai_draft as draft_mod
-    monkeypatch.setattr(draft_mod, "_call_opencode", fake_call)
+    import arxiv_manager.authoring.ai_draft._api_client as api_mod
+    import arxiv_manager.authoring.ai_draft.core as core_mod
+    monkeypatch.setattr(api_mod, "_call_opencode", fake_call)
+    monkeypatch.setattr(core_mod, "_call_opencode", fake_call)
 
     result = draft_qa(
         image_path=sample_image_chart_path,
@@ -145,8 +147,10 @@ def test_draft_qa_includes_prompt_version_in_dict(sample_image_chart_path, mock_
     def fake_call(*a, **kw):
         return {"question": "Q?", "answer": "5", "answer_format": "number", "task_type": "chart"}
 
-    import arxiv_manager.authoring.ai_draft as draft_mod
-    monkeypatch.setattr(draft_mod, "_call_opencode", fake_call)
+    import arxiv_manager.authoring.ai_draft._api_client as api_mod
+    import arxiv_manager.authoring.ai_draft.core as core_mod
+    monkeypatch.setattr(api_mod, "_call_opencode", fake_call)
+    monkeypatch.setattr(core_mod, "_call_opencode", fake_call)
 
     result = draft_qa(
         image_path=sample_image_chart_path,
@@ -169,8 +173,10 @@ def test_draft_qa_prompt_template_selection(sample_image_chart_path, mock_api_ke
         captured.append(True)
         return {"question": "Q?", "answer": "5", "answer_format": "number", "task_type": "chart"}
 
-    import arxiv_manager.authoring.ai_draft as draft_mod
-    monkeypatch.setattr(draft_mod, "_call_opencode", fake_call)
+    import arxiv_manager.authoring.ai_draft._api_client as api_mod
+    import arxiv_manager.authoring.ai_draft.core as core_mod
+    monkeypatch.setattr(api_mod, "_call_opencode", fake_call)
+    monkeypatch.setattr(core_mod, "_call_opencode", fake_call)
 
     result = draft_qa(
         image_path=sample_image_chart_path,

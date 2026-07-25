@@ -260,13 +260,16 @@ def mock_draft_success(monkeypatch):
     """Monkeypatches _call_opencode to return a valid draft dict."""
     def _fake_call(*args, **kwargs):
         return {
+            "_raw_response": "",
             "question": "What is the peak value in panel A?",
             "answer": "42",
             "answer_format": "number",
             "task_type": "chart",
         }
-    import arxiv_manager.authoring.ai_draft as draft_mod
-    monkeypatch.setattr(draft_mod, "_call_opencode", _fake_call)
+    import arxiv_manager.authoring.ai_draft._api_client as api_mod
+    import arxiv_manager.authoring.ai_draft.core as core_mod
+    monkeypatch.setattr(api_mod, "_call_opencode", _fake_call)
+    monkeypatch.setattr(core_mod, "_call_opencode", _fake_call)
 
 
 @pytest.fixture
@@ -274,5 +277,7 @@ def mock_draft_empty(monkeypatch):
     """Monkeypatches _call_opencode to return None (generation failure)."""
     def _fake_call(*args, **kwargs):
         return None
-    import arxiv_manager.authoring.ai_draft as draft_mod
-    monkeypatch.setattr(draft_mod, "_call_opencode", _fake_call)
+    import arxiv_manager.authoring.ai_draft._api_client as api_mod
+    import arxiv_manager.authoring.ai_draft.core as core_mod
+    monkeypatch.setattr(api_mod, "_call_opencode", _fake_call)
+    monkeypatch.setattr(core_mod, "_call_opencode", _fake_call)
