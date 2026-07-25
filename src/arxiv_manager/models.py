@@ -122,6 +122,25 @@ class Task(SQLModel, table=True):
     platform_task_id: str = ""
 
 
+class PromptTemplateRecord(SQLModel, table=True):
+    """Database-backed prompt template registry.
+
+    Supports hot-swapping templates at runtime without code changes.
+    """
+    __tablename__ = "prompt_templates"
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True)  # e.g. "CHALLENGING_PROMPT"
+    version: int = Field(default=1, index=True)
+    text: str = ""
+    author: str = ""
+    description: str = ""
+    tags: str = ""  # comma-separated
+    status: str = Field(default="active")  # active | deprecated | experimental
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+
 class SubmissionLog(SQLModel, table=True):
     """Tracks task submissions."""
     __tablename__ = "submission_logs"
@@ -186,6 +205,11 @@ class GenerationAttempt(SQLModel, table=True):
     critique_score: int = 0
     critique_rewrite_question: str = ""
     critique_rewrite_answer: str = ""
+
+    # Token usage
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
 
     # Outcome
     success: bool = False

@@ -1,0 +1,86 @@
+{
+  "meta": {
+    "description": "Golden dataset of high-quality visual-reasoning Q&A pairs for evaluation",
+    "version": "1.0.0",
+    "created": "2026-07-24"
+  },
+  "examples": [
+    {
+      "id": "proven-001",
+      "figure_type": "chart_graph_text",
+      "difficulty": "hardest",
+      "task_type": "chart",
+      "answer_format": "number",
+      "complexity": 0.85,
+      "question": "Count all the following elements in this neural network diagram: (1) black rectangular mirrors, (2) standalone gray ellipse lenses, and (3) groups of colored filter bars. Sum all three counts.",
+      "answer": "18",
+      "reasoning": "Multi-type counting + sum. Qwen fails because it must track 3 categories simultaneously across a complex diagram."
+    },
+    {
+      "id": "proven-002",
+      "figure_type": "chart_graph_text",
+      "difficulty": "hardest",
+      "task_type": "chart",
+      "answer_format": "number",
+      "complexity": 0.88,
+      "question": "How many convolutional filters are shown in the rightmost layer of this CNN architecture diagram? Only count filter groups that contain at least one colored (non-gray) filter.",
+      "answer": "30",
+      "reasoning": "Subjective classification (colored vs gray) + spatial targeting (rightmost layer). Qwen fails on subjective boundary."
+    },
+    {
+      "id": "proven-003",
+      "figure_type": "chart_graph_text",
+      "difficulty": "challenging",
+      "task_type": "chart",
+      "answer_format": "number",
+      "complexity": 0.72,
+      "question": "In this optical computing diagram, count these three types of elements excluding anything inside the blue dashed boxes: (1) black rectangular mirrors, (2) standalone gray ellipse lenses, and (3) groups of colored filter bars. Sum all three counts.",
+      "answer": "18",
+      "reasoning": "Multi-type counting + exclusion (inside dashed boxes). Tests spatial exclusion reasoning."
+    },
+    {
+      "id": "proven-004",
+      "figure_type": "chart_graph_text",
+      "difficulty": "challenging",
+      "task_type": "chart",
+      "answer_format": "number",
+      "complexity": 0.68,
+      "question": "What is the difference between the maximum bar height in panel A and the maximum bar height in panel B?",
+      "answer": "15",
+      "reasoning": "Read-and-compare across panels. Requires locating peaks in two separate charts and computing difference."
+    },
+    {
+      "id": "proven-005",
+      "figure_type": "chart_graph_text",
+      "difficulty": "easy",
+      "task_type": "chart",
+      "answer_format": "number",
+      "complexity": 0.40,
+      "question": "How many bars are shown in panel A?",
+      "answer": "5",
+      "reasoning": "Simple observation, single element, no multi-step."
+    },
+    {
+      "id": "proven-006",
+      "figure_type": "general_image",
+      "difficulty": "challenging",
+      "task_type": "spatial",
+      "answer_format": "word",
+      "complexity": 0.55,
+      "question": "What object sits on the surface that is between the plant and the window?",
+      "answer": "lamp",
+      "reasoning": "Multi-step containment reasoning. Requires identifying a surface, then finding what's on it."
+    },
+    {
+      "id": "proven-007",
+      "figure_type": "general_image",
+      "difficulty": "hardest",
+      "task_type": "spatial",
+      "answer_format": "number",
+      "complexity": 0.78,
+      "question": "Count how many objects are closer to the camera than the red chair.",
+      "answer": "7",
+      "reasoning": "Count across depth planes. Requires judging relative distance for every object in the scene."
+    }
+  ]
+}

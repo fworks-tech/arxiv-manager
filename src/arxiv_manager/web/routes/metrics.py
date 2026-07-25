@@ -1,4 +1,7 @@
-"""Metrics dashboard route handler."""
+"""Metrics dashboard route handler with cost tracking."""
+
+from __future__ import annotations
+
 import json
 import logging
 import time as time_module
@@ -7,6 +10,7 @@ from pathlib import Path
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 
+from ...observability.cost_tracker import estimate_cost, format_cost, summarize_usage
 from ...storage import STORAGE_DIR
 from . import TEMPLATES, router
 
@@ -14,6 +18,39 @@ logger = logging.getLogger(__name__)
 
 _metrics_cache: dict | None = None
 _metrics_cache_ts: float = 0
+
+
+def _read_db_usage() -> dict:
+    """Read token usage from GenerationAttempt records in the database.
+
+    Returns aggregated cost data when available.
+    """
+    try:
+        from sqlmodel import select
+        from ...db import get_session
+        from ...models import GenerationAttempt
+
+        session = get_session()
+        rows = list(session.exec(
+            select(GenerationAttempt).where(GenerationAttempt.total_tokens > 0)
+        ).all())
+        session.close()
+
+        if not rows:
+            return {"total_calls": 0, "total_cost": 0, "total_cost_str": "$0.00", "by_model": {}}
+
+        records = [
+            {
+                "model_name": r.model_name,
+                "input_tokens": r.input_tokens,
+                "output_tokens": r.output_tokens,
+                "total_tokens": r.total_tokens,
+            }
+            for r in rows
+        ]
+        return summarize_usage(records)
+    except Exception:
+        return {"total_calls": 0, "total_cost": 0, "total_cost_str": "$0.00", "by_model": {}}
 
 
 def _compute_metrics() -> dict:
@@ -69,6 +106,9 @@ def _compute_metrics() -> dict:
 
     recent = records[-24:] if len(records) > 24 else records
 
+    # Cost data from DB
+    cost_data = _read_db_usage()
+
     metrics = {
         "total_drafts": draft_count,
         "total_verify": verify_count,
@@ -78,6 +118,7 @@ def _compute_metrics() -> dict:
         "by_difficulty": by_diff,
         "by_figure_type": by_type,
         "recent": [dict(r, **{"es": r.get("elapsed_s", 0), "ok_bool": r.get("ok")}) for r in recent[-24:]],
+        "cost": cost_data,
     }
 
     _metrics_cache = metrics
@@ -87,7 +128,7 @@ def _compute_metrics() -> dict:
 
 @router.get("/metrics", response_class=HTMLResponse)
 def metrics_page(request: Request):
-    """AI draft performance dashboard."""
+    """AI draft performance dashboard with cost tracking."""
     logger.info("metrics page")
     metrics = _compute_metrics()
     return TEMPLATES.TemplateResponse(request, "metrics.html", {"m": metrics})

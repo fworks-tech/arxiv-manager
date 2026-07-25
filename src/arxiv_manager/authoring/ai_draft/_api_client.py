@@ -68,6 +68,13 @@ def _call_api_with_retry(
                 parse_fn = parser or _parse_llm_response
                 parsed = parse_fn(content, raw_text=content)
                 if parsed:
+                    usage = data.get("usage", {})
+                    if usage:
+                        parsed["_usage"] = {
+                            "input_tokens": usage.get("prompt_tokens", 0),
+                            "output_tokens": usage.get("completion_tokens", 0),
+                            "total_tokens": usage.get("total_tokens", 0),
+                        }
                     return parsed
                 logger.warning("_call_api_with_retry: parsing returned None (len=%d, preview=%.150s)",
                                len(content), content[:150])

@@ -182,6 +182,7 @@ def api_draft_qa(
     logger.info("draft ok upload_id=%s quality=%.2f errors=%d",
                 upload_id, validation.get("quality_score", 0), len(validation.get("errors", [])))
 
+    usage = draft.get("_usage", {})
     log_generation_attempt(
         attempt_number=1,
         generation_type="self_critique" if difficulty in ("challenging", "hardest") else "draft",
@@ -201,6 +202,9 @@ def api_draft_qa(
         validation_is_valid=validation.get("is_valid", False),
         validation_errors=json.dumps(validation.get("errors", [])),
         validation_warnings=json.dumps(validation.get("warnings", [])),
+        input_tokens=usage.get("input_tokens", 0),
+        output_tokens=usage.get("output_tokens", 0),
+        total_tokens=usage.get("total_tokens", 0),
         success=True, elapsed_ms=0,
     )
 

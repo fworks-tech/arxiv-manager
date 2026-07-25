@@ -181,6 +181,7 @@ def _do_regenerate(image_path, api_key, difficulty, figure_type, complexity, pre
 
 def _log_attempt(figure_id, task_id, attempt_number, generation_type, draft, difficulty, figure_type, complexity, prev_question):
     """Log a generation attempt to telemetry."""
+    usage = draft.get("_usage", {})
     log_generation_attempt(
         figure_id=figure_id, task_id=task_id, attempt_number=attempt_number,
         generation_type=generation_type, source_route="api_regenerate_task",
@@ -195,6 +196,9 @@ def _log_attempt(figure_id, task_id, attempt_number, generation_type, draft, dif
         generated_answer=draft.get("answer", ""),
         generated_answer_format=draft.get("answer_format", ""),
         generated_task_type=draft.get("task_type", ""),
+        input_tokens=usage.get("input_tokens", 0),
+        output_tokens=usage.get("output_tokens", 0),
+        total_tokens=usage.get("total_tokens", 0),
         success=True,
     )
 

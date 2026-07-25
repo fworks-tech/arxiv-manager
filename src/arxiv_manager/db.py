@@ -40,6 +40,22 @@ def _migrate() -> None:
             conn.commit()
             logger.info("migration: added generation_attempts.prompt_text_hash and prompt_version_id")
 
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(text("PRAGMA table_info(generation_attempts)")).fetchall()]
+        if "input_tokens" not in cols:
+            conn.execute(text("ALTER TABLE generation_attempts ADD COLUMN input_tokens INTEGER NOT NULL DEFAULT 0"))
+            conn.execute(text("ALTER TABLE generation_attempts ADD COLUMN output_tokens INTEGER NOT NULL DEFAULT 0"))
+            conn.execute(text("ALTER TABLE generation_attempts ADD COLUMN total_tokens INTEGER NOT NULL DEFAULT 0"))
+            conn.commit()
+            logger.info("migration: added generation_attempts.input_tokens, output_tokens, total_tokens")
+
+    with engine.connect() as conn:
+        tables = [row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()]
+        if "prompt_templates" not in tables:
+            from . import models  # noqa: F401
+            SQLModel.metadata.create_all(engine, tables=["prompt_templates"])
+            logger.info("migration: created prompt_templates table")
+
 
 def init_db() -> None:
     """Create all tables if they don't exist."""
