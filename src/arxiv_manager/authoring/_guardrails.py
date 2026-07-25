@@ -102,6 +102,42 @@ GUARDRAILS = [
 ]
 
 
+def _run_guardrail_checks(draft: dict, context: dict) -> list[str]:
+    """Run all guardrail checks and return list of failure reasons."""
+    failed: list[str] = []
+    for check_fn in GUARDRAILS:
+        passed, reason = check_fn(draft, context)
+        if not passed:
+            failed.append(reason)
+    return failed
+
+
+def _auto_retry(draft, context, api_key, image_path, feedback, draft_qa_callback):
+    """Retry generation with guardrail feedback as prompt context."""
+    if not api_key or not image_path:
+        return None
+    if draft_qa_callback is not None:
+        return draft_qa_callback(
+            image_path=image_path, api_key=api_key, feedback=feedback,
+            difficulty=context.get("difficulty", ""),
+            figure_type=context.get("figure_type", ""),
+            complexity_score=context.get("complexity_score", 0.0),
+            previous_question=context.get("previous_question", ""),
+            figure_id=context.get("figure_id"),
+            model=context.get("model"),
+        )
+    from .ai_draft import draft_qa
+    return draft_qa(
+        image_path=image_path, api_key=api_key, feedback=feedback,
+        difficulty=context.get("difficulty", ""),
+        figure_type=context.get("figure_type", ""),
+        complexity_score=context.get("complexity_score", 0.0),
+        previous_question=context.get("previous_question", ""),
+        figure_id=context.get("figure_id"),
+        model=context.get("model"),
+    )
+
+
 def run_guardrails(
     draft: dict,
     context: dict,
@@ -117,11 +153,7 @@ def run_guardrails(
     Returns the verified draft or None if all retries fail.
     """
     for attempt in range(max_retries + 1):
-        failed_checks: list[str] = []
-        for check_fn in GUARDRAILS:
-            passed, reason = check_fn(draft, context)
-            if not passed:
-                failed_checks.append(reason)
+        failed_checks = _run_guardrail_checks(draft, context)
 
         if not failed_checks:
             return draft
@@ -133,39 +165,12 @@ def run_guardrails(
             logger.warning("guardrail: max retries exhausted, returning draft with failures")
             return draft
 
-        # Build feedback from guardrail failures
         feedback = "; ".join(failed_checks)
 
-        # Auto-retry: call draft_qa again with feedback
-        if api_key and image_path:
-            if draft_qa_callback is not None:
-                retry_draft = draft_qa_callback(
-                    image_path=image_path,
-                    api_key=api_key,
-                    feedback=feedback,
-                    difficulty=context.get("difficulty", ""),
-                    figure_type=context.get("figure_type", ""),
-                    complexity_score=context.get("complexity_score", 0.0),
-                    previous_question=context.get("previous_question", ""),
-                    figure_id=context.get("figure_id"),
-                    model=context.get("model"),
-                )
-            else:
-                from .ai_draft import draft_qa
-                retry_draft = draft_qa(
-                    image_path=image_path,
-                    api_key=api_key,
-                    feedback=feedback,
-                    difficulty=context.get("difficulty", ""),
-                    figure_type=context.get("figure_type", ""),
-                    complexity_score=context.get("complexity_score", 0.0),
-                    previous_question=context.get("previous_question", ""),
-                    figure_id=context.get("figure_id"),
-                    model=context.get("model"),
-                )
-            if retry_draft:
-                draft = retry_draft
-                continue
+        retry = _auto_retry(draft, context, api_key, image_path, feedback, draft_qa_callback)
+        if retry:
+            draft = retry
+            continue
 
         return draft
 

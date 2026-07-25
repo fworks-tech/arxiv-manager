@@ -15,6 +15,29 @@ from sqlmodel import select, desc
 logger = logging.getLogger(__name__)
 
 
+def _deduplicate_examples(rows, limit: int) -> list[dict[str, Any]]:
+    """Deduplicate GenerationAttempt rows by question text and format as dicts."""
+    seen_questions: set[str] = set()
+    examples: list[dict[str, Any]] = []
+    for r in rows:
+        q = r.generated_question.strip().lower()
+        if q not in seen_questions:
+            seen_questions.add(q)
+            examples.append({
+                "question": r.generated_question,
+                "answer": r.generated_answer,
+                "answer_format": r.generated_answer_format,
+                "task_type": r.generated_task_type,
+                "quality": r.validation_quality,
+                "figure_type": r.figure_type,
+                "difficulty": r.difficulty,
+                "complexity": r.complexity_score,
+            })
+            if len(examples) >= limit:
+                break
+    return examples
+
+
 def get_few_shot_examples(
     figure_type: str = "",
     difficulty: str = "",
@@ -57,27 +80,7 @@ def get_few_shot_examples(
 
         rows = list(session.exec(query.limit(limit * 2)).all())
 
-        # Deduplicate by question text
-        seen_questions: set[str] = set()
-        examples: list[dict[str, Any]] = []
-        for r in rows:
-            q = r.generated_question.strip().lower()
-            if q not in seen_questions:
-                seen_questions.add(q)
-                examples.append({
-                    "question": r.generated_question,
-                    "answer": r.generated_answer,
-                    "answer_format": r.generated_answer_format,
-                    "task_type": r.generated_task_type,
-                    "quality": r.validation_quality,
-                    "figure_type": r.figure_type,
-                    "difficulty": r.difficulty,
-                    "complexity": r.complexity_score,
-                })
-                if len(examples) >= limit:
-                    break
-
-        return examples
+        return _deduplicate_examples(rows, limit)
     except Exception:
         logger.debug("get_few_shot_examples: no data yet (table may not exist)")
         return []

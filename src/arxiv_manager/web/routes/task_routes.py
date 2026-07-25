@@ -150,6 +150,67 @@ def api_generation_history(request: Request, task_id: int):
         session.close()
 
 
+def _do_regenerate(image_path, api_key, difficulty, figure_type, complexity, prev_question, figure_id):
+    """Generate a single draft, with self-critique fallback for challenging/hardest."""
+    try:
+        if difficulty in ("challenging", "hardest"):
+            draft = draft_with_self_critique(
+                image_path=image_path, max_rounds=1,
+                api_key=api_key, difficulty=difficulty,
+                figure_type=figure_type, complexity_score=complexity,
+                previous_question=prev_question, figure_id=figure_id,
+            )
+            if draft is None:
+                draft = draft_qa(
+                    image_path=image_path,
+                    api_key=api_key, difficulty=difficulty,
+                    figure_type=figure_type, complexity_score=complexity,
+                    previous_question=prev_question, figure_id=figure_id,
+                )
+        else:
+            draft = draft_qa(
+                image_path=image_path,
+                api_key=api_key, difficulty=difficulty,
+                figure_type=figure_type, complexity_score=complexity,
+                previous_question=prev_question, figure_id=figure_id,
+            )
+        return draft
+    except ValueError:
+        return None
+
+
+def _log_attempt(figure_id, task_id, attempt_number, generation_type, draft, difficulty, figure_type, complexity, prev_question):
+    """Log a generation attempt to telemetry."""
+    log_generation_attempt(
+        figure_id=figure_id, task_id=task_id, attempt_number=attempt_number,
+        generation_type=generation_type, source_route="api_regenerate_task",
+        prompt_template_name=f"{difficulty}_{figure_type}" if figure_type else difficulty,
+        prompt_version_id=draft.get("_prompt_version_id", ""),
+        prompt_text_hash=draft.get("_prompt_text_hash", ""),
+        difficulty=difficulty, figure_type=figure_type, complexity_score=complexity,
+        previous_question=prev_question,
+        raw_response=draft.get("_raw_response", ""),
+        reasoning_trace=draft.get("_reasoning_trace", ""),
+        generated_question=draft.get("question", ""),
+        generated_answer=draft.get("answer", ""),
+        generated_answer_format=draft.get("answer_format", ""),
+        generated_task_type=draft.get("task_type", ""),
+        success=True,
+    )
+
+
+def _dedup_retry(img_path, api_key, difficulty, figure_type, complexity, prev_question, figure_id, task_answer, task_question):
+    """If the draft matches the existing answer, retry up to 2 times."""
+    for dedup_attempt in range(1, 3):
+        draft2 = _do_regenerate(img_path, api_key, difficulty, figure_type, complexity, prev_question, figure_id)
+        if draft2:
+            _log_attempt(figure_id, figure_id, 1 + dedup_attempt, "dedup_retry",
+                         draft2, difficulty, figure_type, complexity, prev_question)
+            if draft2["answer"].strip().lower() != task_answer.strip().lower():
+                return draft2
+    return None
+
+
 @router.post("/api/task/{task_id}/regenerate")
 def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("challenging")):
     """Regenerate Q&A for a task using AI draft."""
@@ -175,96 +236,17 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
         complexity = getattr(figure, "complexity_score", 0.0) if figure else 0.0
         prev_question = task.question
 
-        from ...authoring._draft_telemetry import log_generation_attempt
-
-        try:
-            if difficulty in ("challenging", "hardest"):
-                draft = draft_with_self_critique(
-                    image_path=img_path, max_rounds=1,
-                    api_key=api_key, difficulty=difficulty,
-                    figure_type=figure_type, complexity_score=complexity,
-                    previous_question=prev_question, figure_id=task.figure_id,
-                )
-                if draft is None:
-                    draft = draft_qa(
-                        image_path=img_path,
-                        api_key=api_key, difficulty=difficulty,
-                        figure_type=figure_type, complexity_score=complexity,
-                        previous_question=prev_question, figure_id=task.figure_id,
-                    )
-            else:
-                draft = draft_qa(
-                    image_path=img_path,
-                    api_key=api_key, difficulty=difficulty,
-                    figure_type=figure_type, complexity_score=complexity,
-                    previous_question=prev_question, figure_id=task.figure_id,
-                )
-        except ValueError as e:
-            return {"error": str(e), "ok": False}
-
+        draft = _do_regenerate(img_path, api_key, difficulty, figure_type, complexity, prev_question, task.figure_id)
         if not draft:
             return {"error": "Draft generation failed", "ok": False}
 
-        # Log initial draft
-        log_generation_attempt(
-            figure_id=task.figure_id, task_id=task.id, attempt_number=1,
-            generation_type="regenerate_initial", source_route="api_regenerate_task",
-            prompt_template_name=f"{difficulty}_{figure_type}" if figure_type else difficulty,
-            prompt_version_id=draft.get("_prompt_version_id", ""),
-            prompt_text_hash=draft.get("_prompt_text_hash", ""),
-            difficulty=difficulty, figure_type=figure_type, complexity_score=complexity,
-            previous_question=prev_question,
-            raw_response=draft.get("_raw_response", ""),
-            reasoning_trace=draft.get("_reasoning_trace", ""),
-            generated_question=draft.get("question", ""),
-            generated_answer=draft.get("answer", ""),
-            generated_answer_format=draft.get("answer_format", ""),
-            generated_task_type=draft.get("task_type", ""),
-            success=True,
-        )
+        _log_attempt(task.figure_id, task.id, 1, "regenerate_initial", draft, difficulty, figure_type, complexity, prev_question)
 
-        # Dedup retries
-        same_answer = draft["answer"].strip().lower() == task.answer.strip().lower()
-        if same_answer or draft["question"].strip().lower() == task.question.strip().lower():
-            dedup_attempt = 0
-            for _ in range(2):
-                dedup_attempt += 1
-                try:
-                    if difficulty in ("challenging", "hardest"):
-                        draft2 = draft_with_self_critique(
-                            image_path=img_path, max_rounds=1,
-                            api_key=api_key, difficulty=difficulty,
-                            figure_type=figure_type, complexity_score=complexity,
-                            previous_question=prev_question, figure_id=task.figure_id,
-                        )
-                    else:
-                        draft2 = draft_qa(
-                            image_path=img_path,
-                            api_key=api_key, difficulty=difficulty,
-                            figure_type=figure_type, complexity_score=complexity,
-                            previous_question=prev_question, figure_id=task.figure_id,
-                        )
-                except ValueError:
-                    draft2 = None
-                log_generation_attempt(
-                    figure_id=task.figure_id, task_id=task.id,
-                    attempt_number=1 + dedup_attempt,
-                    generation_type="dedup_retry", source_route="api_regenerate_task",
-                    prompt_version_id=draft2.get("_prompt_version_id", "") if draft2 else "",
-                    prompt_text_hash=draft2.get("_prompt_text_hash", "") if draft2 else "",
-                    difficulty=difficulty, figure_type=figure_type, complexity_score=complexity,
-                    previous_question=prev_question,
-                    raw_response=draft2.get("_raw_response", "") if draft2 else "",
-                    reasoning_trace=draft2.get("_reasoning_trace", "") if draft2 else "",
-                    generated_question=draft2.get("question", "") if draft2 else "",
-                    generated_answer=draft2.get("answer", "") if draft2 else "",
-                    generated_answer_format=draft2.get("answer_format", "") if draft2 else "",
-                    generated_task_type=draft2.get("task_type", "") if draft2 else "",
-                    success=draft2 is not None,
-                )
-                if draft2 and draft2["answer"].strip().lower() != task.answer.strip().lower():
-                    draft = draft2
-                    break
+        # Dedup retries if answer unchanged
+        if draft["answer"].strip().lower() == task.answer.strip().lower() or draft["question"].strip().lower() == task.question.strip().lower():
+            better = _dedup_retry(img_path, api_key, difficulty, figure_type, complexity, prev_question, task.figure_id, task.answer, task.question)
+            if better:
+                draft = better
 
         # Apply and commit
         task.question = draft["question"]
@@ -276,22 +258,7 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
         session.commit()
         logger.info("task regenerate ok task_id=%d", task_id)
 
-        log_generation_attempt(
-            figure_id=task.figure_id, task_id=task.id, attempt_number=2,
-            generation_type="regenerate_final", source_route="api_regenerate_task",
-            prompt_template_name=f"{difficulty}_{figure_type}" if figure_type else difficulty,
-            prompt_version_id=draft.get("_prompt_version_id", ""),
-            prompt_text_hash=draft.get("_prompt_text_hash", ""),
-            difficulty=difficulty, figure_type=figure_type, complexity_score=complexity,
-            previous_question=prev_question,
-            raw_response=draft.get("_raw_response", ""),
-            reasoning_trace=draft.get("_reasoning_trace", ""),
-            generated_question=draft.get("question", ""),
-            generated_answer=draft.get("answer", ""),
-            generated_answer_format=draft.get("answer_format", ""),
-            generated_task_type=draft.get("task_type", ""),
-            success=True,
-        )
+        _log_attempt(task.figure_id, task.id, 2, "regenerate_final", draft, difficulty, figure_type, complexity, prev_question)
 
         return {
             "ok": True, "question": draft["question"], "answer": draft["answer"],
