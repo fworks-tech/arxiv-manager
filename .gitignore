@@ -44,5 +44,11 @@ htmlcov/
 # Root logs
 app.log
 
+# Observability
+storage/_structured_log.jsonl
+
+# ChromaDB (future RAG)
+storage/chroma_db/
+
 # HF Space
 .space/

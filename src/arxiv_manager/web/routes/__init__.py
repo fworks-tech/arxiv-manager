@@ -17,3 +17,5 @@ from . import arxiv_routes  # noqa: E402
 from . import task_routes  # noqa: E402
 from . import lifecycle_routes  # noqa: E402
 from . import metrics  # noqa: E402
+from . import health  # noqa: E402
+from . import prompt_routes  # noqa: E402

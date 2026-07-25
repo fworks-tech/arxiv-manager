@@ -281,3 +281,38 @@ def mock_draft_empty(monkeypatch):
     import arxiv_manager.authoring.ai_draft.core as core_mod
     monkeypatch.setattr(api_mod, "_call_opencode", _fake_call)
     monkeypatch.setattr(core_mod, "_call_opencode", _fake_call)
+
+
+# ---------------------------------------------------------------------------
+# ChromaDB test fixtures (for Phase 3 RAG)
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def tmp_chroma_path(tmp_path):
+    """Returns a temp directory path for a test ChromaDB vector index."""
+    return tmp_path / "chroma_db"
+
+
+@pytest.fixture
+def override_chroma(tmp_chroma_path, monkeypatch):
+    """Monkeypatches ChromaDB persist directory to a temp path.
+
+    Works by patching retriever_config.CHROMA_PERSIST_DIR before
+    the retriever modules are imported.
+    """
+    try:
+        import arxiv_manager.components.retriever_config as cfg
+        monkeypatch.setattr(cfg, "CHROMA_PERSIST_DIR", tmp_chroma_path)
+    except ImportError:
+        pass
+    return tmp_chroma_path
+
+
+# ---------------------------------------------------------------------------
+# Structured logging test fixture
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def tmp_log_path(tmp_path):
+    """Returns a temp path for structured log output."""
+    return tmp_path / "_test_structured_log.jsonl"
