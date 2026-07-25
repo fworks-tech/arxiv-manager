@@ -108,6 +108,7 @@ def run_guardrails(
     api_key: str | None = None,
     image_path: str = "",
     max_retries: int = 2,
+    draft_qa_callback=None,
 ) -> dict | None:
     """Run all guardrails against a generated draft.
 
@@ -137,18 +138,31 @@ def run_guardrails(
 
         # Auto-retry: call draft_qa again with feedback
         if api_key and image_path:
-            from .ai_draft import draft_qa
-            retry_draft = draft_qa(
-                image_path=image_path,
-                api_key=api_key,
-                feedback=feedback,
-                difficulty=context.get("difficulty", ""),
-                figure_type=context.get("figure_type", ""),
-                complexity_score=context.get("complexity_score", 0.0),
-                previous_question=context.get("previous_question", ""),
-                figure_id=context.get("figure_id"),
-                model=context.get("model"),
-            )
+            if draft_qa_callback is not None:
+                retry_draft = draft_qa_callback(
+                    image_path=image_path,
+                    api_key=api_key,
+                    feedback=feedback,
+                    difficulty=context.get("difficulty", ""),
+                    figure_type=context.get("figure_type", ""),
+                    complexity_score=context.get("complexity_score", 0.0),
+                    previous_question=context.get("previous_question", ""),
+                    figure_id=context.get("figure_id"),
+                    model=context.get("model"),
+                )
+            else:
+                from .ai_draft import draft_qa
+                retry_draft = draft_qa(
+                    image_path=image_path,
+                    api_key=api_key,
+                    feedback=feedback,
+                    difficulty=context.get("difficulty", ""),
+                    figure_type=context.get("figure_type", ""),
+                    complexity_score=context.get("complexity_score", 0.0),
+                    previous_question=context.get("previous_question", ""),
+                    figure_id=context.get("figure_id"),
+                    model=context.get("model"),
+                )
             if retry_draft:
                 draft = retry_draft
                 continue
