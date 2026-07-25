@@ -190,6 +190,27 @@ def test_draft_qa_prompt_template_selection(sample_image_chart_path, mock_api_ke
     assert result["_prompt_version_id"].startswith("HARDEST_PROMPT@")
 
 
+def test_import_from_new_sub_modules():
+    """All public symbols importable from their new sub-module locations."""
+    from arxiv_manager.authoring.ai_draft._response_parser import (
+        _extract_reasoning, _parse_llm_response, _parse_critique_response)
+    from arxiv_manager.authoring.ai_draft._api_client import _call_opencode, _get_api_key
+    from arxiv_manager.authoring.ai_draft.core import draft_qa
+    from arxiv_manager.authoring.ai_draft.composition import (
+        draft_qa_consensus, draft_with_self_critique)
+    from arxiv_manager.authoring.ai_draft._verifier import verify_draft
+    # Verify all callable
+    assert callable(_extract_reasoning)
+    assert callable(_parse_llm_response)
+    assert callable(_parse_critique_response)
+    assert callable(_call_opencode)
+    assert callable(_get_api_key)
+    assert callable(draft_qa)
+    assert callable(draft_qa_consensus)
+    assert callable(draft_with_self_critique)
+    assert callable(verify_draft)
+
+
 def test_parse_critique_response_valid_critique():
     """_parse_critique_response accepts the critique format."""
     from arxiv_manager.authoring.ai_draft import _parse_critique_response
