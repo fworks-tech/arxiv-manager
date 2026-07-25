@@ -33,6 +33,7 @@ def draft_qa(
     complexity_score: float = 0.0,
     previous_question: str = "",
     figure_id: int | None = None,
+    use_rag: bool = True,
 ) -> dict | None:
     """Draft a Q&A pair from an image using an LLM."""
     logger.info("draft_qa entry image=%s difficulty=%s figure_type=%s complexity=%.3f",
@@ -96,6 +97,22 @@ def draft_qa(
         task_type=task_type_hint,
         previous_question=previous_question,
     )
+
+    # 3. RAG context injection (Phase 3, lazy import)
+    if use_rag and figure_id is not None:
+        try:
+            from ...services.rag_pipeline import RAGPipeline as _RAG
+            rag = _RAG()
+            rag_ctx = rag.get_context(
+                query=prompt,
+                figure_id=figure_id,
+                figure_type=figure_type,
+                difficulty=difficulty,
+            )
+            if rag_ctx["context_str"]:
+                prompt += "\n\n" + rag_ctx["context_str"]
+        except Exception as e:
+            logger.debug("draft_qa: RAG context injection failed: %s", e)
 
     prompt_text_hash = hashlib.sha256(prompt.encode()).hexdigest()[:20]
     prompt_version_id = f"{raw_template.name}@{prompt_text_hash[:12]}"
