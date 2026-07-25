@@ -6,6 +6,8 @@ storage/_trash/
 storage/*.db
 storage/*.db-shm
 storage/*.db-wal
+storage/*.db.*
+storage/realm-siq.db*
 storage/*.log
 storage/*.jsonl
 
