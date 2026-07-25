@@ -16,35 +16,16 @@ from arxiv_manager.authoring.ai_draft import (
 from arxiv_manager.authoring._draft_telemetry import log_draft
 
 
-def test_get_api_key_opencode(monkeypatch):
-    """_get_api_key returns OPENCODE_API_KEY value."""
+def test_get_api_key_returns_env_value(monkeypatch):
+    """_get_api_key returns OPENCODE_API_KEY value when set."""
     monkeypatch.setenv("OPENCODE_API_KEY", "test-opencode-key")
-    assert _get_api_key("opencode") == "test-opencode-key"
+    assert _get_api_key() == "test-opencode-key"
 
 
-def test_get_api_key_openai(monkeypatch):
-    """_get_api_key returns None for openai (only opencode is supported)."""
-    monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
-    assert _get_api_key("openai") is None
-
-
-def test_get_api_key_anthropic(monkeypatch):
-    """_get_api_key returns None for anthropic (only opencode is supported)."""
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
-    assert _get_api_key("anthropic") is None
-
-
-def test_get_api_key_missing(monkeypatch):
-    """_get_api_key returns None for unset keys."""
+def test_get_api_key_returns_none_when_missing(monkeypatch):
+    """_get_api_key returns None when env var is unset."""
     monkeypatch.delenv("OPENCODE_API_KEY", raising=False)
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    assert _get_api_key("opencode") is None
-
-
-def test_get_api_key_unknown_provider():
-    """_get_api_key returns None for unknown providers."""
-    assert _get_api_key("unknown") is None
+    assert _get_api_key() is None
 
 
 def test_log_draft_writes_jsonl(tmp_path):
@@ -97,7 +78,6 @@ def test_draft_qa_no_key(sample_image_chart_path, mock_no_api_key):
     """draft_qa returns None when no API key is set."""
     result = draft_qa(
         image_path=sample_image_chart_path,
-        provider="opencode",
         api_key=None,
     )
     assert result is None
@@ -109,7 +89,6 @@ def test_draft_qa_consensus_no_key(sample_image_chart_path, mock_no_api_key):
         image_path=sample_image_chart_path,
         n_attempts=1,
         verify=False,
-        provider="opencode",
         api_key=None,
     )
     assert result is None
@@ -121,7 +100,6 @@ def test_verify_draft_no_key(sample_image_chart_path, mock_no_api_key):
     result = verify_draft(
         image_path=sample_image_chart_path,
         draft=original,
-        provider="opencode",
         api_key=None,
     )
     # Falls back to the original draft (no verification possible)
@@ -134,7 +112,6 @@ def test_verify_draft_returns_original_dict(sample_image_chart_path, mock_no_api
     result = verify_draft(
         image_path=sample_image_chart_path,
         draft=original,
-        provider="opencode",
         api_key=None,
     )
     assert result is original
@@ -152,7 +129,6 @@ def test_draft_qa_figure_id_passthrough(sample_image_chart_path, mock_api_key, m
 
     result = draft_qa(
         image_path=sample_image_chart_path,
-        provider="opencode",
         api_key="test-key",
         difficulty="easy",
         figure_id=42,
@@ -174,7 +150,6 @@ def test_draft_qa_includes_prompt_version_in_dict(sample_image_chart_path, mock_
 
     result = draft_qa(
         image_path=sample_image_chart_path,
-        provider="opencode",
         api_key="test-key",
         difficulty="easy",
     )
@@ -199,7 +174,6 @@ def test_draft_qa_prompt_template_selection(sample_image_chart_path, mock_api_ke
 
     result = draft_qa(
         image_path=sample_image_chart_path,
-        provider="opencode",
         api_key="test-key",
         difficulty="hardest",
         figure_type="chart_graph_text",
