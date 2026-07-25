@@ -189,19 +189,20 @@ All questions must:
 
 ## AI Drafting Pipeline
 
-The system has 3 drafting modes (from `ai_draft.py`):
+The system has 3 drafting modes in `authoring/ai_draft/`:
 
-### Simple Draft (`draft_qa`)
+### Simple Draft (`ai_draft/core.py` `draft_qa()`)
 Single LLM call → parse JSON → validate → guardrails → retry with feedback if failed.
 
-### Self-Critique Loop (`draft_with_self_critique`)
+### Self-Critique Loop (`ai_draft/composition.py` `draft_with_self_critique()`)
 1. Generate initial draft
 2. Critique with score 1-5 (5 = definitely fails Qwen)
 3. If score < 4: rewrite question + answer, repeat up to `max_rounds`
 4. Return final draft
 
-### Consensus (`draft_qa_consensus`)
-1. Generate N independent drafts (default 3)
+### Consensus (`ai_draft/composition.py` `draft_qa_consensus()`)
+1. Query router determines optimal pipeline (simple / RAG-enhanced / consensus / self-critique)
+2. Generate N independent drafts (default 3)
 2. Score each: quality_score + 50 if valid + 10 if quality >= 80
 3. Feed validation errors back as feedback for subsequent attempts
 4. Pick best by score
@@ -224,7 +225,30 @@ Single LLM call → parse JSON → validate → guardrails → retry with feedba
 | VERIFY_PROMPT | Verification pass |
 | SELF_CRITIQUE_PROMPT | Self-critique scoring (1-5) |
 
-All prompts are versioned with SHA-256 hashes. Every generation records `prompt_version_id` for traceability.
+All prompts are versioned with SHA-256 hashes via `PromptTemplate.version_id` (e.g. `CHALLENGING_PROMPT@a1b2c3d4e5f6`). Every generation records `prompt_template_name`, `prompt_version_id`, and `prompt_text_hash` in the `GenerationAttempt` table for full traceability.
+
+### Supporting Modules
+
+| Module | Location | Purpose |
+|--------|----------|---------|
+| **History injection** | `authoring/_history_context.py` | Injects past attempts + few-shot examples + previous question into prompts |
+| **Guardrails** | `authoring/_guardrails.py` | Quality checks (plausible, extreme, format, diversity) with auto-retry |
+| **Telemetry** | `authoring/_draft_telemetry.py` | Logs every generation attempt to DB (38+ fields) + JSONL |
+| **Config** | `authoring/_draft_config.py` | Model selection, token limits, timeouts per difficulty |
+| **Query router** | `services/query_router.py` | Routes requests to optimal pipeline based on difficulty |
+| **Adaptive router** | `agents/adaptive_router.py` | Learns from past performance to improve pipeline selection |
+| **Query decomposer** | `agents/query_decomposer.py` | Breaks hard questions into sub-tasks for the prompt |
+| **Document grader** | `agents/document_grader.py` | Filters retrieved documents by relevance |
+| **CRAG pipeline** | `services/rag_pipeline.py` | CAG (semantic cache) → RAG (hybrid retrieve + rerank) |
+| **Hybrid retriever** | `components/hybrid_retriever.py` | ChromaDB + sentence-transformers semantic search |
+| **Reranker** | `components/reranker.py` | Cross-encoder re-ranking of retrieval results |
+| **Semantic cache** | `services/semantic_cache.py` | CAG layer — caches LLM results keyed by prompt embeddings |
+| **Cost tracker** | `observability/cost_tracker.py` | Token/cost estimation per model |
+| **Input guard** | `security/input_guard.py` | Prompt injection detection |
+| **Content filter** | `security/content_filter.py` | PII detection, toxicity filtering |
+| **Output filter** | `security/output_filter.py` | System prompt leakage prevention |
+| **Prompt registry** | `prompts/` | DB-backed hot-swappable prompt templates |
+| **MCP server** | `mcp/` | MCP tools (generate, validate, history, search, health, analytics) |
 
 ## Workflow
 
@@ -277,3 +301,13 @@ arXiv search → download PDF → extract figures → audit → filter → store
 3. **Charts must reference data values**, not chart furniture. Read peaks, compare across panels, compute ratios from visual readings.
 4. **Use the self-critique loop**: generate, score 1-5, rewrite if below 4, repeat.
 5. **Dynamic model selection**: the system queries past generations to pick the best-performing model per (figure_type, difficulty).
+
+## Observability & Monitoring
+
+The system provides observability through `src/arxiv_manager/observability/`:
+
+- **Structured JSON logging** (`tracer.py`): All log events written to `storage/_structured_log.jsonl` with trace IDs, span names, and extra fields. Use `log_event()` for structured events, `@contextmanager span()` for timing operations.
+- **Trace spans**: Per-request tracing via `with span("operation_name", key=val)` context manager. Automatically captures duration and metadata. Access current trace via `current_trace_id()`.
+- **Health endpoint**: `GET /health` returns DB connectivity + API key status. `GET /health?full=true` also checks LLM connectivity. Returns `{"status": "ok", "version": "0.2.0", "checks": {...}}`.
+- **Generation attempt telemetry**: Every draft/prompt/critique stored in `GenerationAttempt` DB table (35+ fields) and `storage/_draft_telemetry.jsonl` for historical analysis.
+- **Metrics dashboard**: `GET /metrics` serves an HTML dashboard showing success rate, latency (avg/p50/max), breakdown by difficulty and figure type.
