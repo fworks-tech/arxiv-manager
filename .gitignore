@@ -4,7 +4,8 @@ storage/figures/
 storage/_uploads/
 storage/_trash/
 storage/*.db
-storage/*.db.*
+storage/*.db-shm
+storage/*.db-wal
 storage/*.log
 storage/*.jsonl
 
