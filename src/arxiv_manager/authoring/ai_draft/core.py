@@ -148,6 +148,7 @@ def draft_qa(
     if result is not None:
         result["_prompt_version_id"] = prompt_version_id
         result["_prompt_text_hash"] = prompt_text_hash
+        result["_model"] = model_id
 
         # Skip guardrail checks on retry (feedback set) to prevent
         # unbounded mutual recursion: draft_qa -> run_guardrails -> _auto_retry -> draft_qa

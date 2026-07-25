@@ -108,8 +108,6 @@ def api_validate_task(request: Request, task_id: int):
 @router.get("/api/task/{task_id}/history", response_class=HTMLResponse)
 def api_generation_history(request: Request, task_id: int):
     """Return generation history for a task's figure as HTML partial."""
-    import json as _json
-
     session = get_session()
     try:
         task = session.get(Task, task_id)
@@ -190,7 +188,7 @@ def _do_regenerate(image_path, api_key, difficulty, figure_type, complexity, pre
         return None
 
 
-def _log_attempt(figure_id, task_id, attempt_number, generation_type, draft, difficulty, figure_type, complexity, prev_question):
+def _log_attempt(figure_id, task_id, attempt_number, generation_type, draft, difficulty, figure_type, complexity, prev_question, model_name=""):
     """Log a generation attempt to telemetry."""
     usage = draft.get("_usage", {})
     log_generation_attempt(
@@ -199,6 +197,7 @@ def _log_attempt(figure_id, task_id, attempt_number, generation_type, draft, dif
         prompt_template_name=f"{difficulty}_{figure_type}" if figure_type else difficulty,
         prompt_version_id=draft.get("_prompt_version_id", ""),
         prompt_text_hash=draft.get("_prompt_text_hash", ""),
+        model_name=model_name or draft.get("_model", ""),
         difficulty=difficulty, figure_type=figure_type, complexity_score=complexity,
         previous_question=prev_question,
         raw_response=draft.get("_raw_response", ""),
@@ -220,7 +219,8 @@ def _dedup_retry(img_path, api_key, difficulty, figure_type, complexity, prev_qu
         draft2 = _do_regenerate(img_path, api_key, difficulty, figure_type, complexity, prev_question, figure_id, validation_context)
         if draft2:
             _log_attempt(figure_id, task_id, 1 + dedup_attempt, "dedup_retry",
-                         draft2, difficulty, figure_type, complexity, prev_question)
+                         draft2, difficulty, figure_type, complexity, prev_question,
+                         draft2.get("_model", difficulty))
             if draft2["answer"].strip().lower() != task_answer.strip().lower():
                 return draft2
     return None
@@ -269,13 +269,15 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
         if not draft:
             return {"error": "Draft generation failed", "ok": False}
 
-        _log_attempt(task.figure_id, task.id, 1, "regenerate_initial", draft, difficulty, figure_type, complexity, prev_question)
+        model_name = draft.get("_model", difficulty)
+        _log_attempt(task.figure_id, task.id, 1, "regenerate_initial", draft, difficulty, figure_type, complexity, prev_question, model_name)
 
         # Dedup retries if answer unchanged
         if draft["answer"].strip().lower() == task.answer.strip().lower() or draft["question"].strip().lower() == task.question.strip().lower():
             better = _dedup_retry(img_path, api_key, difficulty, figure_type, complexity, prev_question, task.figure_id, task.id, task.answer, task.question, validation_context)
             if better:
                 draft = better
+                model_name = draft.get("_model", difficulty)
 
         # Apply and commit
         task.question = draft["question"]
@@ -287,10 +289,10 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
         session.commit()
         logger.info("task regenerate ok task_id=%d", task_id)
 
-        _log_attempt(task.figure_id, task.id, 2, "regenerate_final", draft, difficulty, figure_type, complexity, prev_question)
+        _log_attempt(task.figure_id, task.id, 2, "regenerate_final", draft, difficulty, figure_type, complexity, prev_question, model_name)
 
         usage = draft.get("_usage", {})
-        model = draft.get("_model", difficulty)
+        model = model_name
         from ...observability.cost_tracker import estimate_cost, format_cost as _fmt_cost
         tok_in = usage.get("input_tokens", 0)
         tok_out = usage.get("output_tokens", 0)

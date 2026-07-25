@@ -173,6 +173,12 @@ def draft_with_self_critique(
             "answer": rewrite_a,
             "answer_format": rewrite_format,
             "task_type": rewrite_type,
+            "_usage": draft.get("_usage") or critique.get("_usage"),
+            "_raw_response": draft.get("_raw_response", ""),
+            "_reasoning_trace": draft.get("_reasoning_trace", ""),
+            "_model": draft.get("_model", ""),
+            "_prompt_version_id": draft.get("_prompt_version_id", ""),
+            "_prompt_text_hash": draft.get("_prompt_text_hash", ""),
         }
         logger.info("self_critique: applied rewrite round=%d", round_idx)
 

@@ -53,7 +53,7 @@ def get_few_shot_examples(
     Returns empty list if no data or table doesn't exist yet.
     """
     from ..db import get_session
-    from ..models import GenerationAttempt
+    from ..models import GenerationAttempt, IssueReport
 
     session = get_session()
     try:
@@ -74,18 +74,6 @@ def get_few_shot_examples(
         if reported_ids:
             query = query.where(~GenerationAttempt.id.in_(reported_ids))
 
-        # Prefer Rhea-approved examples, then examples where Qwen failed (challenging)
-        if reported_ids:
-            query = query.order_by(GenerationAttempt.rhea_passed.desc())
-        query = query.order_by(GenerationAttempt.qwen_passes.asc())
-        query = query.order_by(GenerationAttempt.gemini_passes.desc())
-        if complexity_score > 0:
-            query = query.order_by(
-                abs(GenerationAttempt.complexity_score - complexity_score)
-            )
-        else:
-            query = query.order_by(desc(GenerationAttempt.validation_quality))
-
         if figure_type:
             query = query.where(GenerationAttempt.figure_type == figure_type)
         if difficulty:
@@ -93,13 +81,17 @@ def get_few_shot_examples(
         if task_type:
             query = query.where(GenerationAttempt.generated_task_type == task_type)
 
-        # Prefer closest complexity match
+        # Order by: closest complexity match first, then Rhea-approved, then Qwen-failed/Gemini-passed
         if complexity_score > 0:
             query = query.order_by(
                 abs(GenerationAttempt.complexity_score - complexity_score)
             )
         else:
             query = query.order_by(desc(GenerationAttempt.validation_quality))
+        if reported_ids:
+            query = query.order_by(GenerationAttempt.rhea_passed.desc())
+        query = query.order_by(GenerationAttempt.qwen_passes.asc())
+        query = query.order_by(GenerationAttempt.gemini_passes.desc())
 
         rows = list(session.exec(query.limit(limit * 2)).all())
 
