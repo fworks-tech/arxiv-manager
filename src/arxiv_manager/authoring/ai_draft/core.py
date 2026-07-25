@@ -32,7 +32,9 @@ def draft_qa(
     figure_type: str = "",
     complexity_score: float = 0.0,
     previous_question: str = "",
+    validation_context: str = "",
     figure_id: int | None = None,
+    use_rag: bool = True,
 ) -> dict | None:
     """Draft a Q&A pair from an image using an LLM."""
     logger.info("draft_qa entry image=%s difficulty=%s figure_type=%s complexity=%.3f",
@@ -46,12 +48,12 @@ def draft_qa(
 
     from PIL import Image
 
-    img = Image.open(image_path)
-    if img.mode in ("RGBA", "P"):
-        img = img.convert("RGB")
-    img.thumbnail(CONFIG.thumbnail_size)
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=CONFIG.jpeg_quality, optimize=True)
+    with Image.open(image_path) as img:
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        img.thumbnail(CONFIG.thumbnail_size)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=CONFIG.jpeg_quality, optimize=True)
     b64 = base64.b64encode(buf.getvalue()).decode()
     image_media_type = "image/jpeg"
 
@@ -86,6 +88,7 @@ def draft_qa(
             figure_type=figure_type,
             difficulty=difficulty,
             default_model=CONFIG.default_model,
+            allowed_models=CONFIG.vision_models,
         )
     prompt = inject_history_into_prompt(
         prompt,
@@ -95,7 +98,28 @@ def draft_qa(
         complexity_score=complexity_score,
         task_type=task_type_hint,
         previous_question=previous_question,
+        validation_context=validation_context,
     )
+
+    # 3. RAG context injection (Phase 3, lazy singleton)
+    # Skip RAG on retry (feedback set) to give the model a simpler prompt
+    if use_rag and not feedback and figure_id is not None:
+        try:
+            from ...services.rag_pipeline import get_pipeline as _get_rag
+            rag_ctx = _get_rag().get_context(
+                query=prompt,
+                figure_id=figure_id,
+                figure_type=figure_type,
+                difficulty=difficulty,
+            )
+            if rag_ctx["context_str"]:
+                # Truncate RAG context to at most 2000 chars to avoid prompt overflow
+                ctx = rag_ctx["context_str"]
+                if len(ctx) > 2000:
+                    ctx = ctx[:1997] + "..."
+                prompt += "\n\n" + ctx
+        except Exception as e:
+            logger.warning("draft_qa: RAG context injection failed: %s", e)
 
     prompt_text_hash = hashlib.sha256(prompt.encode()).hexdigest()[:20]
     prompt_version_id = f"{raw_template.name}@{prompt_text_hash[:12]}"
@@ -114,42 +138,54 @@ def draft_qa(
         _err = str(e)[:100]
 
     if result is not None:
+        if not result.get("question", "").strip() or not result.get("answer", "").strip():
+            logger.warning("draft_qa: empty Q&A after API call (question=%r answer=%r raw=%.300s)",
+                           result.get("question", ""), result.get("answer", ""),
+                           result.get("_raw_response", "")[:300])
+            result = None
+            ok = False
+
+    if result is not None:
         result["_prompt_version_id"] = prompt_version_id
         result["_prompt_text_hash"] = prompt_text_hash
+        result["_model"] = model_id
 
-        from .._guardrails import run_guardrails
-        from ..validator import validate_task as _validate
+        # Skip guardrail checks on retry (feedback set) to prevent
+        # unbounded mutual recursion: draft_qa -> run_guardrails -> _auto_retry -> draft_qa
+        if not feedback:
+            from .._guardrails import run_guardrails
+            from ..validator import validate_task as _validate
 
-        v = _validate(
-            result.get("question", ""),
-            result.get("answer", ""),
-            result.get("answer_format", "word"),
-            figure_type=figure_type,
-            task_type=result.get("task_type", "chart"),
-        )
-        guardrail_context = {
-            "validation_result": {
-                "quality_score": v.quality_score,
-                "errors": v.errors,
-                "warnings": v.warnings,
-            },
-            "min_quality": 30,
-            "api_key": api_key,
-            "difficulty": difficulty,
-            "figure_type": figure_type,
-            "complexity_score": complexity_score,
-            "previous_question": previous_question,
-            "figure_id": figure_id,
-            "model": model,
-        }
-        result = run_guardrails(
-            result,
-            guardrail_context,
-            api_key=api_key,
-            image_path=str(image_path),
-            max_retries=1,
-            draft_qa_callback=draft_qa,
-        )
+            v = _validate(
+                result.get("question", ""),
+                result.get("answer", ""),
+                result.get("answer_format", "word"),
+                figure_type=figure_type,
+                task_type=result.get("task_type", "chart"),
+            )
+            guardrail_context = {
+                "validation_result": {
+                    "quality_score": v.quality_score,
+                    "errors": v.errors,
+                    "warnings": v.warnings,
+                },
+                "min_quality": 30,
+                "api_key": api_key,
+                "difficulty": difficulty,
+                "figure_type": figure_type,
+                "complexity_score": complexity_score,
+                "previous_question": previous_question,
+                "figure_id": figure_id,
+                "model": model,
+            }
+            result = run_guardrails(
+                result,
+                guardrail_context,
+                api_key=api_key,
+                image_path=str(image_path),
+                max_retries=1,
+                draft_qa_callback=draft_qa,
+            )
         if result is not None:
             v2 = _validate(
                 result.get("question", ""),

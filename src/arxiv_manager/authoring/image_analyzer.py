@@ -12,9 +12,14 @@ from ..authoring.validator import validate_task
 logger = logging.getLogger(__name__)
 
 
-def analyze_uploaded_image(image_path: Path) -> dict:
-    """Run all filters on an uploaded image and determine difficulty potential."""
+def analyze_uploaded_image(image_path: Path | str) -> dict:
+    """Run all filters on an uploaded image and determine difficulty potential.
+    
+    Accepts both Path and str for callers that pass str() from _save_upload.
+    """
     logger.info("analyze_uploaded_image entry path=%s", image_path)
+    if isinstance(image_path, str):
+        image_path = Path(image_path)
     audit = audit_figure(image_path)
 
     if not audit["is_suitable"]:

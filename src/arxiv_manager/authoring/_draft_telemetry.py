@@ -45,8 +45,8 @@ def log_draft(
     try:
         with open(str(_get_telemetry_path()), "a") as f:
             f.write(json.dumps(record) + "\n")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("log_draft: write failed: %s", e)
 
 
 def log_generation_attempt(
@@ -82,6 +82,9 @@ def log_generation_attempt(
     critique_score: int = 0,
     critique_rewrite_question: str = "",
     critique_rewrite_answer: str = "",
+    input_tokens: int = 0,
+    output_tokens: int = 0,
+    total_tokens: int = 0,
     success: bool = False,
     error_message: str = "",
     elapsed_ms: int = 0,
@@ -92,7 +95,7 @@ def log_generation_attempt(
     at the DB schema level; everything else is optional.
     """
     if figure_id is None and task_id is None:
-        logger.warning("log_generation_attempt: both figure_id and task_id are None, skipping")
+        logger.info("log_generation_attempt: no figure_id or task_id (draft on unproposed upload) — skipping DB write")
         return
 
     from ..db import get_session
@@ -132,6 +135,9 @@ def log_generation_attempt(
             critique_score=critique_score,
             critique_rewrite_question=critique_rewrite_question[:2000],
             critique_rewrite_answer=critique_rewrite_answer[:2000],
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            total_tokens=total_tokens,
             success=success,
             error_message=error_message[:500],
             elapsed_ms=elapsed_ms,

@@ -5,11 +5,14 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from ..db import init_db
+from ..observability.tracer import setup_structured_logging
 from ..storage import FIGURES_DIR, PAPERS_DIR, UPLOADS_DIR
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -19,19 +22,53 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelna
 for name in ("arxiv_manager.web.routes.pages", "arxiv_manager.web.routes.author_routes",
                "arxiv_manager.web.routes.arxiv_routes", "arxiv_manager.web.routes.task_routes",
                "arxiv_manager.web.routes.lifecycle_routes", "arxiv_manager.web.routes.metrics",
+               "arxiv_manager.web.routes.health",
                "arxiv_manager.authoring.ai_draft",
-              "arxiv_manager.authoring.image_analyzer", "arxiv_manager.authoring.validator",
-              "arxiv_manager.sourcing.filters"):
+               "arxiv_manager.authoring.image_analyzer", "arxiv_manager.authoring.validator",
+               "arxiv_manager.sourcing.filters"):
     lgr = logging.getLogger(name)
     lgr.setLevel(logging.INFO)
     lgr.propagate = True
+
+# Add structured JSON logging
+setup_structured_logging()
 
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     init_db()
 
-    app = FastAPI(title="ArXiv Manager", version="0.1.0")
+    app = FastAPI(title="ArXiv Manager", version="0.2.0")
+
+    # Rate limiting middleware (simple IP-based, 60 req/min)
+    _rate_limit_store: dict[str, list[float]] = {}
+
+    @app.middleware("http")
+    async def rate_limit_middleware(request: Request, call_next):
+        import time
+        client_ip = request.client.host if request.client else "unknown"
+        now = time.time()
+
+        timestamps = _rate_limit_store.get(client_ip, [])
+        timestamps = [t for t in timestamps if now - t < 60]
+        if len(timestamps) > 120:
+            return JSONResponse(
+                status_code=429,
+                content={"error": "Too many requests", "retry_after": 60},
+            )
+        timestamps.append(now)
+        _rate_limit_store[client_ip] = timestamps
+
+        response = await call_next(request)
+        return response
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     # Mount storage for serving files
     if FIGURES_DIR.exists():
@@ -44,5 +81,9 @@ def create_app() -> FastAPI:
     # Register routes
     from .routes import router
     app.include_router(router)
+
+    # Register MCP endpoints
+    from ..mcp import mcp_router
+    app.include_router(mcp_router)
 
     return app

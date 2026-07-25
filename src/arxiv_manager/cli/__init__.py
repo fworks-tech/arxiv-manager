@@ -34,3 +34,4 @@ from . import search_commands  # noqa: E402
 from . import image_commands  # noqa: E402
 from . import task_commands  # noqa: E402
 from . import admin_commands  # noqa: E402
+from . import index_commands  # noqa: E402

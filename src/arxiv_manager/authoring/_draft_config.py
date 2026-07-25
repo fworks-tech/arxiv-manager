@@ -17,6 +17,8 @@ class ModelConfig:
 @dataclass
 class DraftConfig:
     default_model: str = "minimax-m3"
+    text_model: str = "deepseek-v4-flash"
+    vision_models: set[str] = field(default_factory=lambda: {"minimax-m3"})
     api_url: str = "https://opencode.ai/zen/go/v1/chat/completions"
     retries: int = 3
     thumbnail_size: tuple[int, int] = (1024, 1024)
@@ -31,6 +33,10 @@ class DraftConfig:
             max_tokens_easy=4000, max_tokens_hard=16000,
             timeout_easy=120, timeout_hard=240,
         ),
+        "deepseek": ModelConfig(
+            max_tokens_easy=4000, max_tokens_hard=8000,
+            timeout_easy=60, timeout_hard=120,
+        ),
     })
 
     fallback: ModelConfig = field(default_factory=lambda: ModelConfig(
@@ -44,6 +50,10 @@ class DraftConfig:
             if key in model_id.lower():
                 return cfg
         return self.fallback
+
+    def select_model(self, needs_image: bool) -> str:
+        """Pick the right model: VLM for images, text model for text-only."""
+        return self.default_model if needs_image else self.text_model
 
 
 CONFIG = DraftConfig()

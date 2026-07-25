@@ -1,0 +1,23 @@
+<div class="border border-gray-200 rounded-lg p-3 mt-2 bg-white">
+  <p class="text-xs font-medium text-gray-400 mb-2 uppercase tracking-wide">Changes from previous version</p>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div class="bg-red-50 rounded p-2 border border-red-100">
+      <p class="text-xs font-medium text-red-400 mb-1 uppercase">Before</p>
+      {% if old.question %}
+      <p class="text-xs text-red-600 line-through">{{ old.question[:200] }}</p>
+      {% endif %}
+      {% if old.answer %}
+      <p class="text-xs text-red-500 line-through mt-1">→ {{ old.answer[:100] }}</p>
+      {% endif %}
+    </div>
+    <div class="bg-green-50 rounded p-2 border border-green-100">
+      <p class="text-xs font-medium text-green-400 mb-1 uppercase">After</p>
+      {% if new.question %}
+      <p class="text-xs text-green-700">{{ new.question[:200] }}</p>
+      {% endif %}
+      {% if new.answer %}
+      <p class="text-xs text-green-600 mt-1">→ {{ new.answer[:100] }}</p>
+      {% endif %}
+    </div>
+  </div>
+</div>

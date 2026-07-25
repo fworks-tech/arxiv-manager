@@ -101,6 +101,7 @@ def draft_with_self_critique(
     complexity_score: float = 0.0,
     caption: str = "",
     previous_question: str = "",
+    validation_context: str = "",
     figure_id: int | None = None,
 ) -> dict | None:
     """Draft a Q&A pair and self-critique the question's difficulty."""
@@ -114,12 +115,12 @@ def draft_with_self_critique(
         return None
 
     from PIL import Image
-    img = Image.open(image_path)
-    if img.mode in ("RGBA", "P"):
-        img = img.convert("RGB")
-    img.thumbnail(CONFIG.thumbnail_size)
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=CONFIG.jpeg_quality, optimize=True)
+    with Image.open(image_path) as img:
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        img.thumbnail(CONFIG.thumbnail_size)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=CONFIG.jpeg_quality, optimize=True)
     b64 = base64.b64encode(buf.getvalue()).decode()
 
     draft = draft_qa(
@@ -131,6 +132,7 @@ def draft_with_self_critique(
         complexity_score=complexity_score,
         caption=caption,
         previous_question=previous_question,
+        validation_context=validation_context,
         figure_id=figure_id,
     )
     if draft is None:
@@ -171,6 +173,12 @@ def draft_with_self_critique(
             "answer": rewrite_a,
             "answer_format": rewrite_format,
             "task_type": rewrite_type,
+            "_usage": draft.get("_usage") or critique.get("_usage"),
+            "_raw_response": draft.get("_raw_response", ""),
+            "_reasoning_trace": draft.get("_reasoning_trace", ""),
+            "_model": draft.get("_model", ""),
+            "_prompt_version_id": draft.get("_prompt_version_id", ""),
+            "_prompt_text_hash": draft.get("_prompt_text_hash", ""),
         }
         logger.info("self_critique: applied rewrite round=%d", round_idx)
 

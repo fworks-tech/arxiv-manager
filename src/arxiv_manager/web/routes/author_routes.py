@@ -17,7 +17,7 @@ from ...authoring.ai_draft import draft_qa, draft_with_self_critique
 from ...authoring._draft_telemetry import log_generation_attempt
 from ...sourcing.filters import compute_file_hash, audit_figure
 from ...storage import UPLOADS_DIR, STORAGE_DIR
-from . import TEMPLATES, router, _upload_cache
+from . import TEMPLATES, router, _upload_cache, _UPLOAD_CACHE_MAX
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +81,8 @@ def api_upload_image(
             )
 
         _upload_cache[upload_id] = result
+        if len(_upload_cache) > _UPLOAD_CACHE_MAX:
+            _upload_cache.pop(next(iter(_upload_cache)))
 
         return TEMPLATES.TemplateResponse(
             request, "_author_analysis.html",
@@ -182,6 +184,7 @@ def api_draft_qa(
     logger.info("draft ok upload_id=%s quality=%.2f errors=%d",
                 upload_id, validation.get("quality_score", 0), len(validation.get("errors", [])))
 
+    usage = draft.get("_usage", {})
     log_generation_attempt(
         attempt_number=1,
         generation_type="self_critique" if difficulty in ("challenging", "hardest") else "draft",
@@ -201,6 +204,9 @@ def api_draft_qa(
         validation_is_valid=validation.get("is_valid", False),
         validation_errors=json.dumps(validation.get("errors", [])),
         validation_warnings=json.dumps(validation.get("warnings", [])),
+        input_tokens=usage.get("input_tokens", 0),
+        output_tokens=usage.get("output_tokens", 0),
+        total_tokens=usage.get("total_tokens", 0),
         success=True, elapsed_ms=0,
     )
 
@@ -290,3 +296,25 @@ def api_propose_task(
         return RedirectResponse(url=f"/task/{task.id}", status_code=303)
     finally:
         session.close()
+
+
+@router.post("/api/draft/{upload_id}/validate", response_class=HTMLResponse)
+def api_draft_validate(
+    request: Request,
+    upload_id: str,
+    question: str = Form(""),
+    answer: str = Form(""),
+    answer_format: str = Form("word"),
+    task_type: str = Form("chart"),
+):
+    """Validate the current draft Q&A (HTMX endpoint)."""
+    analysis = _upload_cache.get(upload_id, {})
+    figure_type = analysis.get("audit", {}).get("figure_type", "") if analysis else ""
+    validation = validate_task(question, answer, answer_format, figure_type=figure_type, task_type=task_type)
+    return TEMPLATES.TemplateResponse(request, "_validation.html", {"validation": validation})
+
+
+@router.get("/api/draft/{upload_id}/report-form", response_class=HTMLResponse)
+def api_draft_report_form(request: Request, upload_id: str):
+    """Return the issue report form for a draft."""
+    return TEMPLATES.TemplateResponse(request, "_issue_report.html", {"task_id": 0, "generation_attempt_id": 0})

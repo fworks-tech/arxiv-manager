@@ -37,6 +37,8 @@ def _parse_llm_response(text: str | None, raw_text: str = "") -> dict | None:
         text = re.sub(r"\n?```\s*$", "", text)
 
     cleaned, reasoning = _extract_reasoning(text)
+    if not cleaned.strip():
+        cleaned = text
     text = cleaned
 
     def _parse_candidate(candidate: str) -> dict | None:
@@ -44,6 +46,16 @@ def _parse_llm_response(text: str | None, raw_text: str = "") -> dict | None:
             data = json.loads(candidate)
             if "question" not in data or "answer" not in data:
                 return None
+            q_val = data.get("question")
+            a_val = data.get("answer")
+            if q_val is None or (isinstance(q_val, str) and not q_val.strip()):
+                logger.warning("_parse_llm_response: empty question (raw=%.300s)", (raw_text or text)[:300])
+                return None
+            if a_val is None or (isinstance(a_val, str) and not a_val.strip()):
+                logger.warning("_parse_llm_response: empty answer (raw=%.300s)", (raw_text or text)[:300])
+                return None
+            data["question"] = str(q_val)
+            data["answer"] = str(a_val)
             data.setdefault("answer_format", "number")
             data.setdefault("task_type", "chart")
             data["_reasoning_trace"] = reasoning
@@ -90,6 +102,8 @@ def _parse_critique_response(text: str | None, raw_text: str = "") -> dict | Non
         text = re.sub(r"\n?```\s*$", "", text)
 
     cleaned, reasoning = _extract_reasoning(text)
+    if not cleaned.strip():
+        cleaned = text
 
     def _parse(candidate: str) -> dict | None:
         try:

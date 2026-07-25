@@ -51,7 +51,7 @@ def _call_api_with_retry(
                 err_msg = data["error"].get("message", "") or str(data["error"])
                 logger.warning("_call_api_with_retry: API error: %s", err_msg)
                 raise ValueError(err_msg)
-            if "choices" in json_body:
+            if "choices" in data:
                 # OpenAI-compatible chat completion response format
                 choices = data.get("choices")
                 if not choices:
@@ -68,6 +68,13 @@ def _call_api_with_retry(
                 parse_fn = parser or _parse_llm_response
                 parsed = parse_fn(content, raw_text=content)
                 if parsed:
+                    usage = data.get("usage", {})
+                    if usage:
+                        parsed["_usage"] = {
+                            "input_tokens": usage.get("prompt_tokens", 0),
+                            "output_tokens": usage.get("completion_tokens", 0),
+                            "total_tokens": usage.get("total_tokens", 0),
+                        }
                     return parsed
                 logger.warning("_call_api_with_retry: parsing returned None (len=%d, preview=%.150s)",
                                len(content), content[:150])
@@ -103,25 +110,21 @@ def _call_opencode(
     max_tokens = cfg.max_tokens_hard if is_hard else cfg.max_tokens_easy
     timeout = cfg.timeout_hard if is_hard else cfg.timeout_easy
 
+    content: list[dict] = [{"type": "text", "text": prompt}]
+    if b64_image:
+        content.append({
+            "type": "image_url",
+            "image_url": {
+                "url": f"data:{media_type};base64,{b64_image}",
+            },
+        })
+
     return _call_api_with_retry(
         url=CONFIG.api_url,
         headers={"Authorization": f"Bearer {api_key}"},
         json_body={
             "model": model_id,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:{media_type};base64,{b64_image}",
-                            },
-                        },
-                    ],
-                }
-            ],
+            "messages": [{"role": "user", "content": content}],
             "max_tokens": max_tokens,
         },
         timeout=timeout,

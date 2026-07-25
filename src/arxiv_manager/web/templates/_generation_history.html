@@ -1,10 +1,27 @@
 {% if attempts %}
 <div class="space-y-3">
+  <div class="flex items-center justify-between text-xs text-gray-400 mb-1">
+    <span class="flex items-center gap-2">
+      <span>{{ attempts|length }} attempt(s)</span>
+      {% include "_quality_trend.html" %}
+    </span>
+    {% if total_cost_str and total_cost_str != "$0.00" %}
+    <span>Total cost: <strong>{{ total_cost_str }}</strong></span>
+    {% endif %}
+  </div>
 {% for a in attempts %}
   {% set q_score = a.validation_quality %}
-  <div class="border rounded-lg p-3 {% if q_score >= 80 %}border-green-200 bg-green-50{% elif q_score >= 50 %}border-yellow-200 bg-yellow-50{% else %}border-red-200 bg-red-50{% endif %}">
+  <div class="border rounded-lg p-3
+    {% if a.is_reported %}border-orange-300 bg-orange-50
+    {% elif q_score >= 80 %}border-green-200 bg-green-50
+    {% elif q_score >= 50 %}border-yellow-200 bg-yellow-50
+    {% else %}border-red-200 bg-red-50{% endif %}">
     <div class="flex items-center gap-2 text-xs text-gray-500 mb-1 flex-wrap">
-      <span class="font-medium text-gray-700 px-1.5 py-0.5 rounded bg-white/60 text-xs">{{ a.generation_type }}</span>
+      <span class="font-medium text-gray-700 px-1.5 py-0.5 rounded bg-white/60 text-xs flex items-center gap-1">
+        {% if a.is_reported %}<span>🚩</span>{% endif %}
+        {% if a.rhea_passed %}<span>✅</span>{% endif %}
+        {{ a.generation_type }}
+      </span>
       {% if a.difficulty %}
       <span class="px-1.5 py-0.5 rounded text-xs
         {% if a.difficulty == 'hardest' %}bg-red-100 text-red-700
@@ -15,17 +32,25 @@
       {% if a.model_name %}
       <span class="text-gray-400">{{ a.model_name }}</span>
       {% endif %}
-      {% if a.prompt_version_id %}
-      <span class="text-gray-300 font-mono text-[10px]" title="{{ a.prompt_version_id }}">{{ a.prompt_version_id[:20] }}</span>
-      {% endif %}
-      <span class="ml-auto text-gray-400">{{ a.created_at | default('') }}</span>
+      <span class="ml-auto text-gray-400 flex items-center gap-2">
+        {% if a.total_tokens > 0 %}
+        <span title="{{ a.input_tokens }} in + {{ a.output_tokens }} out = {{ a.total_tokens }} tokens">🪙 {{ a.total_tokens }} tok</span>
+        {% endif %}
+        {% if a.cost_str and a.cost_str != "$0.0000" %}
+        <span>{{ a.cost_str }}</span>
+        {% endif %}
+        <span>{{ a.created_at | default('') }}</span>
+      </span>
     </div>
 
-    <p class="text-sm font-medium text-gray-900">{{ a.generated_question[:150] }}{% if a.generated_question|length > 150 %}...{% endif %}</p>
+    <p class="text-sm font-medium text-gray-900">{{ a.generated_question[:200] }}{% if a.generated_question|length > 200 %}...{% endif %}</p>
 
-    <div class="flex items-center gap-2 mt-1.5">
+    <div class="flex items-center gap-2 mt-1.5 flex-wrap">
       <span class="text-sm text-gray-600">Answer: <strong class="text-gray-900">{{ a.generated_answer }}</strong></span>
       <span class="text-xs px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">{{ a.generated_answer_format }}</span>
+      {% if a.prompt_version_id %}
+      <span class="text-[10px] font-mono text-gray-300" title="Prompt version: {{ a.prompt_version_id }}">📝 {{ a.prompt_version_id[:24] }}</span>
+      {% endif %}
       {% if q_score > 0 %}
       <span class="ml-auto text-sm font-bold {% if q_score >= 80 %}text-green-600{% elif q_score >= 50 %}text-yellow-600{% else %}text-red-600{% endif %}">{{ "%.0f"|format(q_score) }}/100</span>
       {% endif %}
@@ -42,10 +67,30 @@
     </div>
     {% endif %}
 
+    {% if a.diff and a.diff.changed %}
+    <details class="mt-1.5">
+      <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">📊 View changes from previous</summary>
+      <div class="border border-gray-200 rounded-lg p-2 mt-1 bg-white">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div class="bg-red-50 rounded p-1.5 border border-red-100">
+            <p class="text-xs font-medium text-red-400 uppercase">Before</p>
+            <p class="text-xs text-red-600 line-through">{{ a.diff.old_question[:150] }}</p>
+            <p class="text-xs text-red-500 line-through mt-0.5">→ {{ a.diff.old_answer[:80] }}</p>
+          </div>
+          <div class="bg-green-50 rounded p-1.5 border border-green-100">
+            <p class="text-xs font-medium text-green-400 uppercase">After</p>
+            <p class="text-xs text-green-700">{{ a.diff.new_question[:150] }}</p>
+            <p class="text-xs text-green-600 mt-0.5">→ {{ a.diff.new_answer[:80] }}</p>
+          </div>
+        </div>
+      </div>
+    </details>
+    {% endif %}
+
     {% if a.reasoning_trace %}
     <details class="mt-1.5">
-      <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">Reasoning trace</summary>
-      <pre class="text-xs text-gray-500 mt-1 p-2 bg-white/50 rounded max-h-24 overflow-y-auto">{{ a.reasoning_trace[:300] }}</pre>
+      <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">🧠 Reasoning trace</summary>
+      <pre class="text-xs text-gray-500 mt-1 p-2 bg-white/50 rounded max-h-24 overflow-y-auto">{{ a.reasoning_trace[:500] }}</pre>
     </details>
     {% endif %}
   </div>

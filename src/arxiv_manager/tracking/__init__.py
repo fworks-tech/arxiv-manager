@@ -52,12 +52,24 @@ def classify_difficulty(qwen_passes: int, gemini_passes: int) -> str:
 
 
 def mark_submitted(task_id: int, platform_task_id: str = "") -> Task | None:
-    """Mark a task as submitted."""
+    """Mark a task as submitted. Captures Rhea state onto GenerationAttempt records."""
     session = get_session()
     try:
         task = session.get(Task, task_id)
         if not task:
             return None
+
+        # Capture Rhea feedback on all attached GenerationAttempt records
+        from ..models import GenerationAttempt
+        attempts = list(session.exec(
+            select(GenerationAttempt).where(GenerationAttempt.task_id == task_id)
+        ).all())
+        for a in attempts:
+            a.rhea_passed = task.rhea_passed
+            a.rhea_notes = task.rhea_notes[:500]
+            a.qwen_passes = task.qwen_passes
+            a.gemini_passes = task.gemini_passes
+            session.add(a)
 
         task.status = TaskStatus.SUBMITTED.value
         task.submitted_at = datetime.now()

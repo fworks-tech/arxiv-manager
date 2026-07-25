@@ -1,0 +1,38 @@
+<div id="issue-report-form" class="border border-orange-200 bg-orange-50 rounded-xl p-4 mt-4">
+  <div class="flex items-center gap-2 text-sm mb-3">
+    <span class="text-lg">🚩</span>
+    <span class="font-semibold text-orange-900">Report Issue</span>
+  </div>
+  <form hx-post="/api/task/{{ task_id }}/report-issue" hx-target="#issue-report-form" hx-swap="outerHTML">
+    <input type="hidden" name="generation_attempt_id" value="{{ generation_attempt_id or '' }}">
+    <div class="mb-3">
+      <label class="block text-sm font-medium text-orange-800 mb-1">What's wrong?</label>
+      <select name="reason" required class="w-full px-3 py-2 border border-orange-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-300">
+        <option value="">Select a reason...</option>
+        <option value="wrong_answer">Wrong answer — answer is factually incorrect</option>
+        <option value="unclear">Unclear / ambiguous question</option>
+        <option value="too_easy">Too easy (Qwen would pass this)</option>
+        <option value="format_mismatch">Answer format mismatch</option>
+        <option value="image_not_needed">Image not required to answer</option>
+        <option value="generic">Generic / boring question</option>
+        <option value="duplicate">Duplicate pattern (too similar to previous)</option>
+        <option value="domain_jargon">Domain jargon too specific</option>
+        <option value="caption_gives_away">Caption gives away the answer</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="mb-3">
+      <label class="block text-sm font-medium text-orange-800 mb-1">Details (optional)</label>
+      <textarea name="description" rows="2" class="w-full px-3 py-2 border border-orange-300 rounded-lg text-sm" placeholder="What would make this better?"></textarea>
+    </div>
+    <div class="mb-3">
+      <label class="block text-sm font-medium text-orange-800 mb-1">Correct answer (if known)</label>
+      <input type="text" name="corrected_answer" class="w-full px-3 py-2 border border-orange-300 rounded-lg text-sm" placeholder="e.g., 24">
+    </div>
+    <div class="flex gap-2">
+      <button type="submit" class="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 transition-colors">Submit Report</button>
+      <button type="button" onclick="this.closest('#issue-report-form').remove()"
+              class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">Cancel</button>
+    </div>
+  </form>
+</div>

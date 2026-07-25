@@ -122,6 +122,45 @@ class Task(SQLModel, table=True):
     platform_task_id: str = ""
 
 
+class IssueReport(SQLModel, table=True):
+    """User-reported issue on a generation attempt.
+
+    Used to build a negative-examples dataset and exclude low-quality
+    generations from few-shot selection. Optionally stores the corrected
+    answer so future generations can learn from corrections.
+    """
+    __tablename__ = "issue_reports"
+
+    id: int | None = Field(default=None, primary_key=True)
+    generation_attempt_id: int | None = Field(default=None, foreign_key="generation_attempts.id", index=True)
+    task_id: int | None = Field(default=None, foreign_key="tasks.id", index=True)
+    figure_id: int | None = Field(default=None, foreign_key="figures.id", index=True)
+    reason: str = ""
+    description: str = ""
+    corrected_answer: str = ""
+    reported_by: str = "user"
+    created_at: datetime = Field(default_factory=datetime.now)
+
+
+class PromptTemplateRecord(SQLModel, table=True):
+    """Database-backed prompt template registry.
+
+    Supports hot-swapping templates at runtime without code changes.
+    """
+    __tablename__ = "prompt_templates"
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True)  # e.g. "CHALLENGING_PROMPT"
+    version: int = Field(default=1, index=True)
+    text: str = ""
+    author: str = ""
+    description: str = ""
+    tags: str = ""  # comma-separated
+    status: str = Field(default="active")  # active | deprecated | experimental
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+
 class SubmissionLog(SQLModel, table=True):
     """Tracks task submissions."""
     __tablename__ = "submission_logs"
@@ -182,10 +221,22 @@ class GenerationAttempt(SQLModel, table=True):
     validation_errors: str = ""     # JSON list
     validation_warnings: str = ""   # JSON list
 
+    # Rhea feedback (captured on submit)
+    rhea_passed: bool = False
+    rhea_notes: str = ""
+
+    # Model rollout results (captured on submit from Task)
+    qwen_passes: int = 0
+    gemini_passes: int = 0
+
     # Self-critique result (for critique/regen flows)
     critique_score: int = 0
     critique_rewrite_question: str = ""
     critique_rewrite_answer: str = ""
+    # Token usage
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
 
     # Outcome
     success: bool = False

@@ -4,7 +4,10 @@ storage/figures/
 storage/_uploads/
 storage/_trash/
 storage/*.db
+storage/*.db-shm
+storage/*.db-wal
 storage/*.db.*
+storage/realm-siq.db*
 storage/*.log
 storage/*.jsonl
 
@@ -43,6 +46,12 @@ htmlcov/
 
 # Root logs
 app.log
+
+# Observability
+storage/_structured_log.jsonl
+
+# ChromaDB (future RAG)
+storage/chroma_db/
 
 # HF Space
 .space/

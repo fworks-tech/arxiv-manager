@@ -33,6 +33,7 @@ from ._validation_helpers import (
     _passes_one_answer_test,
     _passes_visual_dependence_test,
     _references_chart_data,
+    _requires_arithmetic,
     _references_multi_panel,
     _references_visual_content,
     _restricts_options,
@@ -122,11 +123,18 @@ def _run_complexity_checks(result, q: str, figure_type: str, task_type: str) -> 
     is_chart = figure_type in ("chart_graph_text", "chart") or task_type == "chart"
     if is_chart:
         anti_pattern_hits = _matches_chart_anti_pattern(q)
+        has_data_refs = _references_chart_data(q)
         if anti_pattern_hits:
-            for hit in anti_pattern_hits:
-                result.errors.append(
-                    f"Chart anti-pattern: '{hit}' — chart questions must reference data values, not just chart furniture (labels/ticks/colorbars)"
-                )
+            if has_data_refs:
+                for hit in anti_pattern_hits:
+                    result.warnings.append(
+                        f"Chart caution: '{hit}' — but question references data values (acceptable)"
+                    )
+            else:
+                for hit in anti_pattern_hits:
+                    result.errors.append(
+                        f"Chart anti-pattern: '{hit}' — chart questions must reference data values, not just chart furniture (labels/ticks/colorbars)"
+                    )
         else:
             if _references_chart_data(q):
                 result.passed_checks.append("References chart data (axis values, peaks, regions) — not just furniture")
@@ -144,6 +152,12 @@ def _run_complexity_checks(result, q: str, figure_type: str, task_type: str) -> 
         result.errors.append(
             "Chart question is pure math (ratio/difference of values stated in text) — the image is not required. "
             "Rewrite to ask about a SPECIFIC visual element (peak, trough, color region, data point) that requires reading the chart"
+        )
+
+    if _requires_arithmetic(q):
+        result.warnings.append(
+            "Question asks for multiplication/addition of values — ensure the answer correctly reflects the arithmetic, "
+            "not just a simple count. A common error is asking for 'product of X and Y' but answering with X alone."
         )
 
 
