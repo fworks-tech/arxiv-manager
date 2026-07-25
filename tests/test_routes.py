@@ -281,10 +281,11 @@ class TestTaskValidate:
 class TestTaskRegenerate:
     def test_regenerate_with_mock(self, test_client, override_storage, monkeypatch):
         """Regenerate with mocked API returns new Q&A."""
-        import arxiv_manager.web.routes as routes_mod
-        def _fake_self_critique(**kw):
+        import arxiv_manager.web.routes.task_routes as tr_mod
+        def _fake_draft(**kw):
             return {"question": "Mock Q?", "answer": "99", "answer_format": "number", "task_type": "chart"}
-        monkeypatch.setattr(routes_mod, "draft_with_self_critique", _fake_self_critique)
+        monkeypatch.setattr(tr_mod, "draft_with_self_critique", _fake_draft)
+        monkeypatch.setattr(tr_mod, "draft_qa", _fake_draft)
 
         # Upload an image to get a valid upload_id
         from PIL import Image

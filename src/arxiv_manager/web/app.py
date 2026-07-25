@@ -16,7 +16,10 @@ TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 # Ensure all app loggers propagate to the root uvicorn handler
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
-for name in ("arxiv_manager.web.routes", "arxiv_manager.authoring.ai_draft",
+for name in ("arxiv_manager.web.routes.pages", "arxiv_manager.web.routes.author_routes",
+               "arxiv_manager.web.routes.arxiv_routes", "arxiv_manager.web.routes.task_routes",
+               "arxiv_manager.web.routes.lifecycle_routes", "arxiv_manager.web.routes.metrics",
+               "arxiv_manager.authoring.ai_draft",
               "arxiv_manager.authoring.image_analyzer", "arxiv_manager.authoring.validator",
               "arxiv_manager.sourcing.filters"):
     lgr = logging.getLogger(name)
