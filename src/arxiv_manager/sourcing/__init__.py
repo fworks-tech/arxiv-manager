@@ -7,16 +7,16 @@ from pathlib import Path
 from sqlmodel import select
 
 from ..db import get_session
-from ..models import Paper, Figure, ImageStatus
-from .arxiv import search_papers, get_paper_url
+from ..models import Figure, ImageStatus, Paper
+from .arxiv import get_paper_url, search_papers
 from .downloader import download_pdf
 from .extractor import extract_figures
 from .filters import (
+    audit_figure,
     compute_complexity,
     compute_file_hash,
     compute_perceptual_hash,
     is_likely_logo_or_icon,
-    audit_figure,
 )
 
 

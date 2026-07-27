@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import json
-import pytest
 from pathlib import Path
-
 
 # ---------------------------------------------------------------------------
 # Hybrid retriever tests
@@ -16,8 +14,6 @@ class TestHybridRetriever:
     def test_retriever_init(self, tmp_chroma_path):
         """HybridRetriever can be initialized with a temp persist dir."""
         from arxiv_manager.components.retriever_config import CHROMA_PERSIST_DIR
-        import arxiv_manager.components.retriever_config as cfg
-        import arxiv_manager.components.hybrid_retriever as hr_mod
 
         original = CHROMA_PERSIST_DIR
 
@@ -77,8 +73,8 @@ class TestHybridRetriever:
 class TestSemanticCache:
     def test_cache_miss_returns_none(self, tmp_chroma_path, monkeypatch):
         """A cache with no entries returns None for any query."""
-        from arxiv_manager.services.semantic_cache import SemanticCache
         import arxiv_manager.components.retriever_config as cfg
+        from arxiv_manager.services.semantic_cache import SemanticCache
         monkeypatch.setattr(cfg, "CHROMA_PERSIST_DIR", tmp_chroma_path)
 
         # With chroma not actually populated, search returns empty -> miss
@@ -130,7 +126,7 @@ class TestRAGPipeline:
 
 class TestCostTracker:
     def test_estimate_cost(self):
-        from arxiv_manager.observability.cost_tracker import estimate_cost, format_cost, summarize_usage
+        from arxiv_manager.observability.cost_tracker import estimate_cost, format_cost
         cost = estimate_cost("minimax-m3", 1000, 500)
         assert cost > 0
         formatted = format_cost(cost)

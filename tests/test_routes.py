@@ -9,15 +9,13 @@ direct reference to the original function object.
 """
 
 import io
-import json
 import re
 
 import pytest
 from PIL import Image
 from sqlmodel import select
 
-from arxiv_manager.models import Task, Figure, Paper, TaskStatus, ImageStatus
-
+from arxiv_manager.models import Figure, Paper, Task
 
 # ---------------------------------------------------------------------------
 # GET endpoints
@@ -288,8 +286,9 @@ class TestTaskRegenerate:
         monkeypatch.setattr(tr_mod, "draft_qa", _fake_draft)
 
         # Upload an image to get a valid upload_id
-        from PIL import Image
         import io
+
+        from PIL import Image
         img = Image.new("RGB", (100, 100), (100, 150, 200))
         buf = io.BytesIO()
         img.save(buf, format="JPEG")
@@ -359,6 +358,7 @@ class TestTaskRegenerate:
         """Regenerate when task has no image returns error."""
         # Update the task's image_path to a non-existent file
         from sqlmodel import select
+
         from arxiv_manager.db import get_session
         from arxiv_manager.models import Task
         s = get_session()
@@ -505,7 +505,6 @@ class TestFigureStatus:
 
 class TestBulkReject:
     def test_bulk_reject(self, test_client, db_session):
-        from arxiv_manager.models import Paper
         paper = Paper(id="1111.11111", title="Test")
         db_session.add(paper)
         db_session.commit()

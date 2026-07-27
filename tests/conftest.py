@@ -1,15 +1,11 @@
 """Shared fixtures for all tests."""
 
 import io
-import os
 import random
-import tempfile
-from pathlib import Path
 
 import pytest
 from PIL import Image
-from sqlmodel import SQLModel, Session, create_engine
-
+from sqlmodel import Session, SQLModel, create_engine
 
 # ---------------------------------------------------------------------------
 # Image helpers
@@ -97,7 +93,6 @@ def tmp_db_path(tmp_path):
 @pytest.fixture
 def db_engine(tmp_db_path):
     """Creates a file-based SQLite engine with all tables (thread-safe)."""
-    from arxiv_manager.models import Task, Figure, Paper, GenerationAttempt
     engine = create_engine(f"sqlite:///{tmp_db_path}", echo=False, connect_args={"check_same_thread": False})
     SQLModel.metadata.create_all(engine)
     return engine
@@ -140,9 +135,10 @@ def sample_task(db_session, sample_figure, override_storage):
     """Creates and returns a Task saved to the test DB.
     A real image file is written to override_storage/figures/ so
     endpoints that need to read the image (regenerate, draft) work."""
-    from arxiv_manager.models import Task
     # Create a real image file at the expected path
     from PIL import Image
+
+    from arxiv_manager.models import Task
     img_path = override_storage / "figures" / "test_figure.png"
     Image.new("RGB", (200, 200), (128, 128, 128)).save(img_path)
     task = Task(
@@ -229,6 +225,7 @@ def test_client(override_storage, mock_api_key, tmp_db_path, monkeypatch, _testi
     """Provides a FastAPI TestClient with temp storage, mocked API key,
     and a file-based test database."""
     from fastapi.testclient import TestClient
+
     # Point DATABASE_URL to the temp DB file before app starts
     import arxiv_manager.db as db_mod
     monkeypatch.setattr(db_mod, "DATABASE_URL", f"sqlite:///{tmp_db_path}")
@@ -249,6 +246,7 @@ def test_client(override_storage, mock_api_key, tmp_db_path, monkeypatch, _testi
 def test_client_no_key(override_storage, mock_no_api_key, tmp_db_path, monkeypatch, _testing_env):
     """Provides a TestClient without API key set (shared DB)."""
     from fastapi.testclient import TestClient
+
     import arxiv_manager.db as db_mod
     monkeypatch.setattr(db_mod, "DATABASE_URL", f"sqlite:///{tmp_db_path}")
     from sqlmodel import create_engine

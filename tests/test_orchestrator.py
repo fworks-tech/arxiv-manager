@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import pytest
-
 from arxiv_manager.agents.context import new_context
 from arxiv_manager.agents.orchestrator import orchestrate
 

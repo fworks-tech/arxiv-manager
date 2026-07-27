@@ -6,9 +6,6 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
 
-from arxiv_manager.personalization.auth import hash_password, create_token
-from arxiv_manager.personalization.models import User, UserProfile
-
 
 @pytest.fixture
 def p_engine(tmp_path):
@@ -22,19 +19,19 @@ def client(monkeypatch, p_engine):
     def _fake_session():
         return Session(p_engine)
 
-    import arxiv_manager.personalization.auth as a
-    import arxiv_manager.personalization.routes as r
-    import arxiv_manager.personalization.personalizer as p
     import arxiv_manager.db as db_mod
+    import arxiv_manager.personalization.auth as a
+    import arxiv_manager.personalization.personalizer as p
+    import arxiv_manager.personalization.routes as r
     for mod in (a, r, p):
         monkeypatch.setattr(mod, "get_session", _fake_session)
     monkeypatch.setattr(db_mod, "get_session", _fake_session)
 
     from fastapi import FastAPI
-    from arxiv_manager.personalization.routes import router
 
     # Install auth middleware so protected endpoints work
     from arxiv_manager.personalization.middleware import AuthMiddleware
+    from arxiv_manager.personalization.routes import router
     app = FastAPI()
     app.add_middleware(AuthMiddleware)
     app.include_router(router)

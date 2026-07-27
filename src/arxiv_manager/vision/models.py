@@ -29,21 +29,20 @@ def load_model() -> tuple[Any, Any] | tuple[None, None]:
         return _MODEL, _TRANSFORMS
 
     try:
-        import torch
         import torch.nn as nn
         import torchvision.models as models
-        from torchvision.transforms import transforms as T
+        from torchvision.transforms import CenterCrop, Compose, Normalize, Resize, ToTensor
 
         weights = models.ResNet18_Weights.IMAGENET1K_V1
         model = models.resnet18(weights=weights)
         model = nn.Sequential(*list(model.children())[:-1])
         model.eval()
 
-        _TRANSFORMS = T.Compose([
-            T.Resize(256),
-            T.CenterCrop(224),
-            T.ToTensor(),
-            T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        _TRANSFORMS = Compose([
+            Resize(256),
+            CenterCrop(224),
+            ToTensor(),
+            Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ])
         _MODEL = model
         _model_available = True

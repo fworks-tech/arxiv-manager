@@ -11,7 +11,7 @@ from ..db import get_session
 from .auth import hash_password, login_user
 from .middleware import get_current_user
 from .models import User, UserPreference, UserProfile
-from .personalizer import apply_preferences, record_preference
+from .personalizer import record_preference
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])

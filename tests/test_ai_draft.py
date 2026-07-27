@@ -1,19 +1,14 @@
 """Tests for AI draft module — unit tests without external API calls."""
 
 import json
-import os
-import tempfile
-from pathlib import Path
 
-import pytest
-
+from arxiv_manager.authoring._draft_telemetry import log_draft
 from arxiv_manager.authoring.ai_draft import (
     _get_api_key,
     draft_qa,
     draft_qa_consensus,
     verify_draft,
 )
-from arxiv_manager.authoring._draft_telemetry import log_draft
 
 
 def test_get_api_key_returns_env_value(monkeypatch):
@@ -192,13 +187,15 @@ def test_draft_qa_prompt_template_selection(sample_image_chart_path, mock_api_ke
 
 def test_import_from_new_sub_modules():
     """All public symbols importable from their new sub-module locations."""
-    from arxiv_manager.authoring.ai_draft._response_parser import (
-        _extract_reasoning, _parse_llm_response, _parse_critique_response)
     from arxiv_manager.authoring.ai_draft._api_client import _call_opencode, _get_api_key
-    from arxiv_manager.authoring.ai_draft.core import draft_qa
-    from arxiv_manager.authoring.ai_draft.composition import (
-        draft_qa_consensus, draft_with_self_critique)
+    from arxiv_manager.authoring.ai_draft._response_parser import (
+        _extract_reasoning,
+        _parse_critique_response,
+        _parse_llm_response,
+    )
     from arxiv_manager.authoring.ai_draft._verifier import verify_draft
+    from arxiv_manager.authoring.ai_draft.composition import draft_qa_consensus, draft_with_self_critique
+    from arxiv_manager.authoring.ai_draft.core import draft_qa
     # Verify all callable
     assert callable(_extract_reasoning)
     assert callable(_parse_llm_response)

@@ -2,7 +2,6 @@
 
 from arxiv_manager.authoring.validator import validate_task
 
-
 # --- Calibration Q1: CC-BY license (not CC0) ---
 # Not directly testable via validator, but validates the sourcing rule.
 # We test the validator's ability to enforce handbook rules instead.

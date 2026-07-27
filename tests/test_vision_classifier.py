@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
-import pytest
 
 from arxiv_manager.vision.classifier import (
     classify_figure,
@@ -57,7 +55,6 @@ class TestClassifyFigureCNN:
         img.write_bytes(b"fake-png")
 
         chart_vec = np.ones(512, dtype=np.float32)
-        general_vec = np.zeros(512, dtype=np.float32)
 
         store_prototype("chart_graph_text", chart_vec)
 

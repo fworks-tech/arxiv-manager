@@ -1,7 +1,5 @@
 """Tests for config loading."""
 
-import yaml
-from pathlib import Path
 
 
 def test_load_config_exists(tmp_path):
@@ -9,8 +7,8 @@ def test_load_config_exists(tmp_path):
     cfg_dir = tmp_path / "config"
     cfg_dir.mkdir()
     (cfg_dir / "domains.yaml").write_text("domains:\n  - name: Computer Science\n")
-    from arxiv_manager.config import CONFIG_DIR, load_config
     import arxiv_manager.config as cfg_mod
+    from arxiv_manager.config import load_config
     original = cfg_mod.CONFIG_DIR
     cfg_mod.CONFIG_DIR = cfg_dir
     try:
@@ -30,8 +28,8 @@ def test_load_config_missing(tmp_path):
 
 def test_get_domains_empty(tmp_path):
     """get_domains returns empty list when domains config is missing."""
-    from arxiv_manager.config import CONFIG_DIR, get_domains
     import arxiv_manager.config as cfg_mod
+    from arxiv_manager.config import get_domains
     original = cfg_mod.CONFIG_DIR
     cfg_mod.CONFIG_DIR = tmp_path
     try:
@@ -48,8 +46,8 @@ def test_get_domains_with_data(tmp_path):
     (cfg_dir / "domains.yaml").write_text(
         "domains:\n  - name: Physics\n  - name: Chemistry\n"
     )
-    from arxiv_manager.config import get_domains
     import arxiv_manager.config as cfg_mod
+    from arxiv_manager.config import get_domains
     original = cfg_mod.CONFIG_DIR
     cfg_mod.CONFIG_DIR = cfg_dir
     try:

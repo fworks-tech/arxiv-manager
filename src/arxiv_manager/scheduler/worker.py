@@ -12,14 +12,12 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
-import sys
 import time
 from pathlib import Path
 
-from ..db import init_db, get_session
+from ..db import init_db
 from .models import ScheduledTask
-from .queue import dequeue, complete_job, fail_job
+from .queue import complete_job, dequeue, fail_job
 
 logger = logging.getLogger("arxiv_manager.scheduler.worker")
 

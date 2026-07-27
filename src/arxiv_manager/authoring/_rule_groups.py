@@ -6,11 +6,11 @@ import logging
 import re
 
 from ._validation_helpers import (
-    TRICK_ANSWERS,
-    MATH_HEAVY_PATTERNS,
-    TEXT_HEAVY_PATTERNS,
     LONG_WINDED_INDICATORS,
+    MATH_HEAVY_PATTERNS,
     NOISE_CONDITION_PATTERNS,
+    TEXT_HEAVY_PATTERNS,
+    TRICK_ANSWERS,
     WATERMARK_HINTS,
     _answer_is_extreme,
     _answer_is_list_of_three_plus,
@@ -33,9 +33,9 @@ from ._validation_helpers import (
     _passes_one_answer_test,
     _passes_visual_dependence_test,
     _references_chart_data,
-    _requires_arithmetic,
     _references_multi_panel,
     _references_visual_content,
+    _requires_arithmetic,
     _restricts_options,
 )
 

@@ -5,13 +5,12 @@ from __future__ import annotations
 import pytest
 
 from arxiv_manager.agents.registry import (
-    AgentMetadata,
-    register_agent,
-    get_agent,
-    find_agents,
-    list_agents,
-    unregister_agent,
     clear_registry,
+    find_agents,
+    get_agent,
+    list_agents,
+    register_agent,
+    unregister_agent,
 )
 
 

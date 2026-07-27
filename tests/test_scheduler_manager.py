@@ -7,10 +7,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from arxiv_manager.scheduler.manager import (
+    get_worker_pid,
     start_worker,
     stop_worker,
     worker_is_alive,
-    get_worker_pid,
 )
 
 

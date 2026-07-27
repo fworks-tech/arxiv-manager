@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
-
-from arxiv_manager.agents.context import AgentContext, new_context
+from arxiv_manager.agents.context import new_context
 
 
 class TestNewContext:

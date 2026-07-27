@@ -1,6 +1,6 @@
 """Tests for model instantiation and defaults."""
 
-from arxiv_manager.models import Task, Figure, Paper, ImageStatus, TaskStatus, GenerationAttempt
+from arxiv_manager.models import Figure, GenerationAttempt, ImageStatus, Paper, Task, TaskStatus
 
 
 def test_task_defaults():

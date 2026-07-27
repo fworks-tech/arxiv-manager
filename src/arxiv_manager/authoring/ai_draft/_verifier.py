@@ -8,9 +8,9 @@ import time
 from pathlib import Path
 
 from .._draft_config import CONFIG
+from .._draft_prompts import VERIFY_PROMPT
 from .._draft_telemetry import log_draft
 from ._api_client import _call_opencode, _get_api_key
-from .._draft_prompts import VERIFY_PROMPT
 
 logger = logging.getLogger(__name__)
 

@@ -1,9 +1,10 @@
 """Tests for history context and few-shot example retrieval."""
 
 import pytest
+
 from arxiv_manager.authoring._history_context import (
-    get_few_shot_examples,
     build_figure_history,
+    get_few_shot_examples,
     inject_history_into_prompt,
     select_best_model,
 )

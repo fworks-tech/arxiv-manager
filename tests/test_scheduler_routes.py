@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-import json
-
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
-
-from arxiv_manager.scheduler.queue import enqueue
 
 
 @pytest.fixture
@@ -79,8 +75,8 @@ class TestJobStatusEndpoint:
         assert resp.status_code == 404
 
     def test_status_after_completion(self, scheduler_client):
+
         import arxiv_manager.scheduler.queue as q_mod
-        from sqlmodel import Session, select
 
         resp = scheduler_client.post("/api/scheduler/enqueue", json={
             "type": "generate_qa",

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..models import Task, TaskStatus, AnswerFormat, TaskType
+from ..models import AnswerFormat, Task, TaskStatus, TaskType
 
 
 def create_task(
@@ -90,8 +90,9 @@ def get_task(task_id: int) -> Task | None:
 
 def list_tasks(status: str | None = None, limit: int = 50) -> list[Task]:
     """List tasks, optionally filtered by status."""
-    from ..db import get_session
     from sqlmodel import select
+
+    from ..db import get_session
 
     session = get_session()
     try:

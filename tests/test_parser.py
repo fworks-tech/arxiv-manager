@@ -1,10 +1,9 @@
 """Tests for AI draft response parser — locks in think-tag handling."""
 
-import json
 from arxiv_manager.authoring.ai_draft import (
-    _parse_llm_response,
-    _parse_critique_response,
     _extract_reasoning,
+    _parse_critique_response,
+    _parse_llm_response,
 )
 
 
