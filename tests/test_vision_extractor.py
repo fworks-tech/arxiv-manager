@@ -6,17 +6,25 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
-import torch
-import torch.nn as nn
 from PIL import Image
 
 from arxiv_manager.vision.extractor import cosine_similarity, extract_features
 
+# Guard against missing torch on CI
+try:
+    import torch
+    _TORCH_AVAILABLE = True
+except ImportError:
+    _TORCH_AVAILABLE = False
 
-class _FakeFeatureExtractor(nn.Module):
-    """Emits a fixed 512-dim feature vector per input."""
 
-    def forward(self, x):
+class _FakeFeatureExtractor:
+    """Emits a fixed 512-dim feature vector per input.
+    Fallback when torch is not available.
+    """
+    def __call__(self, x):
+        if not _TORCH_AVAILABLE:
+            raise ImportError("torch not available")
         return torch.ones(1, 512, 1, 1)
 
 
@@ -37,6 +45,10 @@ class TestExtractFeaturesSuccess:
     @patch("arxiv_manager.vision.extractor.model_is_available", return_value=True)
     @patch("arxiv_manager.vision.extractor.load_model")
     def test_returns_512_dim_vector(self, mock_load, mock_avail, tmp_path):
+        if not _TORCH_AVAILABLE:
+            pytest.skip("torch not installed")
+        import torch
+
         model = _FakeFeatureExtractor()
 
         def _transforms(img):
@@ -55,6 +67,10 @@ class TestExtractFeaturesSuccess:
     @patch("arxiv_manager.vision.extractor.model_is_available", return_value=True)
     @patch("arxiv_manager.vision.extractor.load_model")
     def test_handles_missing_file_gracefully(self, mock_load, mock_avail):
+        if not _TORCH_AVAILABLE:
+            pytest.skip("torch not installed")
+        import torch
+
         model = _FakeFeatureExtractor()
 
         def _transforms(img):
@@ -67,6 +83,7 @@ class TestExtractFeaturesSuccess:
 
 
 class TestCosineSimilarity:
+
     def test_identical_vectors(self):
         a = np.ones(512, dtype=np.float32)
         b = np.ones(512, dtype=np.float32)
