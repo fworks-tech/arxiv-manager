@@ -28,16 +28,18 @@ class TestSelectBestModel:
         assert result == "minimax-m3"
 
     def test_insufficient_data_returns_default(self, db_session, sample_figure):
-        db_session.add(GenerationAttempt(
-            figure_id=sample_figure.id,
-            model_name="kimi-k2.7-code",
-            validation_quality=95,
-            success=True,
-            validation_is_valid=True,
-            figure_type="chart_graph_text",
-            difficulty="challenging",
-            generated_question="Q?",
-        ))
+        db_session.add(
+            GenerationAttempt(
+                figure_id=sample_figure.id,
+                model_name="kimi-k2.7-code",
+                validation_quality=95,
+                success=True,
+                validation_is_valid=True,
+                figure_type="chart_graph_text",
+                difficulty="challenging",
+                generated_question="Q?",
+            )
+        )
         db_session.commit()
         result = select_best_model(
             figure_type="chart_graph_text",
@@ -50,16 +52,18 @@ class TestSelectBestModel:
     def test_sufficient_data_picks_best(self, db_session, sample_figure):
         for model, quality, count in [("model-a", 90, 3), ("model-b", 70, 3)]:
             for _ in range(count):
-                db_session.add(GenerationAttempt(
-                    figure_id=sample_figure.id,
-                    model_name=model,
-                    validation_quality=quality,
-                    success=True,
-                    validation_is_valid=True,
-                    figure_type="chart_graph_text",
-                    difficulty="challenging",
-                    generated_question=f"Q {model} {_}",
-                ))
+                db_session.add(
+                    GenerationAttempt(
+                        figure_id=sample_figure.id,
+                        model_name=model,
+                        validation_quality=quality,
+                        success=True,
+                        validation_is_valid=True,
+                        figure_type="chart_graph_text",
+                        difficulty="challenging",
+                        generated_question=f"Q {model} {_}",
+                    )
+                )
         db_session.commit()
         result = select_best_model(
             figure_type="chart_graph_text",
@@ -76,28 +80,32 @@ class TestGetFewShotExamples:
         assert examples == []
 
     def test_filters_by_figure_type(self, db_session, sample_figure):
-        db_session.add(GenerationAttempt(
-            figure_id=sample_figure.id,
-            model_name="test",
-            validation_quality=90,
-            success=True,
-            validation_is_valid=True,
-            figure_type="chart_graph_text",
-            difficulty="challenging",
-            generated_question="Q1",
-            generated_answer="A1",
-        ))
-        db_session.add(GenerationAttempt(
-            figure_id=sample_figure.id,
-            model_name="test",
-            validation_quality=85,
-            success=True,
-            validation_is_valid=True,
-            figure_type="general_image",
-            difficulty="challenging",
-            generated_question="Q2",
-            generated_answer="A2",
-        ))
+        db_session.add(
+            GenerationAttempt(
+                figure_id=sample_figure.id,
+                model_name="test",
+                validation_quality=90,
+                success=True,
+                validation_is_valid=True,
+                figure_type="chart_graph_text",
+                difficulty="challenging",
+                generated_question="Q1",
+                generated_answer="A1",
+            )
+        )
+        db_session.add(
+            GenerationAttempt(
+                figure_id=sample_figure.id,
+                model_name="test",
+                validation_quality=85,
+                success=True,
+                validation_is_valid=True,
+                figure_type="general_image",
+                difficulty="challenging",
+                generated_question="Q2",
+                generated_answer="A2",
+            )
+        )
         db_session.commit()
         examples = get_few_shot_examples(figure_type="chart_graph_text", limit=5)
         assert len(examples) == 1
@@ -110,15 +118,17 @@ class TestBuildFigureHistory:
         assert result == ""
 
     def test_with_history_returns_string(self, db_session, sample_figure):
-        db_session.add(GenerationAttempt(
-            figure_id=sample_figure.id,
-            generation_type="draft",
-            difficulty="challenging",
-            generated_question="Test question?",
-            generated_answer="42",
-            validation_quality=85,
-            success=True,
-        ))
+        db_session.add(
+            GenerationAttempt(
+                figure_id=sample_figure.id,
+                generation_type="draft",
+                difficulty="challenging",
+                generated_question="Test question?",
+                generated_answer="42",
+                validation_quality=85,
+                success=True,
+            )
+        )
         db_session.commit()
         result = build_figure_history(sample_figure.id)
         assert isinstance(result, str)

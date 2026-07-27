@@ -30,11 +30,14 @@ def _read_db_metrics() -> dict:
     session = get_session()
     try:
         # Generation attempts with quality data
-        attempts = list(session.exec(
-            select(GenerationAttempt).where(GenerationAttempt.success == True)
-            .order_by(desc(GenerationAttempt.created_at))
-            .limit(500)
-        ).all())
+        attempts = list(
+            session.exec(
+                select(GenerationAttempt)
+                .where(GenerationAttempt.success)
+                .order_by(desc(GenerationAttempt.created_at))
+                .limit(500)
+            ).all()
+        )
 
         # Model performance
         model_perf: dict[str, dict] = {}
@@ -62,15 +65,19 @@ def _read_db_metrics() -> dict:
         quality_trend = []
         chunk_size = 20
         for i in range(0, len(valid_attempts), chunk_size):
-            chunk = valid_attempts[i:i + chunk_size]
+            chunk = valid_attempts[i : i + chunk_size]
             if chunk:
                 avg_q = round(sum(a.validation_quality for a in chunk) / len(chunk), 1)
-                quality_trend.append({
-                    "period": f"#{i + 1}-{i + len(chunk)}",
-                    "avg": avg_q,
-                    "count": len(chunk),
-                    "trend": "up" if i > 0 and avg_q > quality_trend[-1]["avg"] else ("down" if i > 0 and avg_q < quality_trend[-1]["avg"] else "stable"),
-                })
+                quality_trend.append(
+                    {
+                        "period": f"#{i + 1}-{i + len(chunk)}",
+                        "avg": avg_q,
+                        "count": len(chunk),
+                        "trend": "up"
+                        if i > 0 and avg_q > quality_trend[-1]["avg"]
+                        else ("down" if i > 0 and avg_q < quality_trend[-1]["avg"] else "stable"),
+                    }
+                )
         quality_trend = quality_trend[-10:] if len(quality_trend) > 10 else quality_trend
 
         # Common validation errors
@@ -97,15 +104,18 @@ def _read_db_metrics() -> dict:
         issue_top_reason_count = issue_reasons.most_common(1)[0][1] if issue_reasons else 0
 
         # Cost data
-        cost_data = summarize_usage([
-            {
-                "model_name": a.model_name,
-                "input_tokens": a.input_tokens,
-                "output_tokens": a.output_tokens,
-                "total_tokens": a.total_tokens,
-            }
-            for a in attempts if a.total_tokens > 0
-        ])
+        cost_data = summarize_usage(
+            [
+                {
+                    "model_name": a.model_name,
+                    "input_tokens": a.input_tokens,
+                    "output_tokens": a.output_tokens,
+                    "total_tokens": a.total_tokens,
+                }
+                for a in attempts
+                if a.total_tokens > 0
+            ]
+        )
 
         return {
             "model_performance": model_performance,
@@ -182,8 +192,10 @@ def _compute_metrics() -> dict:
         "total_drafts": draft_count,
         "total_verify": verify_count,
         "success_rate": round(100 * ok / max(draft_count, 1), 1),
-        "avg_latency": avg_lat, "min_latency": min_lat,
-        "max_latency": max_lat, "p50_latency": p50_lat,
+        "avg_latency": avg_lat,
+        "min_latency": min_lat,
+        "max_latency": max_lat,
+        "p50_latency": p50_lat,
         "by_difficulty": by_diff,
         "by_figure_type": by_type,
         "recent": [dict(r, **{"es": r.get("elapsed_s", 0), "ok_bool": r.get("ok")}) for r in recent[-24:]],

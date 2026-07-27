@@ -36,17 +36,19 @@ def export_task_cmd(
         console.print(f"[red]Task {task_id} not found.[/]")
         raise typer.Exit(1)
 
-    console.print(Panel(
-        f"[bold]Title:[/] {data['title']}\n"
-        f"[bold]Domain:[/] {data['domain']}\n\n"
-        f"[bold]Question:[/]\n{data['question']}\n\n"
-        f"[bold]Answer:[/] [green]{data['answer']}[/]\n\n"
-        f"[bold]Format:[/] {data['answer_format']}\n"
-        f"[bold]Type:[/] {data['task_type']}\n"
-        f"[bold]Image:[/] {data['image_path']}\n"
-        f"[bold]Difficulty:[/] {data['difficulty'] or 'not set'}",
-        title=f"Task #{task_id} Export",
-    ))
+    console.print(
+        Panel(
+            f"[bold]Title:[/] {data['title']}\n"
+            f"[bold]Domain:[/] {data['domain']}\n\n"
+            f"[bold]Question:[/]\n{data['question']}\n\n"
+            f"[bold]Answer:[/] [green]{data['answer']}[/]\n\n"
+            f"[bold]Format:[/] {data['answer_format']}\n"
+            f"[bold]Type:[/] {data['task_type']}\n"
+            f"[bold]Image:[/] {data['image_path']}\n"
+            f"[bold]Difficulty:[/] {data['difficulty'] or 'not set'}",
+            title=f"Task #{task_id} Export",
+        )
+    )
 
 
 @task_app.command("stats")
@@ -100,11 +102,7 @@ def analytics_cmd(
         return
 
     recent = list(
-        session.exec(
-            select(GenerationAttempt)
-            .order_by(desc(GenerationAttempt.created_at))
-            .limit(limit)
-        ).all()
+        session.exec(select(GenerationAttempt).order_by(desc(GenerationAttempt.created_at)).limit(limit)).all()
     )
 
     console.print(f"\n[bold]Generation Analytics (last {len(recent)} of {total} attempts)[/]\n")
@@ -186,16 +184,20 @@ def analytics_cmd(
     if config_scores:
         best = max(config_scores.items(), key=lambda x: sum(x[1]) / len(x[1]))
         (ft, diff, model), qs = best
-        console.print(f"\n[bold green]Best config:[/] figure_type={ft}, difficulty={diff}, model={model} "
-                      f"(avg quality={sum(qs)/len(qs):.1f}, n={len(qs)})")
+        console.print(
+            f"\n[bold green]Best config:[/] figure_type={ft}, difficulty={diff}, model={model} "
+            f"(avg quality={sum(qs) / len(qs):.1f}, n={len(qs)})"
+        )
 
     # Low-quality generation examples
     low_quality = [r for r in recent if 0 < r.validation_quality < 60]
     if low_quality:
         console.print(f"\n[yellow]Low-quality generations ({len(low_quality)}):[/]")
         for r in low_quality[:3]:
-            console.print(f"  Attempt #{r.id}: quality={r.validation_quality:.0f}, "
-                         f"type={r.generation_type}, difficulty={r.difficulty}")
+            console.print(
+                f"  Attempt #{r.id}: quality={r.validation_quality:.0f}, "
+                f"type={r.generation_type}, difficulty={r.difficulty}"
+            )
             if r.generated_question:
                 console.print(f"    Q: {r.generated_question[:80]}")
             if r.validation_errors and r.validation_errors != "[]":

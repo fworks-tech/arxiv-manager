@@ -52,9 +52,13 @@ def list_images(
         type_short = {"chart_graph_text": "chart", "general_image": "img"}.get(f.figure_type, "-")
         kb = (f.filesize_bytes or 0) / 1024
         table.add_row(
-            str(f.id), f.image_path, type_short,
-            f"{f.complexity_score:.3f}", "✓" if f.is_dense else "",
-            f"{f.width}x{f.height}", f"{kb:.0f}",
+            str(f.id),
+            f.image_path,
+            type_short,
+            f"{f.complexity_score:.3f}",
+            "✓" if f.is_dense else "",
+            f"{f.width}x{f.height}",
+            f"{kb:.0f}",
             f"[{status_style}]{f.status}[/]",
             (f.caption[:40] + "...") if len(f.caption) > 40 else f.caption,
         )
@@ -113,7 +117,7 @@ def audit_images_cmd():
     table.add_row("Orphans (disk, no DB)", str(len(orphans)), status_icon(len(orphans) == 0))
     table.add_row("Broken (DB, no file)", str(len(broken)), status_icon(len(broken) == 0))
     table.add_row("Trash files (<5KB)", str(len(trash)), status_icon(len(trash) == 0))
-    table.add_row("Suitable figures", f"{suitable} ({100*suitable/max(len(db_files),1):.1f}%)", "")
+    table.add_row("Suitable figures", f"{suitable} ({100 * suitable / max(len(db_files), 1):.1f}%)", "")
     table.add_row("", "", "")
     table.add_row("[bold]Complexity distribution[/]", "", "")
     for k, v in dist.items():
@@ -168,7 +172,9 @@ def clean_images(
         shutil.copy2("storage/arxiv-manager.db", backup)
         console.print(f"[green]Backed up DB to {backup}[/]")
 
-    disk_files = [(f, os.path.getsize(f"storage/figures/{f}")) for f in os.listdir("storage/figures") if f.endswith(".png")]
+    disk_files = [
+        (f, os.path.getsize(f"storage/figures/{f}")) for f in os.listdir("storage/figures") if f.endswith(".png")
+    ]
     trash = [(f, s) for f, s in disk_files if s < 5000]
     trash_removed = 0
     for f, sz in trash:
@@ -203,6 +209,7 @@ def clean_images(
         console.print(f"Moved {len(orphans)} orphans to {trash_dir}")
 
     import hashlib
+
     c.execute("SELECT image_path, COUNT(*) as cnt FROM figures GROUP BY image_path HAVING cnt > 1")
     dupes = c.fetchall()
     deduped = 0
@@ -214,7 +221,7 @@ def clean_images(
             disk_hash = hashlib.sha256(fh.read()).hexdigest()
         c.execute("SELECT id, image_hash FROM figures WHERE image_path = ?", (path,))
         rows = c.fetchall()
-        matching = [r for r in rows if r[1] == disk_hash]
+        [r for r in rows if r[1] == disk_hash]
         stale = [r for r in rows if r[1] != disk_hash]
         for row in stale:
             c.execute("SELECT COUNT(*) FROM tasks WHERE figure_id = ?", (row[0],))
@@ -308,11 +315,10 @@ def rank_images(
     """Show top candidates for Challenging tasks."""
     session = get_session()
     query = (
-        select(Figure)
-        .where(Figure.complexity_score >= min_complexity)
-        .where(Figure.is_suitable == True)  # noqa: E712
+        select(Figure).where(Figure.complexity_score >= min_complexity).where(Figure.is_suitable == True)  # noqa: E712
     )
     figures = list(session.exec(query).all())
+
     def score(f: Figure) -> float:
         s = f.complexity_score
         if f.is_dense:
@@ -320,6 +326,7 @@ def rank_images(
         if f.figure_type == "chart_graph_text":
             s *= 1.1
         return s
+
     figures.sort(key=score, reverse=True)
     figures = figures[:limit]
 
@@ -338,9 +345,12 @@ def rank_images(
 
     for f in figures:
         table.add_row(
-            str(f.id), f"{score(f):.3f}",
+            str(f.id),
+            f"{score(f):.3f}",
             {"chart_graph_text": "chart", "general_image": "img"}.get(f.figure_type, "-"),
-            f"{f.complexity_score:.3f}", "✓" if f.is_dense else "",
-            f"{f.width}x{f.height}", f.image_path,
+            f"{f.complexity_score:.3f}",
+            "✓" if f.is_dense else "",
+            f"{f.width}x{f.height}",
+            f.image_path,
         )
     console.print(table)

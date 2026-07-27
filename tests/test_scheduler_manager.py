@@ -18,12 +18,12 @@ from arxiv_manager.scheduler.manager import (
 def _reset_globals():
     """Reset manager globals before each test to prevent bleed."""
     import arxiv_manager.scheduler.manager as mgr
+
     mgr._PROCESS = None
     mgr._SENTINEL_PATH = None
 
 
 class TestStartWorker:
-
     @patch("arxiv_manager.scheduler.manager.subprocess.Popen")
     @patch("arxiv_manager.scheduler.manager._create_sentinel")
     def test_start_worker_returns_pid(self, mock_sentinel, mock_popen):
@@ -53,7 +53,6 @@ class TestStartWorker:
 
 
 class TestStopWorker:
-
     @patch("arxiv_manager.scheduler.manager.subprocess.Popen")
     @patch("arxiv_manager.scheduler.manager._create_sentinel")
     def test_stop_worker_graceful(self, mock_sentinel, mock_popen):
@@ -74,12 +73,12 @@ class TestStopWorker:
     def test_stop_when_not_running(self):
         # Clean global state from previous tests
         import arxiv_manager.scheduler.manager as mgr
+
         mgr._PROCESS = None
         assert stop_worker() is False
 
 
 class TestWorkerIsAlive:
-
     @patch("arxiv_manager.scheduler.manager._PROCESS", None)
     def test_no_process(self):
         assert worker_is_alive() is False

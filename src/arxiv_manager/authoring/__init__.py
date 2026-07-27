@@ -81,6 +81,7 @@ def update_task(task_id: int, **kwargs) -> Task | None:
 def get_task(task_id: int) -> Task | None:
     """Get a task by ID."""
     from ..db import get_session
+
     session = get_session()
     try:
         return session.get(Task, task_id)

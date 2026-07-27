@@ -68,7 +68,7 @@ def _run_format_checks(result, q: str, a: str, answer_format: str) -> None:
         result.passed_checks.append("Answer is not a trick answer")
 
     stripped = q.rstrip(".!?")
-    ending = q[len(stripped):] if len(stripped) < len(q) else ""
+    ending = q[len(stripped) :] if len(stripped) < len(q) else ""
     if q.count("?") > 1:
         result.errors.append(f"Multiple questions detected ({q.count('?')} question marks)")
     elif not ending:
@@ -127,9 +127,7 @@ def _run_complexity_checks(result, q: str, figure_type: str, task_type: str) -> 
         if anti_pattern_hits:
             if has_data_refs:
                 for hit in anti_pattern_hits:
-                    result.warnings.append(
-                        f"Chart caution: '{hit}' — but question references data values (acceptable)"
-                    )
+                    result.warnings.append(f"Chart caution: '{hit}' — but question references data values (acceptable)")
             else:
                 for hit in anti_pattern_hits:
                     result.errors.append(
@@ -176,7 +174,9 @@ def _run_handbook_basics(result, q: str, a: str, caption: str) -> None:
         result.passed_checks.append("Basic grammar checks passed")
 
     if _has_extreme_seeking(q):
-        result.warnings.append("Uses extreme-seeking words (highest/lowest/most) — Qwen checks these first; consider threshold filters instead")
+        result.warnings.append(
+            "Uses extreme-seeking words (highest/lowest/most) — Qwen checks these first; consider threshold filters instead"
+        )
     else:
         result.passed_checks.append("No extreme-seeking bias detected")
 
@@ -192,7 +192,9 @@ def _run_handbook_basics(result, q: str, a: str, caption: str) -> None:
         result.passed_checks.append("Caption is not overly descriptive")
 
     if _answer_is_extreme(a):
-        result.warnings.append("Answer is an extreme value (highest/lowest) — intermediate values are harder for models")
+        result.warnings.append(
+            "Answer is an extreme value (highest/lowest) — intermediate values are harder for models"
+        )
 
 
 def _run_visual_tests(result, q: str, a: str) -> None:
@@ -202,7 +204,9 @@ def _run_visual_tests(result, q: str, a: str) -> None:
     else:
         result.passed_checks.append("Passes visual-dependence test (handbook §3)")
     if not _passes_one_answer_test(q, a):
-        result.warnings.append("Test 2 WARNING: Answer may be subjective / two reasonable people could give different answers")
+        result.warnings.append(
+            "Test 2 WARNING: Answer may be subjective / two reasonable people could give different answers"
+        )
     else:
         result.passed_checks.append("Passes one-answer test (handbook §3)")
 
@@ -213,11 +217,14 @@ def _run_visual_tests(result, q: str, a: str) -> None:
         )
 
 
-def _run_final_checks(result, q: str, a: str, options: list[str] | None,
-                          figure_type: str, task_type: str, image_path: str) -> None:
+def _run_final_checks(
+    result, q: str, a: str, options: list[str] | None, figure_type: str, task_type: str, image_path: str
+) -> None:
     """Rules 21-28: Math-heavy, text-only, long-winded, noise, list answer, MCQ, watermark, type mismatch."""
     if any(re.search(p, q, re.IGNORECASE) for p in MATH_HEAVY_PATTERNS):
-        result.warnings.append("Question focuses on calculation rather than visuo-spatial reasoning (handbook common error)")
+        result.warnings.append(
+            "Question focuses on calculation rather than visuo-spatial reasoning (handbook common error)"
+        )
     else:
         result.passed_checks.append("Question is visuo-spatial, not pure calculation")
 
@@ -249,13 +256,10 @@ def _run_final_checks(result, q: str, a: str, options: list[str] | None,
                 result.warnings.append("Filename suggests potential watermark/copyright — verify CC0 license")
 
     if figure_type and task_type:
-        mismatch = (
-            (figure_type == "general_image" and task_type in ("chart",))
-            or (figure_type == "chart_graph_text" and task_type == "spatial")
+        mismatch = (figure_type == "general_image" and task_type in ("chart",)) or (
+            figure_type == "chart_graph_text" and task_type == "spatial"
         )
         if mismatch:
-            result.warnings.append(
-                f"figure_type='{figure_type}' may not match task_type='{task_type}'"
-            )
+            result.warnings.append(f"figure_type='{figure_type}' may not match task_type='{task_type}'")
         else:
             result.passed_checks.append("figure_type matches task_type")

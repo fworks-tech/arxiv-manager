@@ -17,12 +17,16 @@ logger = logging.getLogger(__name__)
 _INJECTION_PATTERNS: list[re.Pattern] = [
     re.compile(r"ignore\s+(all\s+)?(previous|above|prior)\s+(instructions|prompts|directions)", re.IGNORECASE),
     re.compile(r"forget\s+(everything|all|your)\s+(previous|prior|training)", re.IGNORECASE),
-    re.compile(r"you\s+(are\s+)?(now|must\s+act\s+as)\s+(\w+\s+){0,5}(free|unconstrained|unrestricted|dan)", re.IGNORECASE),
+    re.compile(
+        r"you\s+(are\s+)?(now|must\s+act\s+as)\s+(\w+\s+){0,5}(free|unconstrained|unrestricted|dan)", re.IGNORECASE
+    ),
     re.compile(r"system\s+prompt", re.IGNORECASE),
     re.compile(r"print\s+(your|the)\s+(prompt|instructions|system)", re.IGNORECASE),
     re.compile(r"output\s+(your|the)\s+(prompt|instructions|system)", re.IGNORECASE),
     re.compile(r"reveal\s+(your|the)\s+(prompt|instructions|system)", re.IGNORECASE),
-    re.compile(r"how\s+(can\s+)?(i\s+)?(bypass|override|break)\s+(the\s+)?(rules|restrictions|guardrails)", re.IGNORECASE),
+    re.compile(
+        r"how\s+(can\s+)?(i\s+)?(bypass|override|break)\s+(the\s+)?(rules|restrictions|guardrails)", re.IGNORECASE
+    ),
     re.compile(r"role\s*:\s*system", re.IGNORECASE),
 ]
 

@@ -1,4 +1,5 @@
 """Image upload, draft, and propose route handlers."""
+
 import hashlib
 import io
 import json
@@ -13,6 +14,7 @@ from PIL import Image as PILImage
 from ...authoring._draft_telemetry import log_generation_attempt
 from ...authoring.ai_draft import draft_qa, draft_with_self_critique
 from ...authoring.image_analyzer import analyze_uploaded_image, validate_draft
+from ...authoring.validator import validate_task
 from ...db import get_session
 from ...models import Figure, ImageStatus
 from ...sourcing.filters import audit_figure, compute_file_hash
@@ -85,13 +87,15 @@ def api_upload_image(
             _upload_cache.pop(next(iter(_upload_cache)))
 
         return TEMPLATES.TemplateResponse(
-            request, "_author_analysis.html",
+            request,
+            "_author_analysis.html",
             {"result": result, "upload_id": upload_id, "error": ""},
         )
     except Exception as e:
         logger.error("upload exception: %s", e, exc_info=True)
         return TEMPLATES.TemplateResponse(
-            request, "_author_analysis.html",
+            request,
+            "_author_analysis.html",
             {"result": None, "error": str(e)[:150], "upload_id": ""},
         )
 
@@ -110,9 +114,15 @@ def api_draft_qa(
     api_key = os.environ.get("OPENCODE_API_KEY")
     if not api_key:
         return TEMPLATES.TemplateResponse(
-            request, "_author_draft.html",
-            {"draft": None, "validation": None, "error": "No OPENCODE_API_KEY set",
-             "upload_id": upload_id, "difficulty": difficulty},
+            request,
+            "_author_draft.html",
+            {
+                "draft": None,
+                "validation": None,
+                "error": "No OPENCODE_API_KEY set",
+                "upload_id": upload_id,
+                "difficulty": difficulty,
+            },
         )
 
     analysis = _upload_cache.get(upload_id)
@@ -126,9 +136,15 @@ def api_draft_qa(
                 break
         if not img_path:
             return TEMPLATES.TemplateResponse(
-                request, "_author_draft.html",
-                {"draft": None, "validation": None, "error": "Upload not found — please re-upload",
-                 "upload_id": upload_id, "difficulty": difficulty},
+                request,
+                "_author_draft.html",
+                {
+                    "draft": None,
+                    "validation": None,
+                    "error": "Upload not found — please re-upload",
+                    "upload_id": upload_id,
+                    "difficulty": difficulty,
+                },
             )
         analysis = analyze_uploaded_image(img_path)
         _upload_cache[upload_id] = analysis
@@ -142,47 +158,64 @@ def api_draft_qa(
                 break
     figure_type = analysis["audit"].get("figure_type", "")
     complexity = analysis["audit"].get("complexity_score", 0.0)
-    suitability = analysis.get("suitability", "")
+    analysis.get("suitability", "")
 
     try:
         if difficulty in ("challenging", "hardest"):
             draft = draft_with_self_critique(
-                image_path=img_path, max_rounds=1,
-                api_key=api_key, difficulty=difficulty,
-                figure_type=figure_type, complexity_score=complexity,
+                image_path=img_path,
+                max_rounds=1,
+                api_key=api_key,
+                difficulty=difficulty,
+                figure_type=figure_type,
+                complexity_score=complexity,
                 previous_question=previous_question,
             )
             if draft is None:
                 draft = draft_qa(
                     image_path=img_path,
-                    api_key=api_key, difficulty=difficulty,
-                    figure_type=figure_type, complexity_score=complexity,
+                    api_key=api_key,
+                    difficulty=difficulty,
+                    figure_type=figure_type,
+                    complexity_score=complexity,
                     previous_question=previous_question,
                 )
         else:
             draft = draft_qa(
                 image_path=img_path,
-                api_key=api_key, difficulty=difficulty,
-                figure_type=figure_type, complexity_score=complexity,
+                api_key=api_key,
+                difficulty=difficulty,
+                figure_type=figure_type,
+                complexity_score=complexity,
                 previous_question=previous_question,
             )
     except ValueError as e:
         return TEMPLATES.TemplateResponse(
-            request, "_author_draft.html",
-            {"draft": None, "validation": None, "error": str(e),
-             "upload_id": upload_id, "difficulty": difficulty},
+            request,
+            "_author_draft.html",
+            {"draft": None, "validation": None, "error": str(e), "upload_id": upload_id, "difficulty": difficulty},
         )
 
     if not draft:
         return TEMPLATES.TemplateResponse(
-            request, "_author_draft.html",
-            {"draft": None, "validation": None, "error": "Draft generation failed — API error",
-             "upload_id": upload_id, "difficulty": difficulty},
+            request,
+            "_author_draft.html",
+            {
+                "draft": None,
+                "validation": None,
+                "error": "Draft generation failed — API error",
+                "upload_id": upload_id,
+                "difficulty": difficulty,
+            },
         )
 
     validation = validate_draft(draft, figure_type=figure_type)
-    logger.info("draft ok upload_id=%s quality=%.2f errors=%d",
-                upload_id, validation.get("quality_score", 0), len(validation.get("errors", [])))
+    logger.info(
+        "draft ok upload_id=%s quality=%.2f errors=%d",
+        upload_id,
+        validation.get("quality_score", 0),
+        len(validation.get("errors", [])),
+    )
 
     usage = draft.get("_usage", {})
     log_generation_attempt(
@@ -192,8 +225,10 @@ def api_draft_qa(
         prompt_template_name=f"{difficulty}_{figure_type}" if figure_type else difficulty,
         prompt_version_id=draft.get("_prompt_version_id", ""),
         prompt_text_hash=draft.get("_prompt_text_hash", ""),
-        difficulty=difficulty, figure_type=figure_type,
-        complexity_score=complexity, previous_question=previous_question,
+        difficulty=difficulty,
+        figure_type=figure_type,
+        complexity_score=complexity,
+        previous_question=previous_question,
         raw_response=draft.get("_raw_response", ""),
         reasoning_trace=draft.get("_reasoning_trace", ""),
         generated_question=draft.get("question", ""),
@@ -207,13 +242,14 @@ def api_draft_qa(
         input_tokens=usage.get("input_tokens", 0),
         output_tokens=usage.get("output_tokens", 0),
         total_tokens=usage.get("total_tokens", 0),
-        success=True, elapsed_ms=0,
+        success=True,
+        elapsed_ms=0,
     )
 
     return TEMPLATES.TemplateResponse(
-        request, "_author_draft.html",
-        {"draft": draft, "validation": validation, "error": "",
-         "upload_id": upload_id, "difficulty": difficulty},
+        request,
+        "_author_draft.html",
+        {"draft": draft, "validation": validation, "error": "", "upload_id": upload_id, "difficulty": difficulty},
     )
 
 
@@ -260,20 +296,24 @@ def api_propose_task(
             return HTMLResponse("Upload not found", status_code=404)
 
         img_hash = compute_file_hash(img_path)
-        img = PILImage.open(img_path)
+        PILImage.open(img_path)
         audit = audit_figure(img_path)
 
         fig_path = f"figures/user_{upload_id}.jpg"
         fig_dest = STORAGE_DIR / fig_path
         import shutil
+
         shutil.copy2(str(img_path), str(fig_dest))
 
         figure = Figure(
             paper_id="user_upload",
             image_path=fig_path,
             image_hash=img_hash,
-            caption="", page_num=0, figure_num="",
-            width=audit["width"], height=audit["height"],
+            caption="",
+            page_num=0,
+            figure_num="",
+            width=audit["width"],
+            height=audit["height"],
             width_height_ratio=audit["width_height_ratio"],
             filesize_bytes=audit["filesize_bytes"],
             complexity_score=audit["complexity_score"],
@@ -289,8 +329,11 @@ def api_propose_task(
         task = create_task(
             figure_id=figure.id,
             title=title or f"User upload — {upload_id[:12]}",
-            domain=domain, question=question, answer=answer,
-            answer_format=answer_format, task_type=task_type,
+            domain=domain,
+            question=question,
+            answer=answer,
+            answer_format=answer_format,
+            task_type=task_type,
             ai_generated=True,
         )
         return RedirectResponse(url=f"/task/{task.id}", status_code=303)

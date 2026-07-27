@@ -70,6 +70,7 @@ def _migrate() -> None:
         tables = [row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()]
         if "prompt_templates" not in tables:
             from . import models  # noqa: F401
+
             SQLModel.metadata.create_all(engine, tables=["prompt_templates"])
 
     with engine.connect() as conn:
@@ -84,6 +85,7 @@ def _migrate() -> None:
         tables = [row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()]
         if "issue_reports" not in tables:
             from . import models  # noqa: F401
+
             SQLModel.metadata.create_all(engine, tables=["issue_reports"])
             logger.info("migration: created issue_reports table")
 
@@ -94,6 +96,7 @@ def init_db() -> None:
     from . import models  # noqa: F401
     from .personalization import models as _pers_models  # noqa: F401
     from .scheduler import models as _sched_models  # noqa: F401
+
     SQLModel.metadata.create_all(engine)
     _enable_wal()
     _migrate()
@@ -103,6 +106,7 @@ def reset_db() -> None:
     """Drop and recreate all tables (dev use only)."""
     ensure_dirs()
     from . import models  # noqa: F401
+
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
 

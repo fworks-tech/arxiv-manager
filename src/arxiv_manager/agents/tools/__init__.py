@@ -32,6 +32,7 @@ class ValidateQATool:
         task_type: str = "",
     ) -> dict[str, Any]:
         from ..authoring.validator import validate_task
+
         v = validate_task(
             question=question,
             answer=answer,
@@ -60,6 +61,7 @@ class FigureHistoryTool:
 
     def run(self, figure_id: int) -> str:
         from ..authoring._history_context import build_figure_history
+
         return build_figure_history(figure_id=figure_id)
 
 
@@ -82,6 +84,7 @@ class SearchFiguresTool:
     ) -> list[dict[str, Any]]:
         try:
             from ..components.hybrid_retriever import HybridRetriever
+
             r = HybridRetriever()
             return r.search(query=query, k=k, filter={"figure_type": figure_type} if figure_type else None)
         except Exception as e:

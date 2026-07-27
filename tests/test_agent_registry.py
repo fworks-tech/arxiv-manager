@@ -20,7 +20,6 @@ def _reset():
 
 
 class TestRegisterAndGet:
-
     def test_register_basic(self):
         meta = register_agent("generator", "Generates Q&A drafts", ["draft_qa"])
         assert meta.name == "generator"
@@ -49,7 +48,6 @@ class TestRegisterAndGet:
 
 
 class TestFindAgents:
-
     def test_find_by_capability(self):
         register_agent("gen", capabilities=["draft_qa"])
         register_agent("rev", capabilities=["critique"])
@@ -81,7 +79,6 @@ class TestFindAgents:
 
 
 class TestListAgents:
-
     def test_list_all(self):
         register_agent("a")
         register_agent("b")
@@ -103,7 +100,6 @@ class TestListAgents:
 
 
 class TestUnregister:
-
     def test_unregister_existing(self):
         register_agent("test")
         assert unregister_agent("test") is True

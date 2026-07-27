@@ -66,7 +66,8 @@ def _plan(context: AgentContext, prompt: str) -> list[dict[str, Any]]:
     )
     logger.info(
         "orchestrator: planned %d subtasks for '%s'",
-        len(subtasks), context.difficulty,
+        len(subtasks),
+        context.difficulty,
     )
     return subtasks
 

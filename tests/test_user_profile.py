@@ -21,8 +21,10 @@ def profile_engine(tmp_path):
 def patch_profile_session(profile_engine, monkeypatch):
     def _fake():
         return Session(profile_engine)
+
     import arxiv_manager.db as db_mod
     import arxiv_manager.personalization.personalizer as p_mod
+
     monkeypatch.setattr(db_mod, "get_session", _fake)
     monkeypatch.setattr(p_mod, "get_session", _fake)
 
@@ -39,7 +41,6 @@ def sample_user(patch_profile_session, profile_engine):
 
 
 class TestUser:
-
     def test_create_user(self, profile_engine):
         session = Session(profile_engine)
         user = User(username="new_user", password_hash="hash")
@@ -64,7 +65,6 @@ class TestUser:
 
 
 class TestUserProfile:
-
     def test_create_profile(self, patch_profile_session, sample_user, profile_engine):
         session = Session(profile_engine)
         profile = UserProfile(
@@ -101,7 +101,6 @@ class TestUserProfile:
 
 
 class TestUserPreference:
-
     def test_record_preference(self, patch_profile_session, sample_user):
         pref = record_preference(sample_user, "model_preference", "gemini-2.5-pro")
         assert pref.key == "model_preference"
@@ -116,8 +115,12 @@ class TestUserPreference:
         record_preference(sample_user, "theme", "dark")
         record_preference(sample_user, "language", "en")
         session = Session(profile_engine)
-        prefs = session.query(UserPreference).filter(
-            UserPreference.user_id == sample_user,
-        ).all()
+        prefs = (
+            session.query(UserPreference)
+            .filter(
+                UserPreference.user_id == sample_user,
+            )
+            .all()
+        )
         assert len(prefs) == 2
         session.close()

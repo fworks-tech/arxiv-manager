@@ -1,4 +1,5 @@
 """Sourcing pipeline: search, download, extract, filter."""
+
 from __future__ import annotations
 
 import concurrent.futures
@@ -13,7 +14,7 @@ from .downloader import download_pdf
 from .extractor import extract_figures
 from .filters import (
     audit_figure,
-    compute_complexity,
+    compute_complexity,  # noqa: F401
     compute_file_hash,
     compute_perceptual_hash,
     is_likely_logo_or_icon,
@@ -117,9 +118,7 @@ def run_pipeline(
 
             # Dedup via SHA256
             img_hash = compute_file_hash(full_path)
-            existing_fig = session.exec(
-                select(Figure).where(Figure.image_hash == img_hash)
-            ).first()
+            existing_fig = session.exec(select(Figure).where(Figure.image_hash == img_hash)).first()
             if existing_fig:
                 _reject("SHA256 duplicate")
                 continue
@@ -129,17 +128,21 @@ def run_pipeline(
             is_near_dup = False
             if new_phash:
                 from sqlmodel import col
+
                 same_paper_figs = session.exec(
                     select(Figure).where(Figure.paper_id == paper_id).where(col(Figure.perceptual_hash) != "")
                 ).all()
                 import imagehash
+
                 for existing in same_paper_figs:
                     try:
                         existing_hash = imagehash.hex_to_hash(existing.perceptual_hash)
                         new_hash_obj = imagehash.hex_to_hash(new_phash)
                         distance = existing_hash - new_hash_obj
                         if distance < 8:
-                            _reject(f"phash near-dup ({img_data['image_path']} ~ {existing.image_path}, dist={distance})")
+                            _reject(
+                                f"phash near-dup ({img_data['image_path']} ~ {existing.image_path}, dist={distance})"
+                            )
                             is_near_dup = True
                             break
                     except Exception:
@@ -185,7 +188,9 @@ def run_pipeline(
                 new_figures.remove(fig)
             session.commit()
             print(f"  [{paper_id}] capped to {max_figures_per_paper} (kept top {max_figures_per_paper} by complexity)")
-        print(f"  [{paper_id}] {len(extracted)} extracted, stored figures: {len([f for f in new_figures if f.paper_id == paper_id])}")
+        print(
+            f"  [{paper_id}] {len(extracted)} extracted, stored figures: {len([f for f in new_figures if f.paper_id == paper_id])}"
+        )
 
     print(f"\nTotal new figures added: {len(new_figures)}")
     for fig in new_figures[:10]:

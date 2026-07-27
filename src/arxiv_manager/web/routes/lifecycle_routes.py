@@ -1,4 +1,5 @@
 """Task lifecycle, figure status, and Rhea review route handlers."""
+
 import logging
 
 from fastapi import Form, Request
@@ -55,8 +56,7 @@ def update_task_difficulty(
     gemini: int = Form(0),
 ):
     """Update task difficulty (HTMX endpoint)."""
-    logger.info("task difficulty task_id=%d difficulty=%s qwen=%d gemini=%d",
-                task_id, difficulty, qwen, gemini)
+    logger.info("task difficulty task_id=%d difficulty=%s qwen=%d gemini=%d", task_id, difficulty, qwen, gemini)
     set_difficulty(task_id, difficulty, qwen, gemini)
     return RedirectResponse(url=f"/task/{task_id}", status_code=303)
 
@@ -78,8 +78,7 @@ def update_rhea(
     rhea_notes: str = Form(""),
 ):
     """Update Rhea review status (HTMX endpoint)."""
-    logger.info("task rhea task_id=%d reviewed=%s passed=%s",
-                task_id, rhea_reviewed, rhea_passed)
+    logger.info("task rhea task_id=%d reviewed=%s passed=%s", task_id, rhea_reviewed, rhea_passed)
     session = get_session()
     try:
         task = session.get(Task, task_id)
@@ -102,8 +101,7 @@ def save_rhea_override(
     rhea_passed: bool = Form(True),
 ):
     """Save author's override notes for a Rhea-rejected task."""
-    logger.info("task rhea override task_id=%d passed=%s notes_len=%d",
-                task_id, rhea_passed, len(rhea_override_notes))
+    logger.info("task rhea override task_id=%d passed=%s notes_len=%d", task_id, rhea_passed, len(rhea_override_notes))
     session = get_session()
     try:
         task = session.get(Task, task_id)

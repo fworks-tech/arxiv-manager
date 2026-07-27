@@ -27,7 +27,7 @@ def index_figures(
 
     session = get_session()
     try:
-        query = session.query(Figure).filter(Figure.is_suitable == True)
+        query = session.query(Figure).filter(Figure.is_suitable)
         if figure_type:
             query = query.filter(Figure.figure_type == figure_type)
         if limit > 0:
@@ -65,8 +65,7 @@ def index_figures(
                 logger.warning("index: failed for figure %d: %s", fig.id, e)
                 errors += 1
 
-        rprint(f"[green]Indexed {indexed} figures[/]" +
-               (f" ([red]{errors} errors[/])" if errors else ""))
+        rprint(f"[green]Indexed {indexed} figures[/]" + (f" ([red]{errors} errors[/])" if errors else ""))
 
     finally:
         session.close()

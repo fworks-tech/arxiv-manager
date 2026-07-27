@@ -29,6 +29,7 @@ def _get_chroma_client():
     if _chroma_client is None:
         import chromadb
         from chromadb.config import Settings
+
         _chroma_client = chromadb.PersistentClient(
             path=str(CHROMA_PERSIST_DIR),
             settings=Settings(anonymized_telemetry=False),
@@ -40,6 +41,7 @@ def _get_embeddings():
     global _embeddings
     if _embeddings is None:
         from langchain_huggingface import HuggingFaceEmbeddings
+
         _embeddings = HuggingFaceEmbeddings(
             model_name=EMBEDDING_MODEL_NAME,
         )
@@ -50,6 +52,7 @@ def _get_vector_store(collection_name: str) -> Any:
     global _vector_store
     if _vector_store is None:
         from langchain_chroma import Chroma
+
         _vector_store = Chroma(
             client=_get_chroma_client(),
             collection_name=collection_name,
@@ -74,6 +77,7 @@ class HybridRetriever:
 
     def _ensure_store(self):
         from langchain_core.documents import Document
+
         self._Document = Document
         self._store = _get_vector_store(self._collection_name)
 
@@ -116,10 +120,7 @@ class HybridRetriever:
     ) -> list[str]:
         """Batch add texts to the vector store."""
         self._ensure_store()
-        docs = [
-            self._Document(page_content=t, metadata=m or {})
-            for t, m in zip(texts, metadatas or [{}] * len(texts))
-        ]
+        docs = [self._Document(page_content=t, metadata=m or {}) for t, m in zip(texts, metadatas or [{}] * len(texts))]
         return self._store.add_documents(docs)
 
     def search(
@@ -154,11 +155,13 @@ class HybridRetriever:
         results = self._store.get(where={field: value})
         docs = []
         for i in range(len(results["ids"])):
-            docs.append({
-                "id": results["ids"][i],
-                "content": results["documents"][i] if results.get("documents") else "",
-                "metadata": results["metadatas"][i] if results.get("metadatas") else {},
-            })
+            docs.append(
+                {
+                    "id": results["ids"][i],
+                    "content": results["documents"][i] if results.get("documents") else "",
+                    "metadata": results["metadatas"][i] if results.get("metadatas") else {},
+                }
+            )
         return docs
 
     def delete_figure(self, figure_id: int) -> None:

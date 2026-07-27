@@ -78,9 +78,7 @@ def fetch_paper_cmd(
             continue
 
         img_hash = compute_file_hash(full_path)
-        existing_fig = session.exec(
-            select(Figure).where(Figure.image_hash == img_hash)
-        ).first()
+        existing_fig = session.exec(select(Figure).where(Figure.image_hash == img_hash)).first()
         if existing_fig:
             continue
 

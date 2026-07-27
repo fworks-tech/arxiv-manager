@@ -18,9 +18,18 @@ from .models import AuthToken, User, UserPreference, UserProfile
 from .personalizer import apply_preferences, get_effective_config, record_preference
 
 __all__ = [
-    "User", "AuthToken", "UserProfile", "UserPreference",
-    "hash_password", "verify_password", "create_token",
-    "validate_token", "login_user",
-    "AuthMiddleware", "get_current_user",
-    "apply_preferences", "record_preference", "get_effective_config",
+    "User",
+    "AuthToken",
+    "UserProfile",
+    "UserPreference",
+    "hash_password",
+    "verify_password",
+    "create_token",
+    "validate_token",
+    "login_user",
+    "AuthMiddleware",
+    "get_current_user",
+    "apply_preferences",
+    "record_preference",
+    "get_effective_config",
 ]

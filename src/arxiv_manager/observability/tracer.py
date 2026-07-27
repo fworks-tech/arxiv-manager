@@ -15,7 +15,7 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, TextIO
+from typing import Any, Generator, TextIO
 
 from ..storage import STORAGE_DIR
 
@@ -28,6 +28,7 @@ _trace_ctx: threading.local = threading.local()
 # ---------------------------------------------------------------------------
 # Structured JSON log handler (buffered)
 # ---------------------------------------------------------------------------
+
 
 class StructuredLogHandler(logging.Handler):
     """Emits structured JSON log records, one per line.
@@ -79,6 +80,7 @@ class StructuredLogHandler(logging.Handler):
 # ---------------------------------------------------------------------------
 # Trace context
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class Span:
@@ -136,6 +138,7 @@ def reset_trace() -> None:
 # Structured logging helper
 # ---------------------------------------------------------------------------
 
+
 def log_event(
     logger: logging.Logger,
     level: int,
@@ -159,6 +162,7 @@ def log_event(
 # ---------------------------------------------------------------------------
 # Setup helper
 # ---------------------------------------------------------------------------
+
 
 def setup_structured_logging(
     log_path: Path | None = None,

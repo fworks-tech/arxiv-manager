@@ -1,4 +1,5 @@
 """Static page GET route handlers."""
+
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 from sqlmodel import select
@@ -40,12 +41,16 @@ def images_page(
         query = query.order_by(Figure.complexity_score.desc())
         figures = list(session.exec(query).all())
 
-        return TEMPLATES.TemplateResponse(request, "images.html", {
-            "figures": figures,
-            "status_filter": status,
-            "min_complexity": min_complexity,
-            "figure_type_filter": figure_type,
-        })
+        return TEMPLATES.TemplateResponse(
+            request,
+            "images.html",
+            {
+                "figures": figures,
+                "status_filter": status,
+                "min_complexity": min_complexity,
+                "figure_type_filter": figure_type,
+            },
+        )
     finally:
         session.close()
 
@@ -61,10 +66,14 @@ def tasks_page(request: Request, status: str = ""):
         query = query.order_by(Task.created_at.desc())
         tasks = list(session.exec(query).all())
 
-        return TEMPLATES.TemplateResponse(request, "tasks.html", {
-            "tasks": tasks,
-            "status_filter": status,
-        })
+        return TEMPLATES.TemplateResponse(
+            request,
+            "tasks.html",
+            {
+                "tasks": tasks,
+                "status_filter": status,
+            },
+        )
     finally:
         session.close()
 
@@ -78,11 +87,15 @@ def task_form(request: Request, figure_id: int):
         if not figure:
             return HTMLResponse("Image not found", status_code=404)
 
-        return TEMPLATES.TemplateResponse(request, "task_form.html", {
-            "figure": figure,
-            "validation": None,
-            "task": None,
-        })
+        return TEMPLATES.TemplateResponse(
+            request,
+            "task_form.html",
+            {
+                "figure": figure,
+                "validation": None,
+                "task": None,
+            },
+        )
     finally:
         session.close()
 
@@ -99,11 +112,15 @@ def task_detail(request: Request, task_id: int):
 
         validation = validate_task(task.question, task.answer, task.answer_format)
 
-        return TEMPLATES.TemplateResponse(request, "task_form.html", {
-            "figure": figure,
-            "task": task,
-            "validation": validation,
-        })
+        return TEMPLATES.TemplateResponse(
+            request,
+            "task_form.html",
+            {
+                "figure": figure,
+                "task": task,
+                "validation": validation,
+            },
+        )
     finally:
         session.close()
 

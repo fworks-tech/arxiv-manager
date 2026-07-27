@@ -1,4 +1,5 @@
 """Web route handlers — split into domain sub-modules."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -14,15 +15,15 @@ _UPLOAD_CACHE_MAX = 100
 # Import sub-modules to register their routes on the shared router
 from ...personalization.routes import router as personalization_router  # noqa: E402
 from ...scheduler.routes import router as scheduler_router  # noqa: E402
-from . import (
-    arxiv_routes,  # noqa: E402
-    author_routes,  # noqa: E402
-    health,  # noqa: E402
-    lifecycle_routes,  # noqa: E402
-    metrics,  # noqa: E402
-    pages,  # noqa: E402, F811
-    prompt_routes,  # noqa: E402
-    task_routes,  # noqa: E402
+from . import (  # noqa: E402
+    arxiv_routes,  # noqa: F401
+    author_routes,  # noqa: F401
+    health,  # noqa: F401
+    lifecycle_routes,  # noqa: F401
+    metrics,  # noqa: F401
+    pages,  # noqa: F811, F401
+    prompt_routes,  # noqa: F401
+    task_routes,  # noqa: F401
 )
 
 router.include_router(scheduler_router)

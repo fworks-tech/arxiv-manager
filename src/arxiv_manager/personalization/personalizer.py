@@ -70,10 +70,14 @@ def record_preference(
     """
     session = get_session()
     try:
-        existing = session.query(UserPreference).filter(
-            UserPreference.user_id == user_id,
-            UserPreference.key == key,
-        ).first()
+        existing = (
+            session.query(UserPreference)
+            .filter(
+                UserPreference.user_id == user_id,
+                UserPreference.key == key,
+            )
+            .first()
+        )
 
         if existing:
             existing.value = value
@@ -117,9 +121,13 @@ def get_effective_config(user_id: int | None, difficulty: str, figure_type: str)
 def _get_profile(user_id: int) -> UserProfile | None:
     session = get_session()
     try:
-        return session.query(UserProfile).filter(
-            UserProfile.user_id == user_id,
-        ).first()
+        return (
+            session.query(UserProfile)
+            .filter(
+                UserProfile.user_id == user_id,
+            )
+            .first()
+        )
     finally:
         session.close()
 
@@ -127,9 +135,13 @@ def _get_profile(user_id: int) -> UserProfile | None:
 def _get_preferences(user_id: int) -> dict[str, str]:
     session = get_session()
     try:
-        rows = session.query(UserPreference).filter(
-            UserPreference.user_id == user_id,
-        ).all()
+        rows = (
+            session.query(UserPreference)
+            .filter(
+                UserPreference.user_id == user_id,
+            )
+            .all()
+        )
         return {r.key: r.value for r in rows}
     finally:
         session.close()

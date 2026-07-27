@@ -84,9 +84,14 @@ def recommend_pipeline(
             best_pipeline = pipeline
 
     if best_pipeline != fallback:
-        logger.info("adaptive_router: %s over %s (avg=%.1f, n=%d) for diff=%s type=%s",
-                    best_pipeline, fallback, best_quality,
-                    stats.get(best_pipeline, {}).get("samples", 0),
-                    difficulty, figure_type)
+        logger.info(
+            "adaptive_router: %s over %s (avg=%.1f, n=%d) for diff=%s type=%s",
+            best_pipeline,
+            fallback,
+            best_quality,
+            stats.get(best_pipeline, {}).get("samples", 0),
+            difficulty,
+            figure_type,
+        )
 
     return best_pipeline

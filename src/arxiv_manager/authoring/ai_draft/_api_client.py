@@ -1,4 +1,5 @@
 """API client for the OpenCode inference endpoint."""
+
 from __future__ import annotations
 
 import logging
@@ -34,7 +35,7 @@ def _call_api_with_retry(
 
     for attempt in range(retries):
         if attempt > 0:
-            time.sleep(2 ** attempt)
+            time.sleep(2**attempt)
         try:
             if method == "POST":
                 resp = httpx.post(url, headers=headers, json=json_body, timeout=timeout)
@@ -45,7 +46,9 @@ def _call_api_with_retry(
             try:
                 data = resp.json()
             except Exception:
-                logger.warning("_call_api_with_retry: non-json response (len=%d, preview=%.200s)", len(body), body[:200])
+                logger.warning(
+                    "_call_api_with_retry: non-json response (len=%d, preview=%.200s)", len(body), body[:200]
+                )
                 raise ValueError(f"API returned non-JSON response: {body[:200]}")
             if "error" in data and isinstance(data["error"], dict):
                 err_msg = data["error"].get("message", "") or str(data["error"])
@@ -76,8 +79,9 @@ def _call_api_with_retry(
                             "total_tokens": usage.get("total_tokens", 0),
                         }
                     return parsed
-                logger.warning("_call_api_with_retry: parsing returned None (len=%d, preview=%.150s)",
-                               len(content), content[:150])
+                logger.warning(
+                    "_call_api_with_retry: parsing returned None (len=%d, preview=%.150s)", len(content), content[:150]
+                )
                 continue
             return data
         except ValueError:
@@ -112,12 +116,14 @@ def _call_opencode(
 
     content: list[dict] = [{"type": "text", "text": prompt}]
     if b64_image:
-        content.append({
-            "type": "image_url",
-            "image_url": {
-                "url": f"data:{media_type};base64,{b64_image}",
-            },
-        })
+        content.append(
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:{media_type};base64,{b64_image}",
+                },
+            }
+        )
 
     return _call_api_with_retry(
         url=CONFIG.api_url,

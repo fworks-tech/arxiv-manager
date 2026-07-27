@@ -38,12 +38,14 @@ def load_model() -> tuple[Any, Any] | tuple[None, None]:
         model = nn.Sequential(*list(model.children())[:-1])
         model.eval()
 
-        _TRANSFORMS = Compose([
-            Resize(256),
-            CenterCrop(224),
-            ToTensor(),
-            Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ])
+        _TRANSFORMS = Compose(
+            [
+                Resize(256),
+                CenterCrop(224),
+                ToTensor(),
+                Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ]
+        )
         _MODEL = model
         _model_available = True
         logger.info("vision: ResNet-18 loaded successfully")

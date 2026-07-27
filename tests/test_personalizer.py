@@ -25,8 +25,10 @@ def p_engine(tmp_path):
 def patch_pers_session(p_engine, monkeypatch):
     def _fake():
         return Session(p_engine)
+
     import arxiv_manager.db as db_mod
     import arxiv_manager.personalization.personalizer as p_mod
+
     monkeypatch.setattr(db_mod, "get_session", _fake)
     monkeypatch.setattr(p_mod, "get_session", _fake)
 
@@ -52,7 +54,6 @@ def user_with_profile(patch_pers_session, p_engine):
 
 
 class TestApplyPreferences:
-
     def test_no_user_returns_unchanged(self):
         config = {"pipeline": "simple"}
         result = apply_preferences(None, config)
@@ -100,7 +101,6 @@ class TestApplyPreferences:
 
 
 class TestGetEffectiveConfig:
-
     def test_integrates_with_query_router(self, user_with_profile, patch_pers_session):
         config = get_effective_config(user_with_profile, "challenging", "chart_graph_text")
         assert "pipeline" in config

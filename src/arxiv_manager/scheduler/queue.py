@@ -177,11 +177,7 @@ def list_queue(limit: int = 50) -> list[dict[str, Any]]:
     """List recent jobs, newest first."""
     session = get_session()
     try:
-        tasks = session.exec(
-            select(ScheduledTask)
-            .order_by(desc(ScheduledTask.created_at))
-            .limit(limit)
-        ).all()
+        tasks = session.exec(select(ScheduledTask).order_by(desc(ScheduledTask.created_at)).limit(limit)).all()
         return [
             {
                 "id": t.id,
@@ -203,11 +199,10 @@ def list_queue(limit: int = 50) -> list[dict[str, Any]]:
 def queue_depth() -> int:
     """Return the number of queued (not yet started) jobs."""
     from sqlmodel import func
+
     session = get_session()
     try:
-        result = session.exec(
-            select(func.count(ScheduledTask.id)).where(ScheduledTask.status == "queued")
-        ).one()
+        result = session.exec(select(func.count(ScheduledTask.id)).where(ScheduledTask.status == "queued")).one()
         return result
     finally:
         session.close()

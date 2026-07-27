@@ -11,6 +11,7 @@ from sqlmodel import Field, SQLModel
 
 # --- Enums ---
 
+
 class TaskType(str, Enum):
     CHART = "chart"
     GENERAL_IMAGE = "general_image"
@@ -45,8 +46,10 @@ class AnswerFormat(str, Enum):
 
 # --- Models ---
 
+
 class Paper(SQLModel, table=True):
     """Source paper from arXiv."""
+
     __tablename__ = "papers"
 
     id: str = Field(primary_key=True)  # arXiv ID e.g. "2301.12345"
@@ -62,6 +65,7 @@ class Paper(SQLModel, table=True):
 
 class Figure(SQLModel, table=True):
     """Extracted image from a paper."""
+
     __tablename__ = "figures"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -86,6 +90,7 @@ class Figure(SQLModel, table=True):
     @property
     def full_path(self) -> Path:
         from .storage import STORAGE_DIR
+
         return STORAGE_DIR / self.image_path
 
     @staticmethod
@@ -95,6 +100,7 @@ class Figure(SQLModel, table=True):
 
 class Task(SQLModel, table=True):
     """A complete Q&A task unit."""
+
     __tablename__ = "tasks"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -128,6 +134,7 @@ class IssueReport(SQLModel, table=True):
     generations from few-shot selection. Optionally stores the corrected
     answer so future generations can learn from corrections.
     """
+
     __tablename__ = "issue_reports"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -146,6 +153,7 @@ class PromptTemplateRecord(SQLModel, table=True):
 
     Supports hot-swapping templates at runtime without code changes.
     """
+
     __tablename__ = "prompt_templates"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -162,6 +170,7 @@ class PromptTemplateRecord(SQLModel, table=True):
 
 class SubmissionLog(SQLModel, table=True):
     """Tracks task submissions."""
+
     __tablename__ = "submission_logs"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -177,6 +186,7 @@ class GenerationAttempt(SQLModel, table=True):
     Links to the figure (always) and optionally to the resulting task.
     The parent_attempt_id field builds iteration trees (draft → critique → regen).
     """
+
     __tablename__ = "generation_attempts"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -186,13 +196,13 @@ class GenerationAttempt(SQLModel, table=True):
 
     attempt_number: int = 0
     generation_type: str = ""  # draft | critique | verify | regen | consensus
-    source_route: str = ""     # which endpoint triggered it: api_draft_qa | api_regenerate_task | cli
+    source_route: str = ""  # which endpoint triggered it: api_draft_qa | api_regenerate_task | cli
 
     # Prompt context
     prompt_template_name: str = ""
     prompt_text: str = ""
-    prompt_text_hash: str = ""      # SHA-256 of the final assembled prompt, first 20 chars
-    prompt_version_id: str = ""     # e.g. "CHALLENGING_PROMPT@a1b2c3d4e5f6"
+    prompt_text_hash: str = ""  # SHA-256 of the final assembled prompt, first 20 chars
+    prompt_version_id: str = ""  # e.g. "CHALLENGING_PROMPT@a1b2c3d4e5f6"
     difficulty: str = ""
     figure_type: str = ""
     complexity_score: float = 0.0
@@ -217,8 +227,8 @@ class GenerationAttempt(SQLModel, table=True):
     # Validation result
     validation_quality: float = 0.0
     validation_is_valid: bool = False
-    validation_errors: str = ""     # JSON list
-    validation_warnings: str = ""   # JSON list
+    validation_errors: str = ""  # JSON list
+    validation_warnings: str = ""  # JSON list
 
     # Rhea feedback (captured on submit)
     rhea_passed: bool = False

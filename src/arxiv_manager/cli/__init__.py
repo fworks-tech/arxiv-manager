@@ -1,4 +1,5 @@
 """CLI interface using Typer + Rich."""
+
 from __future__ import annotations
 
 import typer
@@ -29,11 +30,11 @@ def main():
 
 
 # Import sub-modules to register commands (eager — Typer requires this)
-from . import (
-    admin_commands,  # noqa: E402
-    check,  # noqa: E402, F811
-    image_commands,  # noqa: E402
-    index_commands,  # noqa: E402
-    search_commands,  # noqa: E402
-    task_commands,  # noqa: E402
+from . import (  # noqa: E402
+    admin_commands,  # noqa: F401
+    check,  # noqa: F811, F401
+    image_commands,  # noqa: F401
+    index_commands,  # noqa: F401
+    search_commands,  # noqa: F401
+    task_commands,  # noqa: F401
 )

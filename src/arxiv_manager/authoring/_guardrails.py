@@ -117,7 +117,9 @@ def _auto_retry(draft, context, api_key, image_path, feedback, draft_qa_callback
         return None
     if draft_qa_callback is not None:
         return draft_qa_callback(
-            image_path=image_path, api_key=api_key, feedback=feedback,
+            image_path=image_path,
+            api_key=api_key,
+            feedback=feedback,
             difficulty=context.get("difficulty", ""),
             figure_type=context.get("figure_type", ""),
             complexity_score=context.get("complexity_score", 0.0),
@@ -126,8 +128,11 @@ def _auto_retry(draft, context, api_key, image_path, feedback, draft_qa_callback
             model=context.get("model"),
         )
     from .ai_draft import draft_qa
+
     return draft_qa(
-        image_path=image_path, api_key=api_key, feedback=feedback,
+        image_path=image_path,
+        api_key=api_key,
+        feedback=feedback,
         difficulty=context.get("difficulty", ""),
         figure_type=context.get("figure_type", ""),
         complexity_score=context.get("complexity_score", 0.0),
@@ -157,8 +162,13 @@ def run_guardrails(
         if not failed_checks:
             return draft
 
-        logger.warning("guardrail attempt %d/%d: %d failures: %s",
-                        attempt + 1, max_retries + 1, len(failed_checks), "; ".join(failed_checks))
+        logger.warning(
+            "guardrail attempt %d/%d: %d failures: %s",
+            attempt + 1,
+            max_retries + 1,
+            len(failed_checks),
+            "; ".join(failed_checks),
+        )
 
         if attempt >= max_retries:
             logger.warning("guardrail: max retries exhausted, returning None")

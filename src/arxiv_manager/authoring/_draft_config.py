@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 @dataclass
 class ModelConfig:
     """Per-model token and timeout tuning."""
+
     max_tokens_easy: int = 4000
     max_tokens_hard: int = 16000
     timeout_easy: int = 120
@@ -24,25 +25,37 @@ class DraftConfig:
     thumbnail_size: tuple[int, int] = (1024, 1024)
     jpeg_quality: int = 85
 
-    models: dict[str, ModelConfig] = field(default_factory=lambda: {
-        "kimi": ModelConfig(
-            max_tokens_easy=4000, max_tokens_hard=32000,
-            timeout_easy=180, timeout_hard=300,
-        ),
-        "minimax": ModelConfig(
-            max_tokens_easy=4000, max_tokens_hard=16000,
-            timeout_easy=120, timeout_hard=240,
-        ),
-        "deepseek": ModelConfig(
-            max_tokens_easy=4000, max_tokens_hard=8000,
-            timeout_easy=60, timeout_hard=120,
-        ),
-    })
+    models: dict[str, ModelConfig] = field(
+        default_factory=lambda: {
+            "kimi": ModelConfig(
+                max_tokens_easy=4000,
+                max_tokens_hard=32000,
+                timeout_easy=180,
+                timeout_hard=300,
+            ),
+            "minimax": ModelConfig(
+                max_tokens_easy=4000,
+                max_tokens_hard=16000,
+                timeout_easy=120,
+                timeout_hard=240,
+            ),
+            "deepseek": ModelConfig(
+                max_tokens_easy=4000,
+                max_tokens_hard=8000,
+                timeout_easy=60,
+                timeout_hard=120,
+            ),
+        }
+    )
 
-    fallback: ModelConfig = field(default_factory=lambda: ModelConfig(
-        max_tokens_easy=4000, max_tokens_hard=8000,
-        timeout_easy=120, timeout_hard=180,
-    ))
+    fallback: ModelConfig = field(
+        default_factory=lambda: ModelConfig(
+            max_tokens_easy=4000,
+            max_tokens_hard=8000,
+            timeout_easy=120,
+            timeout_hard=180,
+        )
+    )
 
     def get_model_config(self, model_id: str) -> ModelConfig:
         """Look up config by model ID substring match."""

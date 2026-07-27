@@ -14,7 +14,6 @@ DECOMP_PATH = "arxiv_manager.agents.query_decomposer.decompose_query"
 
 
 class TestOrchestrate:
-
     def test_orchestrate_basic(self):
         ctx = new_context(1, "challenging", "chart_graph_text")
 
@@ -99,8 +98,10 @@ class TestOrchestrate:
             }
             with patch(REVIEW_PATH) as mock_review:
                 mock_review.return_value = {
-                    "score": 5, "passed": True,
-                    "suggestions": [], "strengths": [],
+                    "score": 5,
+                    "passed": True,
+                    "suggestions": [],
+                    "strengths": [],
                     "agent": "reviewer",
                 }
                 orchestrate(ctx, "test", "/tmp/test.png")
@@ -111,7 +112,6 @@ class TestOrchestrate:
 
 
 class TestOrchestratePlan:
-
     def test_plan_subtasks_called_for_hardest(self):
         ctx = new_context(1, "hardest", "chart_graph_text")
 
@@ -122,12 +122,16 @@ class TestOrchestratePlan:
             ]
             with patch(DRAFT_PATH) as mock_draft:
                 mock_draft.return_value = {
-                    "question": "Q?", "answer": "A", "_validation_quality": 0.8,
+                    "question": "Q?",
+                    "answer": "A",
+                    "_validation_quality": 0.8,
                 }
                 with patch(REVIEW_PATH) as mock_r:
                     mock_r.return_value = {
-                        "score": 4, "passed": True,
-                        "suggestions": [], "strengths": [],
+                        "score": 4,
+                        "passed": True,
+                        "suggestions": [],
+                        "strengths": [],
                         "agent": "reviewer",
                     }
                     orchestrate(ctx, "test", "/tmp/test.png")

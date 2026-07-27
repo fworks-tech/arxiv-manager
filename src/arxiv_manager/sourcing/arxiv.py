@@ -102,10 +102,7 @@ def search_papers(
     if domain:
         domain_keywords = _expand_domain(domain)
         if domain_keywords:
-            records = [
-                r for r in records
-                if _matches_domain(r.get("categories", ""), domain_keywords)
-            ]
+            records = [r for r in records if _matches_domain(r.get("categories", ""), domain_keywords)]
 
     return records[:limit]
 

@@ -1,4 +1,5 @@
 """AI-assisted Q&A drafting using LLM — split into sub-modules."""
+
 from __future__ import annotations
 
 from ._api_client import _call_opencode, _get_api_key  # noqa: F401

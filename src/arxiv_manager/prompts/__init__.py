@@ -39,9 +39,7 @@ def load_prompts(force: bool = False) -> None:
     try:
         session = get_session()
         try:
-            rows = list(session.query(PromptTemplateRecord).filter(
-                PromptTemplateRecord.status == "active"
-            ).all())
+            rows = list(session.query(PromptTemplateRecord).filter(PromptTemplateRecord.status == "active").all())
         finally:
             session.close()
 
@@ -93,9 +91,12 @@ def save_prompt(
 
     session = get_session()
     try:
-        existing = session.query(PromptTemplateRecord).filter(
-            PromptTemplateRecord.name == name
-        ).order_by(PromptTemplateRecord.version.desc()).first()
+        existing = (
+            session.query(PromptTemplateRecord)
+            .filter(PromptTemplateRecord.name == name)
+            .order_by(PromptTemplateRecord.version.desc())
+            .first()
+        )
 
         new_version = (existing.version + 1) if existing else 1
         now = datetime.now()
@@ -119,7 +120,6 @@ def save_prompt(
         session.add(record)
         session.commit()
         session.refresh(record)
-        version_id = record.id
 
         # Update cache
         vid = _compute_version_id(name, text)
@@ -140,10 +140,14 @@ def list_prompts() -> list[dict[str, Any]]:
     load_prompts()
     session = get_session()
     try:
-        rows = list(session.query(PromptTemplateRecord).order_by(
-            PromptTemplateRecord.name,
-            PromptTemplateRecord.version.desc(),
-        ).all())
+        rows = list(
+            session.query(PromptTemplateRecord)
+            .order_by(
+                PromptTemplateRecord.name,
+                PromptTemplateRecord.version.desc(),
+            )
+            .all()
+        )
     finally:
         session.close()
 
@@ -152,16 +156,18 @@ def list_prompts() -> list[dict[str, Any]]:
     for row in rows:
         if row.name not in seen:
             seen.add(row.name)
-            results.append({
-                "name": row.name,
-                "version": row.version,
-                "status": row.status,
-                "author": row.author,
-                "description": row.description,
-                "tags": row.tags.split(",") if row.tags else [],
-                "updated_at": row.updated_at.isoformat(),
-                "version_id": _compute_version_id(row.name, row.text),
-            })
+            results.append(
+                {
+                    "name": row.name,
+                    "version": row.version,
+                    "status": row.status,
+                    "author": row.author,
+                    "description": row.description,
+                    "tags": row.tags.split(",") if row.tags else [],
+                    "updated_at": row.updated_at.isoformat(),
+                    "version_id": _compute_version_id(row.name, row.text),
+                }
+            )
     return results
 
 
@@ -173,10 +179,14 @@ def rollback_prompt(name: str, target_version: int) -> bool:
     """
     session = get_session()
     try:
-        target = session.query(PromptTemplateRecord).filter(
-            PromptTemplateRecord.name == name,
-            PromptTemplateRecord.version == target_version,
-        ).first()
+        target = (
+            session.query(PromptTemplateRecord)
+            .filter(
+                PromptTemplateRecord.name == name,
+                PromptTemplateRecord.version == target_version,
+            )
+            .first()
+        )
 
         if not target:
             logger.warning("prompt_registry: rollback target %s v%d not found", name, target_version)

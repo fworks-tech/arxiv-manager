@@ -11,6 +11,7 @@ from sqlmodel import Session, SQLModel, create_engine
 # Image helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_image(width=200, height=200, content="blank") -> Image.Image:
     img = Image.new("RGB", (width, height), (255, 255, 255))
     if content == "blank":
@@ -18,11 +19,14 @@ def _make_image(width=200, height=200, content="blank") -> Image.Image:
     elif content == "chart":
         for y in range(height):
             for x in range(width):
-                img.putpixel((x, y), (
-                    (x * 255 // width) % 256,
-                    (y * 255 // height) % 256,
-                    128,
-                ))
+                img.putpixel(
+                    (x, y),
+                    (
+                        (x * 255 // width) % 256,
+                        (y * 255 // height) % 256,
+                        128,
+                    ),
+                )
     elif content == "text_wall":
         for y in range(20, height - 20, 12):
             for x in range(10, width - 10):
@@ -33,11 +37,14 @@ def _make_image(width=200, height=200, content="blank") -> Image.Image:
     elif content == "photo":
         for y in range(height):
             for x in range(width):
-                img.putpixel((x, y), (
-                    (x * 200 // width) % 200 + 55,
-                    (y * 200 // height) % 200 + 55,
-                    100 + (x * y * 7) % 100,
-                ))
+                img.putpixel(
+                    (x, y),
+                    (
+                        (x * 200 // width) % 200 + 55,
+                        (y * 200 // height) % 200 + 55,
+                        100 + (x * y * 7) % 100,
+                    ),
+                )
     return img
 
 
@@ -84,6 +91,7 @@ def sample_image_chart_bytes() -> bytes:
 # Database fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def tmp_db_path(tmp_path):
     """Creates a temp directory and returns the path for a test SQLite DB."""
@@ -112,6 +120,7 @@ def db_session(db_engine):
 def sample_figure(db_session):
     """Creates and returns a Figure saved to the test DB."""
     from arxiv_manager.models import Figure
+
     fig = Figure(
         paper_id="9999.99999",
         page_num=1,
@@ -139,6 +148,7 @@ def sample_task(db_session, sample_figure, override_storage):
     from PIL import Image
 
     from arxiv_manager.models import Task
+
     img_path = override_storage / "figures" / "test_figure.png"
     Image.new("RGB", (200, 200), (128, 128, 128)).save(img_path)
     task = Task(
@@ -163,6 +173,7 @@ def sample_task(db_session, sample_figure, override_storage):
 def sample_paper(db_session):
     """Creates and returns a Paper saved to the test DB."""
     from arxiv_manager.models import Paper
+
     paper = Paper(
         id="9999.99999",
         title="Test Paper for Unit Testing",
@@ -177,6 +188,7 @@ def sample_paper(db_session):
 # ---------------------------------------------------------------------------
 # Mock environment
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def mock_api_key(monkeypatch):
@@ -195,10 +207,12 @@ def mock_no_api_key(monkeypatch):
 # Storage path override
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def override_storage(tmp_path, monkeypatch):
     """Monkeypatches STORAGE_DIR and DB_PATH to point at temp directory."""
     from arxiv_manager import storage
+
     monkeypatch.setattr(storage, "STORAGE_DIR", tmp_path)
     monkeypatch.setattr(storage, "DB_PATH", tmp_path / "test.db")
     monkeypatch.setattr(storage, "PAPERS_DIR", tmp_path / "papers")
@@ -214,6 +228,7 @@ def override_storage(tmp_path, monkeypatch):
 # Test client
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def _testing_env(monkeypatch):
     """Set OPENCODE_TESTING so AuthMiddleware skips auth."""
@@ -228,15 +243,19 @@ def test_client(override_storage, mock_api_key, tmp_db_path, monkeypatch, _testi
 
     # Point DATABASE_URL to the temp DB file before app starts
     import arxiv_manager.db as db_mod
+
     monkeypatch.setattr(db_mod, "DATABASE_URL", f"sqlite:///{tmp_db_path}")
     # Re-create engine with the new URL (needed before init_db)
     from sqlmodel import create_engine
+
     new_engine = create_engine(f"sqlite:///{tmp_db_path}", echo=False, connect_args={"check_same_thread": False})
     monkeypatch.setattr(db_mod, "engine", new_engine)
     # Clear shared upload cache between tests
     import arxiv_manager.web.routes as routes_mod
+
     routes_mod._upload_cache.clear()
     from arxiv_manager.web.app import create_app
+
     app = create_app()
     with TestClient(app) as client:
         yield client
@@ -248,13 +267,17 @@ def test_client_no_key(override_storage, mock_no_api_key, tmp_db_path, monkeypat
     from fastapi.testclient import TestClient
 
     import arxiv_manager.db as db_mod
+
     monkeypatch.setattr(db_mod, "DATABASE_URL", f"sqlite:///{tmp_db_path}")
     from sqlmodel import create_engine
+
     new_engine = create_engine(f"sqlite:///{tmp_db_path}", echo=False, connect_args={"check_same_thread": False})
     monkeypatch.setattr(db_mod, "engine", new_engine)
     import arxiv_manager.web.routes as routes_mod
+
     routes_mod._upload_cache.clear()
     from arxiv_manager.web.app import create_app
+
     app = create_app()
     with TestClient(app) as client:
         yield client
@@ -264,9 +287,11 @@ def test_client_no_key(override_storage, mock_no_api_key, tmp_db_path, monkeypat
 # Mock for _call_opencode (routes tests that need AI draft)
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def mock_draft_success(monkeypatch):
     """Monkeypatches _call_opencode to return a valid draft dict."""
+
     def _fake_call(*args, **kwargs):
         return {
             "_raw_response": "",
@@ -275,8 +300,10 @@ def mock_draft_success(monkeypatch):
             "answer_format": "number",
             "task_type": "chart",
         }
+
     import arxiv_manager.authoring.ai_draft._api_client as api_mod
     import arxiv_manager.authoring.ai_draft.core as core_mod
+
     monkeypatch.setattr(api_mod, "_call_opencode", _fake_call)
     monkeypatch.setattr(core_mod, "_call_opencode", _fake_call)
 
@@ -284,10 +311,13 @@ def mock_draft_success(monkeypatch):
 @pytest.fixture
 def mock_draft_empty(monkeypatch):
     """Monkeypatches _call_opencode to return None (generation failure)."""
+
     def _fake_call(*args, **kwargs):
         return None
+
     import arxiv_manager.authoring.ai_draft._api_client as api_mod
     import arxiv_manager.authoring.ai_draft.core as core_mod
+
     monkeypatch.setattr(api_mod, "_call_opencode", _fake_call)
     monkeypatch.setattr(core_mod, "_call_opencode", _fake_call)
 
@@ -295,6 +325,7 @@ def mock_draft_empty(monkeypatch):
 # ---------------------------------------------------------------------------
 # ChromaDB test fixtures (for Phase 3 RAG)
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def tmp_chroma_path(tmp_path):
@@ -311,6 +342,7 @@ def override_chroma(tmp_chroma_path, monkeypatch):
     """
     try:
         import arxiv_manager.components.retriever_config as cfg
+
         monkeypatch.setattr(cfg, "CHROMA_PERSIST_DIR", tmp_chroma_path)
     except ImportError:
         pass
@@ -320,6 +352,7 @@ def override_chroma(tmp_chroma_path, monkeypatch):
 # ---------------------------------------------------------------------------
 # Structured logging test fixture
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def tmp_log_path(tmp_path):

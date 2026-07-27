@@ -56,6 +56,7 @@ class RAGPipeline:
             return
         from ..components.hybrid_retriever import HybridRetriever
         from ..services.semantic_cache import SemanticCache
+
         self._retriever = HybridRetriever()
         if self._use_cache:
             self._cache = SemanticCache()
@@ -102,6 +103,7 @@ class RAGPipeline:
         # 3. Rerank if enabled
         if self._use_reranker and results and len(results) > 1:
             from ..components.reranker import rerank
+
             results = rerank(query, results, top_k=top_k)
         else:
             results = results[:top_k]
@@ -114,11 +116,13 @@ class RAGPipeline:
         sources = []
         for r in results:
             context_parts.append(f"- {r['content']}")
-            sources.append({
-                "figure_id": r["metadata"].get("figure_id"),
-                "figure_type": r["metadata"].get("figure_type"),
-                "score": r.get("score", r.get("rerank_score", 0)),
-            })
+            sources.append(
+                {
+                    "figure_id": r["metadata"].get("figure_id"),
+                    "figure_type": r["metadata"].get("figure_type"),
+                    "score": r.get("score", r.get("rerank_score", 0)),
+                }
+            )
 
         context_str = "Retrieved context:\n" + "\n".join(context_parts)
 

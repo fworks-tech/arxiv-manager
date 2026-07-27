@@ -9,6 +9,7 @@ from sqlmodel import Field, SQLModel
 
 class User(SQLModel, table=True):
     """Registered user account."""
+
     __tablename__ = "users"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -23,6 +24,7 @@ class User(SQLModel, table=True):
 
 class AuthToken(SQLModel, table=True):
     """Authentication token for API access."""
+
     __tablename__ = "auth_tokens"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -34,6 +36,7 @@ class AuthToken(SQLModel, table=True):
 
 class UserProfile(SQLModel, table=True):
     """User-level generation preferences."""
+
     __tablename__ = "user_profiles"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -48,6 +51,7 @@ class UserProfile(SQLModel, table=True):
 
 class UserPreference(SQLModel, table=True):
     """Key-value user preferences for fine-grained control."""
+
     __tablename__ = "user_preferences"
 
     id: int | None = Field(default=None, primary_key=True)

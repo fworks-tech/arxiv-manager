@@ -26,6 +26,7 @@ def test_get_api_key_returns_none_when_missing(monkeypatch):
 def test_log_draft_writes_jsonl(tmp_path):
     """log_draft appends a JSONL record to storage/_draft_telemetry.jsonl."""
     import arxiv_manager.authoring._draft_telemetry as tel_mod
+
     original_path = tel_mod._TELEMETRY_PATH
     test_path = tmp_path / "_draft_telemetry.jsonl"
     tel_mod._TELEMETRY_PATH = test_path
@@ -53,14 +54,19 @@ def test_log_draft_writes_jsonl(tmp_path):
 def test_log_draft_handles_error(tmp_path):
     """log_draft truncates error to 100 chars."""
     import arxiv_manager.authoring._draft_telemetry as tel_mod
+
     original_path = tel_mod._TELEMETRY_PATH
     test_path = tmp_path / "_draft_telemetry.jsonl"
     tel_mod._TELEMETRY_PATH = test_path
     try:
         long_error = "x" * 200
         log_draft(
-            model="test", ok=False, elapsed=2.0,
-            difficulty="easy", figure_type="", figure_path="/tmp/t.png",
+            model="test",
+            ok=False,
+            elapsed=2.0,
+            difficulty="easy",
+            figure_type="",
+            figure_path="/tmp/t.png",
             error=long_error,
         )
         record = json.loads(test_path.read_text().strip())
@@ -121,6 +127,7 @@ def test_draft_qa_figure_id_passthrough(sample_image_chart_path, mock_api_key, m
 
     import arxiv_manager.authoring.ai_draft._api_client as api_mod
     import arxiv_manager.authoring.ai_draft.core as core_mod
+
     monkeypatch.setattr(api_mod, "_call_opencode", fake_call)
     monkeypatch.setattr(core_mod, "_call_opencode", fake_call)
 
@@ -144,6 +151,7 @@ def test_draft_qa_includes_prompt_version_in_dict(sample_image_chart_path, mock_
 
     import arxiv_manager.authoring.ai_draft._api_client as api_mod
     import arxiv_manager.authoring.ai_draft.core as core_mod
+
     monkeypatch.setattr(api_mod, "_call_opencode", fake_call)
     monkeypatch.setattr(core_mod, "_call_opencode", fake_call)
 
@@ -170,6 +178,7 @@ def test_draft_qa_prompt_template_selection(sample_image_chart_path, mock_api_ke
 
     import arxiv_manager.authoring.ai_draft._api_client as api_mod
     import arxiv_manager.authoring.ai_draft.core as core_mod
+
     monkeypatch.setattr(api_mod, "_call_opencode", fake_call)
     monkeypatch.setattr(core_mod, "_call_opencode", fake_call)
 
@@ -196,6 +205,7 @@ def test_import_from_new_sub_modules():
     from arxiv_manager.authoring.ai_draft._verifier import verify_draft
     from arxiv_manager.authoring.ai_draft.composition import draft_qa_consensus, draft_with_self_critique
     from arxiv_manager.authoring.ai_draft.core import draft_qa
+
     # Verify all callable
     assert callable(_extract_reasoning)
     assert callable(_parse_llm_response)
@@ -211,6 +221,7 @@ def test_import_from_new_sub_modules():
 def test_parse_critique_response_valid_critique():
     """_parse_critique_response accepts the critique format."""
     from arxiv_manager.authoring.ai_draft import _parse_critique_response
+
     text = '{"score": 3, "rewrite_question": "Rewrite Q?", "rewrite_answer": "7"}'
     result = _parse_critique_response(text)
     assert result is not None
@@ -221,4 +232,5 @@ def test_parse_critique_response_valid_critique():
 def test_parse_critique_response_none_for_empty():
     """_parse_critique_response returns None for empty input."""
     from arxiv_manager.authoring.ai_draft import _parse_critique_response
+
     assert _parse_critique_response("") is None

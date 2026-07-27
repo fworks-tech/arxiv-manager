@@ -6,11 +6,11 @@ from arxiv_manager.models import Figure, GenerationAttempt, ImageStatus, Paper, 
 def test_task_defaults():
     """Task() has all default values."""
     t = Task()
-    assert t.title == ""      # Has default ""
+    assert t.title == ""  # Has default ""
     assert t.question is None  # No default — must be provided
-    assert t.answer is None    # No default
+    assert t.answer is None  # No default
     assert t.answer_format == "word"  # Default from AnswerFormat.WORD
-    assert t.task_type == "chart"     # Default from TaskType.CHART
+    assert t.task_type == "chart"  # Default from TaskType.CHART
     assert t.domain == "Computer Science"  # Default
     assert t.difficulty == ""
     assert t.status == TaskStatus.DRAFT.value

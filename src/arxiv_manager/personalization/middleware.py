@@ -45,9 +45,14 @@ def _is_public(path: str) -> bool:
     if path.startswith(("/figures/", "/papers/", "/uploads/")):
         return True
     # UI page routes (GET only, serve HTML)
-    if path.startswith("/tasks") or path.startswith("/author") or \
-       path.startswith("/images") or path.startswith("/stats") or \
-       path.startswith("/metrics") or path.startswith("/task/"):
+    if (
+        path.startswith("/tasks")
+        or path.startswith("/author")
+        or path.startswith("/images")
+        or path.startswith("/stats")
+        or path.startswith("/metrics")
+        or path.startswith("/task/")
+    ):
         return True
     return False
 
@@ -107,12 +112,17 @@ class AuthMiddleware(BaseHTTPMiddleware):
 def _validate_api_key(api_key: str) -> User | None:
     """Validate an API key and return the associated user."""
     from ..db import get_session
+
     session = get_session()
     try:
-        return session.query(User).filter(
-            User.api_key == api_key,
-            User.is_active,
-        ).first()
+        return (
+            session.query(User)
+            .filter(
+                User.api_key == api_key,
+                User.is_active,
+            )
+            .first()
+        )
     finally:
         session.close()
 

@@ -6,7 +6,6 @@ from arxiv_manager.agents.context import new_context
 
 
 class TestNewContext:
-
     def test_creates_context_with_trace_id(self):
         ctx = new_context(figure_id=1, difficulty="challenging", figure_type="chart_graph_text")
         assert ctx.trace_id is not None
@@ -33,7 +32,6 @@ class TestNewContext:
 
 
 class TestAgentContext:
-
     def test_artifacts(self):
         ctx = new_context(1, "easy", "chart_graph_text")
         ctx.set_artifact("key1", "value1")

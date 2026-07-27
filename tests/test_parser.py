@@ -130,9 +130,8 @@ def test_parses_partial_json_only_q_and_a():
 def test_extract_reasoning_think_block():
     """<think> block is extracted and removed from text."""
     from arxiv_manager.authoring.ai_draft import _extract_reasoning
-    cleaned, reasoning = _extract_reasoning(
-        "<think>I need to count the bars.</think>{\"question\": \"Q?\", \"answer\": \"3\"}"
-    )
+
+    cleaned, reasoning = _extract_reasoning('<think>I need to count the bars.</think>{"question": "Q?", "answer": "3"}')
     assert reasoning == "I need to count the bars."
     assert "<think>" not in cleaned
     assert "Q?" in cleaned
@@ -147,9 +146,7 @@ def test_extract_reasoning_no_think():
 
 def test_extract_reasoning_multiple_think_blocks():
     """Multiple <think> blocks are extracted and concatenated."""
-    cleaned, reasoning = _extract_reasoning(
-        "<think>First thought.</think>{\"q\":1}<think>Second thought.</think>"
-    )
+    cleaned, reasoning = _extract_reasoning('<think>First thought.</think>{"q":1}<think>Second thought.</think>')
     assert "First thought." in reasoning
     assert "Second thought." in reasoning
 
@@ -189,7 +186,7 @@ def test_parse_critique_empty():
 
 def test_parse_critique_with_think():
     """Think block stripped before parsing critique."""
-    text = "<think>This is easy.</think>{\"score\": 4, \"rewrite_question\": \"\", \"rewrite_answer\": \"\"}"
+    text = '<think>This is easy.</think>{"score": 4, "rewrite_question": "", "rewrite_answer": ""}'
     r = _parse_critique_response(text)
     assert r is not None
     assert r["score"] == 4
@@ -210,7 +207,7 @@ def test_parse_llm_response_returns_raw_response_key():
 
 def test_parse_llm_response_returns_reasoning_trace():
     """_reasoning_trace key is present when think block exists."""
-    text = "<think>Count the bars.</think>{\"question\": \"Q?\", \"answer\": \"3\", \"answer_format\": \"number\", \"task_type\": \"chart\"}"
+    text = '<think>Count the bars.</think>{"question": "Q?", "answer": "3", "answer_format": "number", "task_type": "chart"}'
     r = _parse_llm_response(text, raw_text=text)
     assert r is not None
     assert r["_reasoning_trace"] == "Count the bars."

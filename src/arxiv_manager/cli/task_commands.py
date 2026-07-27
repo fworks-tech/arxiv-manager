@@ -38,14 +38,16 @@ def new_task(
         raise typer.Exit(1)
 
     diff_label = "HARDEST" if hardest else ("CHALLENGING" if challenging else "")
-    console.print(Panel(
-        f"Image: {figure.image_path}\nCaption: {figure.caption}\n"
-        f"Complexity: {figure.complexity_score:.3f}\n"
-        f"Type: {figure.figure_type or 'unknown'}\n"
-        f"Dense: {figure.is_dense}\n"
-        f"Target: {diff_label or 'manual'}",
-        title="Task Source"
-    ))
+    console.print(
+        Panel(
+            f"Image: {figure.image_path}\nCaption: {figure.caption}\n"
+            f"Complexity: {figure.complexity_score:.3f}\n"
+            f"Type: {figure.figure_type or 'unknown'}\n"
+            f"Dense: {figure.is_dense}\n"
+            f"Target: {diff_label or 'manual'}",
+            title="Task Source",
+        )
+    )
 
     draft = None
     if ai or hardest or challenging:
@@ -54,18 +56,26 @@ def new_task(
         api_key = os.environ.get("OPENCODE_API_KEY")
         if draft_attempts > 1:
             draft = draft_qa_consensus(
-                figure.full_path, n_attempts=draft_attempts, verify=True,
+                figure.full_path,
+                n_attempts=draft_attempts,
+                verify=True,
                 caption=figure.caption,
-                api_key=api_key, difficulty=difficulty,
-                figure_type=figure.figure_type, complexity_score=figure.complexity_score,
+                api_key=api_key,
+                difficulty=difficulty,
+                figure_type=figure.figure_type,
+                complexity_score=figure.complexity_score,
                 model=model,
             )
         else:
             draft = draft_qa(
-                figure.full_path, caption=figure.caption,
-                api_key=api_key, difficulty=difficulty,
-                figure_type=figure.figure_type, complexity_score=figure.complexity_score,
-                model=model, figure_id=figure.id,
+                figure.full_path,
+                caption=figure.caption,
+                api_key=api_key,
+                difficulty=difficulty,
+                figure_type=figure.figure_type,
+                complexity_score=figure.complexity_score,
+                model=model,
+                figure_id=figure.id,
             )
         if draft:
             console.print(f"[green]AI drafted:[/]\n  Q: {draft['question']}\n  A: {draft['answer']}")
@@ -80,7 +90,9 @@ def new_task(
             title = Prompt.ask("Task title", default=figure.caption[:60].strip() if figure.caption else "")
         question = Prompt.ask("Question")
         answer = Prompt.ask("Answer")
-        answer_format = Prompt.ask("Answer format", choices=["number", "word", "phrase", "year", "percent", "integer"], default="word")
+        answer_format = Prompt.ask(
+            "Answer format", choices=["number", "word", "phrase", "year", "percent", "integer"], default="word"
+        )
         task_type = Prompt.ask("Task type", choices=["chart", "general_image", "spatial"], default="chart")
     else:
         question = draft["question"]
@@ -98,9 +110,13 @@ def new_task(
             raise typer.Exit(0)
 
     task = create_task(
-        figure_id=image_id, title=title, domain=domain,
-        question=question, answer=answer,
-        answer_format=answer_format, task_type=task_type,
+        figure_id=image_id,
+        title=title,
+        domain=domain,
+        question=question,
+        answer=answer,
+        answer_format=answer_format,
+        task_type=task_type,
         ai_generated=(ai or hardest or challenging) and draft is not None,
     )
     console.print(f"\n[green]Task #{task.id} created (status: draft).[/]")
@@ -155,11 +171,15 @@ def validate_existing_cmd(
             raise typer.Exit(1)
 
         draft = draft_qa(
-            figure.full_path, caption=figure.caption,
-            api_key=api_key, feedback=feedback,
+            figure.full_path,
+            caption=figure.caption,
+            api_key=api_key,
+            feedback=feedback,
             difficulty="hardest" if hardest else ("challenging" if challenging else ""),
-            figure_type=figure.figure_type, complexity_score=figure.complexity_score,
-            model=model, figure_id=figure.id,
+            figure_type=figure.figure_type,
+            complexity_score=figure.complexity_score,
+            model=model,
+            figure_id=figure.id,
         )
 
         if draft:
@@ -167,11 +187,14 @@ def validate_existing_cmd(
             if auto or Confirm.ask("Apply this draft?"):
                 task = update_task(
                     task_id,
-                    question=draft["question"], answer=draft["answer"],
+                    question=draft["question"],
+                    answer=draft["answer"],
                     answer_format=draft.get("answer_format", task.answer_format),
                     task_type=draft.get("task_type", task.task_type),
                 )
-                validation = validate_task(task.question, task.answer, task.answer_format, figure.image_path if figure else "")
+                validation = validate_task(
+                    task.question, task.answer, task.answer_format, figure.image_path if figure else ""
+                )
                 console.print(f"\n[bold]Re-validation after update:[/]\n{validation.summary()}")
             else:
                 console.print("[dim]Keeping original draft.[/]")
@@ -200,7 +223,9 @@ def list_tasks_cmd(
     table.add_column("AI")
 
     for t in tasks:
-        status_style = {"draft": "yellow", "submitted": "blue", "approved": "green", "rework": "red"}.get(t.status, "white")
+        status_style = {"draft": "yellow", "submitted": "blue", "approved": "green", "rework": "red"}.get(
+            t.status, "white"
+        )
         table.add_row(
             str(t.id),
             (t.title[:30] + "...") if len(t.title) > 30 else t.title,
@@ -240,9 +265,7 @@ def create_task_batch(
     session = get_session()
 
     query = (
-        select(Figure)
-        .where(Figure.complexity_score >= min_complexity)
-        .where(Figure.is_suitable == True)  # noqa: E712
+        select(Figure).where(Figure.complexity_score >= min_complexity).where(Figure.is_suitable == True)  # noqa: E712
     )
     candidates = list(session.exec(query).all())
 
@@ -253,6 +276,7 @@ def create_task_batch(
         if f.figure_type == "chart_graph_text":
             s *= 1.1
         return s
+
     candidates.sort(key=score, reverse=True)
     candidates = candidates[:count]
     submitted = 0
@@ -265,23 +289,33 @@ def create_task_batch(
     console.print(f"Drafting {len(candidates)} tasks (difficulty: {difficulty or 'manual'})...\n")
 
     for fig in candidates:
-        console.print(f"[bold]Figure #{fig.id}[/] ({fig.figure_type}, density={fig.is_dense}, complexity={fig.complexity_score:.2f})")
+        console.print(
+            f"[bold]Figure #{fig.id}[/] ({fig.figure_type}, density={fig.is_dense}, complexity={fig.complexity_score:.2f})"
+        )
         console.print(f"  Path: {fig.image_path}")
 
         if draft_attempts > 1:
             draft = draft_qa_consensus(
-                fig.full_path, n_attempts=draft_attempts, verify=True,
+                fig.full_path,
+                n_attempts=draft_attempts,
+                verify=True,
                 caption=fig.caption,
-                api_key=api_key, difficulty=difficulty or "",
-                figure_type=fig.figure_type, complexity_score=fig.complexity_score,
+                api_key=api_key,
+                difficulty=difficulty or "",
+                figure_type=fig.figure_type,
+                complexity_score=fig.complexity_score,
                 model=model,
             )
         else:
             draft = draft_qa(
-                fig.full_path, caption=fig.caption,
-                api_key=api_key, difficulty=difficulty or "",
-                figure_type=fig.figure_type, complexity_score=fig.complexity_score,
-                model=model, figure_id=fig.id,
+                fig.full_path,
+                caption=fig.caption,
+                api_key=api_key,
+                difficulty=difficulty or "",
+                figure_type=fig.figure_type,
+                complexity_score=fig.complexity_score,
+                model=model,
+                figure_id=fig.id,
             )
 
         if not draft:
@@ -294,7 +328,9 @@ def create_task_batch(
         task_type_val = draft.get("task_type", task_type)
         title = fig.figure_num or fig.caption[:60].strip() or question[:60].strip()
 
-        validation = validate_task(question, answer, answer_format, figure_type=fig.figure_type, task_type=task_type_val)
+        validation = validate_task(
+            question, answer, answer_format, figure_type=fig.figure_type, task_type=task_type_val
+        )
 
         if not validation.is_valid:
             if auto:
@@ -309,9 +345,13 @@ def create_task_batch(
                 continue
 
         task = create_task(
-            figure_id=fig.id, title=title, domain=domain,
-            question=question, answer=answer,
-            answer_format=answer_format, task_type=task_type_val,
+            figure_id=fig.id,
+            title=title,
+            domain=domain,
+            question=question,
+            answer=answer,
+            answer_format=answer_format,
+            task_type=task_type_val,
             ai_generated=True,
         )
         fig.status = "used"
