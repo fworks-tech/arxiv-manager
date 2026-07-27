@@ -9,6 +9,11 @@ AI-powered assistant for creating challenging visual-reasoning Q&A tasks from sc
 - **Task Management** — Full pipeline: draft → proposed → validated → submitted
 - **Dashboard** — Pipeline metrics, per-provider draft performance, task status breakdown, cost tracking
 - **Health Check** — `GET /health` endpoint for monitoring (DB, API key, LLM connectivity)
+- **Multi-Agent Orchestration** — Orchestrator plans subtasks, delegates to Generator and Reviewer agents, aggregates results via weighted voting
+- **Token Authentication** — PBKDF2-SHA256 password hashing, Bearer token auth, `AuthMiddleware` on all endpoints
+- **User Personalization** — User profiles with model/difficulty/prompt-style preferences, key-value preference pairs
+- **Async Job Queue** — DB-backed FIFO queue with subprocess worker, priority ordering, automatic retry
+- **Local CNN Vision** — Lazy-loaded ResNet-18 feature extractor with prototype-based figure classification (falls back to heuristic)
 
 ### Smart Generation Pipeline
 
@@ -42,9 +47,17 @@ AI-powered assistant for creating challenging visual-reasoning Q&A tasks from sc
 
 ### MCP Integration
 
-- **6 MCP Tools** — `generate_qa`, `validate_qa`, `figure_history`, `search_figures`, `health`, `analytics`
+- **8 MCP Tools** — `generate_qa`, `validate_qa`, `figure_history`, `search_figures`, `health`, `analytics`, `orchestrate`, `enqueue_generation`
 - **Auto-discoverable** via `GET /mcp/tools`
 - **Callable** via `POST /mcp/tools/{name}/call`
+
+### Authentication
+
+- **Token-based auth** via `AuthMiddleware` on all non-public routes
+- **Public routes**: `/auth/login`, `/auth/register`, `/health`, `/mcp/*`, `/docs`
+- **Register**: `POST /auth/register` with `{"username", "password"}`
+- **Login**: `POST /auth/login` returns `{"token", "user_id", "username", "role"}`
+- **Authenticate**: Pass `Authorization: Bearer <token>` or `X-API-Key` header
 
 ## Tech Stack
 
@@ -55,7 +68,10 @@ AI-powered assistant for creating challenging visual-reasoning Q&A tasks from sc
 - **LLM:** OpenCode API (OpenAI-compatible chat completions)
 - **PDF/Images:** PyMuPDF, Pillow, ImageHash
 - **RAG:** ChromaDB + sentence-transformers (all-MiniLM-L6-v2) + LangChain
-- **MCP:** FastAPI-based MCP server with 6 tools
+- **Vision:** ResNet-18 (lazy-loaded, optional) + torchvision
+- **Auth:** PBKDF2-SHA256 password hashing, UUID Bearer tokens
+- **Scheduler:** DB-backed job queue + subprocess worker (no external deps)
+- **MCP:** FastAPI-based MCP server with 8 tools
 
 ## Quick Start
 
@@ -118,6 +134,17 @@ arxiv-manager web
 | POST | `/api/prompts/{name}/save` | Save a new prompt version |
 | POST | `/api/prompts/{name}/rollback` | Rollback to a previous version |
 | POST | `/api/prompts/reload` | Force-reload prompts from DB |
+| GET | `/auth/register` | Register a user |
+| POST | `/auth/login` | Login and receive Bearer token |
+| GET | `/auth/profile` | Get user profile (auth required) |
+| PUT | `/auth/profile` | Update user profile (auth required) |
+| GET | `/auth/preferences` | Get user preferences (auth required) |
+| PUT | `/auth/preferences/{key}` | Set a preference value (auth required) |
+| GET | `/api/scheduler/queue` | View job queue depth and list |
+| POST | `/api/scheduler/enqueue` | Enqueue a generation job |
+| GET | `/api/scheduler/status/{id}` | Poll job status |
+| POST | `/api/scheduler/cancel/{id}` | Cancel a queued job |
+| GET | `/api/scheduler/worker` | Check worker subprocess status |
 | GET | `/` | Dashboard |
 | POST | `/api/image/upload` | Upload an image |
 | POST | `/api/image/draft` | Generate AI draft |
@@ -131,20 +158,23 @@ Full API docs at `/docs` (Swagger) when the server is running.
 ```
 src/arxiv_manager/
 ├── authoring/           # AI pipeline: prompts, validation, guardrails, telemetry
+├── agents/              # Agent registry, orchestrator, reviewer, adaptive router, tools
+├── scheduler/           # DB-backed async job queue + subprocess worker
+├── personalization/     # User accounts, auth, profiles, preferences
+├── vision/              # Local ResNet-18 CNN figure classification (lazy-loaded)
 ├── cli/                 # CLI commands (search, task, images, web, check, analytics, index)
 ├── sourcing/            # arXiv PDF download, figure extraction, filtering
-├── web/                 # FastAPI app + 15 Jinja2/HTMX templates
+├── web/                 # FastAPI app + templates + AuthMiddleware
 ├── components/          # RAG: hybrid retriever (ChromaDB + sentence-transformers), reranker
 ├── services/            # CRAG: RAG pipeline, semantic cache, query router
-├── agents/              # Adaptive router, query decomposer, document grader, tools
 ├── observability/       # Structured logs, trace spans, cost tracker
 ├── security/            # Input guard, content filter, output filter
 ├── prompts/             # Hot-swappable prompt registry (DB-backed)
-├── mcp/                 # MCP server (6 tools)
+├── mcp/                 # MCP server (8 tools)
 ├── tracking/            # Task export, platform submission
 ├── evaluation/          # Golden dataset, offline eval script
 ├── models.py            # DB models
-├── db.py                # SQLite engine + migrations
+├── db.py                # SQLite engine + migrations + WAL mode
 └── storage.py           # Centralized storage paths
 ```
 

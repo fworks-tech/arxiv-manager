@@ -247,8 +247,20 @@ All prompts are versioned with SHA-256 hashes via `PromptTemplate.version_id` (e
 | **Input guard** | `security/input_guard.py` | Prompt injection detection |
 | **Content filter** | `security/content_filter.py` | PII detection, toxicity filtering |
 | **Output filter** | `security/output_filter.py` | System prompt leakage prevention |
+| **Agent registry** | `agents/registry.py` | Agent metadata/capability registry |
+| **Agent context** | `agents/context.py` | Shared AgentContext (fork, delegation chain, artifacts) |
+| **Orchestrator** | `agents/orchestrator.py` | Multi-agent orchestration (plan → delegate → aggregate) |
+| **Reviewer** | `agents/reviewer.py` | Draft scoring (1-5) with quality/format suggestions |
+| **Job queue** | `scheduler/queue.py` | DB-backed FIFO queue with priority and retry |
+| **Worker** | `scheduler/worker.py` | Subprocess worker with sentinel-based shutdown |
+| **Auth** | `personalization/auth.py` | PBKDF2-SHA256 hashing + UUID token auth |
+| **Auth middleware** | `personalization/middleware.py` | FastAPI AuthMiddleware (Bearer + X-API-Key) |
+| **Personalizer** | `personalization/personalizer.py` | User preference → routing config application |
+| **Vision models** | `vision/models.py` | Lazy-loaded ResNet-18 feature extractor |
+| **Vision extractor** | `vision/extractor.py` | 512-dim embedding + cosine similarity |
+| **Vision classifier** | `vision/classifier.py` | Figure type classification with prototype matching |
 | **Prompt registry** | `prompts/` | DB-backed hot-swappable prompt templates |
-| **MCP server** | `mcp/` | MCP tools (generate, validate, history, search, health, analytics) |
+| **MCP server** | `mcp/` | MCP tools (generate, validate, history, search, health, analytics, orchestrate, enqueue) |
 
 ## Workflow
 
@@ -293,6 +305,77 @@ arXiv search → download PDF → extract figures → audit → filter → store
 - **Objective classification**: clear criteria = easy for Qwen
 - **Pure math**: ratio/difference of values stated in question text — image not required
 - **Generic count without filter**: "How many X are in the image?"
+
+## Multi-Agent Orchestration
+
+The `agents/orchestrator.py` coordinator extends the drafting pipeline with multi-agent collaboration:
+
+1. **Plan**: Orchestrator uses `query_decomposer` to break hardest tasks into reasoning steps
+2. **Delegate**: Generator agent (wraps `draft_qa`) creates N attempts (3 for hardest, 1 otherwise)
+3. **Review**: Reviewer agent scores each draft 1-5 on quality, format, and content
+4. **Aggregate**: Best draft selected by validation quality; review suggestions applied if score < 3
+
+AgentContext tracks delegation chains and shared artifacts across the workflow.
+
+### Draft Reviewer (`agents/reviewer.py`)
+
+The Reviewer scores drafts across these dimensions:
+- **Quality**: Direct mapping of `_validation_quality` (0.9+ = 5, 0.7+ = 4, 0.5+ = 3, else 2)
+- **Penalties**: Empty draft → 1, very short answer → -1, answer in question → -1, format mismatch
+- **Output**: Score (1-5), passed (bool), suggestions (list), strengths (list)
+
+## Async Job Queue
+
+The `scheduler/` module provides a DB-backed async job queue for generation tasks:
+
+- **No external deps**: Uses existing SQLite (WAL mode for concurrent access)
+- **Priority FIFO**: Jobs ordered by priority DESC, created_at ASC
+- **Automatic retry**: Configurable max_attempts (default 3), re-queued on failure
+- **Subprocess worker**: Runs as isolated subprocess via `subprocess.Popen`
+- **Graceful shutdown**: Sentinel file pattern — worker exits when file is deleted
+- **Job types**: `generate_qa`, `validate_batch`, `rag_index`
+
+### Scheduler API
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/scheduler/enqueue` | Enqueue a job `{type, payload, priority}` |
+| `GET /api/scheduler/status/{id}` | Poll job status |
+| `POST /api/scheduler/cancel/{id}` | Cancel a queued job |
+| `GET /api/scheduler/queue` | List queue depth + recent jobs |
+| `GET /api/scheduler/worker` | Check if worker is alive |
+
+## Authentication & Personalization
+
+The `personalization/` module provides token-based auth with user-specific preferences:
+
+- **Password hashing**: PBKDF2-SHA256 with random salt (no external deps)
+- **Tokens**: UUID-based, stored in DB with optional expiry (default 30 days)
+- **Middleware**: FastAPI `AuthMiddleware` checks `Authorization: Bearer` or `X-API-Key`
+- **Public routes**: `/auth/login`, `/auth/register`, `/health`, `/mcp/*`, static files
+- **User profiles**: Preferred model, difficulty, figure type, prompt style (concise/detailed/default)
+- **Key-value preferences**: Arbitrary key-value pairs per user, applied to routing configs
+
+### Auth API
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /auth/register` | Create account `{username, password}` |
+| `POST /auth/login` | Login, receive Bearer token |
+| `GET /auth/profile` | Get profile + preferences (auth required) |
+| `PUT /auth/profile` | Update profile fields (auth required) |
+| `PUT /auth/preferences/{key}` | Set preference value (auth required) |
+| `GET /auth/preferences` | Get all preferences (auth required) |
+
+## Local CNN Vision
+
+The `vision/` module provides optional local figure classification via ResNet-18:
+
+- **Lazy-loaded**: Model only loads on first use — zero import-time overhead
+- **Fallback**: If torch/torchvision unavailable, falls back to heuristic `classify_figure_type()` in `filters.py`
+- **Feature extraction**: 512-dim embedding vector for similarity comparison
+- **Prototype matching**: Store known figure embeddings for few-shot classification
+- **Cosine similarity**: Built-in `cosine_similarity()` for embedding comparison
 
 ## Key Insights
 
