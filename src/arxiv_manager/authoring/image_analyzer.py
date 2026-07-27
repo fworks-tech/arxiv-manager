@@ -6,8 +6,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from ..sourcing.filters import audit_figure
 from ..authoring.validator import validate_task
+from ..sourcing.filters import audit_figure
 
 logger = logging.getLogger(__name__)
 

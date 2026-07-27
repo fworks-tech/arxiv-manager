@@ -10,9 +10,15 @@ from pathlib import Path
 
 from .._draft_config import CONFIG
 from .._draft_prompts import (
-    CHALLENGING_PROMPT, DRAFT_PROMPT, EASY_PROMPT, HARDEST_PROMPT,
-    REGEN_PROMPT, SPATIAL_CHALLENGING_PROMPT, SPATIAL_DRAFT_PROMPT,
-    SPATIAL_HARDEST_PROMPT, SPATIAL_REGEN_PROMPT,
+    CHALLENGING_PROMPT,
+    DRAFT_PROMPT,
+    EASY_PROMPT,
+    HARDEST_PROMPT,
+    REGEN_PROMPT,
+    SPATIAL_CHALLENGING_PROMPT,
+    SPATIAL_DRAFT_PROMPT,
+    SPATIAL_HARDEST_PROMPT,
+    SPATIAL_REGEN_PROMPT,
 )
 from .._draft_telemetry import log_draft
 from ._api_client import _call_opencode, _get_api_key

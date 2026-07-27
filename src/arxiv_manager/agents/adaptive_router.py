@@ -24,12 +24,12 @@ def get_pipeline_stats(
 
     Returns dict with pipeline names as keys and success rate + avg quality.
     """
-    from sqlmodel import select, desc
+    from sqlmodel import desc, select
 
     session = get_session()
     try:
         query = select(GenerationAttempt).where(
-            GenerationAttempt.success == True,
+            GenerationAttempt.success,
             GenerationAttempt.validation_quality > 0,
             GenerationAttempt.generation_type != "",
         )

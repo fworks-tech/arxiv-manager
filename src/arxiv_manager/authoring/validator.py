@@ -15,8 +15,8 @@ from dataclasses import dataclass, field
 from ._rule_groups import (
     _run_complexity_checks,
     _run_content_checks,
-    _run_format_checks,
     _run_final_checks,
+    _run_format_checks,
     _run_handbook_basics,
     _run_visual_tests,
 )

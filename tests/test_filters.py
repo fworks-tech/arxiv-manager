@@ -1,12 +1,12 @@
 """Tests for figure filters: is_text_only, is_likely_sparse."""
 
-from pathlib import Path
-from PIL import Image
-import io
 import random
 import tempfile
+from pathlib import Path
 
-from arxiv_manager.sourcing.filters import is_text_only, is_likely_sparse, audit_figure
+from PIL import Image
+
+from arxiv_manager.sourcing.filters import audit_figure, is_likely_sparse, is_text_only
 
 
 def _make_image(width=200, height=200, content="blank"):

@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from sqlmodel import select, desc
+from sqlmodel import desc, select
 
 logger = logging.getLogger(__name__)
 

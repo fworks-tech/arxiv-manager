@@ -7,13 +7,12 @@ import json
 import pytest
 from sqlmodel import Session, SQLModel, create_engine
 
-from arxiv_manager.scheduler.models import ScheduledTask
 from arxiv_manager.scheduler.queue import (
-    enqueue,
-    dequeue,
-    complete_job,
-    fail_job,
     cancel_job,
+    complete_job,
+    dequeue,
+    enqueue,
+    fail_job,
     get_job_status,
     list_queue,
     queue_depth,

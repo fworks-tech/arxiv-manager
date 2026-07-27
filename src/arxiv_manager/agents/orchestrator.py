@@ -12,7 +12,6 @@ import logging
 from typing import Any
 
 from .context import AgentContext
-from .registry import find_agents
 
 logger = logging.getLogger(__name__)
 

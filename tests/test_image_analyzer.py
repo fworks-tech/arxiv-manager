@@ -3,7 +3,6 @@
 import tempfile
 from pathlib import Path
 
-import pytest
 from PIL import Image
 
 from arxiv_manager.authoring.image_analyzer import analyze_uploaded_image, validate_draft

@@ -4,12 +4,11 @@ from __future__ import annotations
 import base64
 import io
 import logging
-import time
 from pathlib import Path
 
 from .._draft_config import CONFIG
 from .._draft_prompts import SELF_CRITIQUE_PROMPT
-from ._api_client import _get_api_key, _call_opencode
+from ._api_client import _call_opencode, _get_api_key
 from ._response_parser import _parse_critique_response
 from .core import draft_qa
 

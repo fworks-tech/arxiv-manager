@@ -1,8 +1,8 @@
 """Tests for database initialization and operations."""
 
 import pytest
-from sqlmodel import SQLModel, Session, create_engine
 from sqlalchemy import text
+from sqlmodel import SQLModel, create_engine
 
 
 @pytest.fixture
@@ -27,9 +27,9 @@ def test_init_db_creates_tables(fresh_engine, monkeypatch):
 def test_get_session_crud(fresh_engine, monkeypatch):
     """Basic CRUD operations via get_session."""
     monkeypatch.setattr("arxiv_manager.db.engine", fresh_engine)
-    from arxiv_manager.db import init_db, get_session
+    from arxiv_manager.db import get_session, init_db
     init_db()
-    from arxiv_manager.models import Task, Figure
+    from arxiv_manager.models import Figure, Task
 
     # Create
     s1 = get_session()
@@ -82,7 +82,7 @@ def test_migration_adds_column(fresh_engine, monkeypatch):
 def test_migration_idempotent(fresh_engine, monkeypatch):
     """_migrate is safe to run multiple times."""
     monkeypatch.setattr("arxiv_manager.db.engine", fresh_engine)
-    from arxiv_manager.db import init_db, _migrate
+    from arxiv_manager.db import _migrate, init_db
     init_db()       # Creates tables
     _migrate()      # First migration (should be no-op)
     _migrate()      # Second call should not raise
@@ -91,9 +91,10 @@ def test_migration_idempotent(fresh_engine, monkeypatch):
 def test_task_query_by_status(fresh_engine, monkeypatch):
     """Filter tasks by status field."""
     monkeypatch.setattr("arxiv_manager.db.engine", fresh_engine)
-    from arxiv_manager.db import init_db, get_session
-    from arxiv_manager.models import Task, Figure, Paper
     from sqlmodel import select
+
+    from arxiv_manager.db import get_session, init_db
+    from arxiv_manager.models import Figure, Paper, Task
     init_db()
 
     s = get_session()
@@ -119,9 +120,10 @@ def test_task_query_by_status(fresh_engine, monkeypatch):
 def test_figure_query_by_paper(fresh_engine, monkeypatch):
     """Filter figures by paper_id."""
     monkeypatch.setattr("arxiv_manager.db.engine", fresh_engine)
-    from arxiv_manager.db import init_db, get_session
-    from arxiv_manager.models import Figure, Paper
     from sqlmodel import select
+
+    from arxiv_manager.db import get_session, init_db
+    from arxiv_manager.models import Figure, Paper
     init_db()
 
     s = get_session()

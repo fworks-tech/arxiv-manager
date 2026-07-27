@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
@@ -38,8 +37,11 @@ class TestExtractFeaturesSuccess:
     @patch("arxiv_manager.vision.extractor.load_model")
     def test_returns_512_dim_vector(self, mock_load, mock_avail, tmp_path):
         model = _FakeFeatureExtractor()
-        transforms = lambda img: torch.randn(3, 224, 224)
-        mock_load.return_value = (model, transforms)
+
+        def _transforms(img):
+            return torch.randn(3, 224, 224)
+
+        mock_load.return_value = (model, _transforms)
 
         img_path = tmp_path / "chart.jpg"
         Image.new("RGB", (300, 300), (128, 128, 128)).save(img_path)
@@ -53,8 +55,11 @@ class TestExtractFeaturesSuccess:
     @patch("arxiv_manager.vision.extractor.load_model")
     def test_handles_missing_file_gracefully(self, mock_load, mock_avail):
         model = _FakeFeatureExtractor()
-        transforms = lambda img: torch.randn(3, 224, 224)
-        mock_load.return_value = (model, transforms)
+
+        def _transforms(img):
+            return torch.randn(3, 224, 224)
+
+        mock_load.return_value = (model, _transforms)
 
         result = extract_features("/nonexistent/path.png")
         assert result is None

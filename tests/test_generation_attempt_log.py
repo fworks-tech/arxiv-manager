@@ -1,8 +1,9 @@
 """Tests for the GenerationAttempt model and log_generation_attempt function."""
 
 import pytest
-from arxiv_manager.models import GenerationAttempt
+
 from arxiv_manager.authoring._draft_telemetry import log_generation_attempt
+from arxiv_manager.models import GenerationAttempt
 
 
 @pytest.fixture(autouse=True)

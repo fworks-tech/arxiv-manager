@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 
 from ..sourcing.filters import classify_figure_type as heuristic_classify
-from .extractor import extract_features, cosine_similarity
+from .extractor import cosine_similarity, extract_features
 
 logger = logging.getLogger(__name__)
 

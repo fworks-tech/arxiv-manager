@@ -1,12 +1,11 @@
 """Tests for the guardrails system — composable quality checks."""
-import pytest
 from arxiv_manager.authoring._guardrails import (
-    check_answer_plausible,
-    check_extreme_answer,
-    check_answer_format_match,
-    check_diversity,
-    quality_threshold,
     GUARDRAILS,
+    check_answer_format_match,
+    check_answer_plausible,
+    check_diversity,
+    check_extreme_answer,
+    quality_threshold,
 )
 
 

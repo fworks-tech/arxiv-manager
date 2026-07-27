@@ -6,13 +6,13 @@ import pytest
 from sqlmodel import Session, SQLModel, create_engine
 
 from arxiv_manager.personalization.auth import (
-    hash_password,
-    verify_password,
     create_token,
-    validate_token,
+    hash_password,
     login_user,
+    validate_token,
+    verify_password,
 )
-from arxiv_manager.personalization.models import User, AuthToken
+from arxiv_manager.personalization.models import User
 
 
 @pytest.fixture

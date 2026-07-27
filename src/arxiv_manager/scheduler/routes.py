@@ -7,10 +7,10 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
-from .manager import start_worker, stop_worker, worker_is_alive, get_worker_pid
+from .manager import get_worker_pid, start_worker, stop_worker, worker_is_alive
 from .queue import (
-    enqueue,
     cancel_job,
+    enqueue,
     get_job_status,
     list_queue,
     queue_depth,

@@ -6,7 +6,7 @@ import pytest
 from sqlmodel import Session, SQLModel, create_engine
 
 from arxiv_manager.personalization.auth import hash_password
-from arxiv_manager.personalization.models import User, UserPreference, UserProfile
+from arxiv_manager.personalization.models import User, UserProfile
 from arxiv_manager.personalization.personalizer import (
     apply_preferences,
     get_effective_config,

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from arxiv_manager.agents.context import new_context
 from arxiv_manager.agents.reviewer import review_draft
 

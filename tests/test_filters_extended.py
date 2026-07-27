@@ -9,7 +9,6 @@ from PIL import Image
 from arxiv_manager.sourcing.filters import (
     audit_figure,
     is_likely_sparse,
-    is_text_only,
 )
 
 

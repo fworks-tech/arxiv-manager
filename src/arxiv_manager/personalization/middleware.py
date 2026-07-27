@@ -101,7 +101,7 @@ def _validate_api_key(api_key: str) -> User | None:
     try:
         return session.query(User).filter(
             User.api_key == api_key,
-            User.is_active == True,
+            User.is_active,
         ).first()
     finally:
         session.close()

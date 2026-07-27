@@ -7,7 +7,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from sqlmodel import select, desc
+from sqlmodel import desc, select
 
 from ..db import get_session
 from .models import ScheduledTask
