@@ -22,23 +22,33 @@ from .models import User
 logger = logging.getLogger(__name__)
 
 # Paths that don't require authentication
-_PUBLIC_PREFIXES: tuple[str, ...] = (
-    "/auth/login",
-    "/auth/register",
+_PUBLIC_MATCH = (
+    "/",
+    "/favicon.ico",
     "/health",
-    "/mcp/tools",
-    "/mcp/health",
     "/docs",
     "/openapi.json",
     "/redoc",
 )
+# Auth/register is explicitly public; all other /auth/ paths require auth
+_AUTH_PUBLIC = ("/auth/login", "/auth/register")
 
 
 def _is_public(path: str) -> bool:
     """Check if a path is public (no auth required)."""
-    for prefix in _PUBLIC_PREFIXES:
-        if path == prefix or path.startswith(prefix):
-            return True
+    if path in _PUBLIC_MATCH:
+        return True
+    if path in _AUTH_PUBLIC:
+        return True
+    if path.startswith("/mcp/"):
+        return True
+    if path.startswith(("/figures/", "/papers/", "/uploads/")):
+        return True
+    # UI page routes (GET only, serve HTML)
+    if path.startswith("/tasks") or path.startswith("/author") or \
+       path.startswith("/images") or path.startswith("/stats") or \
+       path.startswith("/metrics") or path.startswith("/task/"):
+        return True
     return False
 
 
