@@ -106,7 +106,7 @@ def _tool_search_figures(
 
 def _tool_health() -> dict[str, Any]:
     """Get system health status."""
-    from ..web.routes.health import _check_db, _check_api_key
+    from ..web.routes.health import _check_api_key, _check_db
     return {
         "db": _check_db(),
         "api_key": _check_api_key(),

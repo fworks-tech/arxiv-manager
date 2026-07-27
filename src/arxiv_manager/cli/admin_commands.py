@@ -1,15 +1,14 @@
 """Admin and analytics CLI commands."""
-from pathlib import Path
 
 import typer
-from rich.table import Table
 from rich.panel import Panel
-from sqlmodel import select, desc, func
+from rich.table import Table
+from sqlmodel import desc, func, select
 
-from . import task_app, app, console
 from ..db import get_session
 from ..models import GenerationAttempt
-from ..tracking import set_difficulty, export_task, get_stats, mark_submitted
+from ..tracking import export_task, get_stats, mark_submitted, set_difficulty
+from . import app, console, task_app
 
 
 @task_app.command("difficulty")
@@ -217,6 +216,7 @@ def web_server(
 ):
     """Start the web dashboard."""
     import uvicorn
+
     from ..web.app import create_app
 
     app_instance = create_app()

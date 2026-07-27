@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse
 from ...sourcing.arxiv import search_papers
 from ...sourcing.downloader import download_pdf
 from ...sourcing.extractor import extract_figures
-from ...sourcing.filters import compute_file_hash, audit_figure
+from ...sourcing.filters import audit_figure, compute_file_hash
 from ...storage import STORAGE_DIR
 from . import TEMPLATES, router
 

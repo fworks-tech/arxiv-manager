@@ -7,9 +7,10 @@ def check_api():
     """Verify API connectivity, model response, and DB health."""
     import os
     import time
+
     import httpx
-    from pathlib import Path
     from sqlmodel import select
+
     from ..db import get_session
     from ..models import Figure, Paper, Task
 
@@ -41,7 +42,7 @@ def check_api():
         if content.strip():
             console.print(f"[green]✓ Responded in {elapsed:.1f}s (content={len(content)}c)[/]")
         else:
-            console.print(f"[red]✗ Empty response[/]")
+            console.print("[red]✗ Empty response[/]")
     except Exception as e:
         console.print(f"[red]✗ {e}[/]")
 
@@ -74,8 +75,8 @@ def check_api():
         if "OK" in stripped:
             console.print(f"[green]✓ Model responds (content={len(content)}c)[/]")
         else:
-            console.print(f"[yellow]⚠ Unexpected response[/]")
+            console.print("[yellow]⚠ Unexpected response[/]")
     except Exception as e:
         console.print(f"[red]✗ {e}[/]")
 
-    console.print(f"\n[bold green]All checks complete.[/]")
+    console.print("\n[bold green]All checks complete.[/]")

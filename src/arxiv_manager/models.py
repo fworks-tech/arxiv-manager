@@ -7,8 +7,7 @@ from datetime import datetime
 from enum import Enum
 from pathlib import Path
 
-from sqlmodel import SQLModel, Field, Relationship
-
+from sqlmodel import Field, SQLModel
 
 # --- Enums ---
 

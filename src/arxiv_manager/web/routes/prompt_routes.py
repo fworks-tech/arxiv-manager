@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from ...prompts import list_prompts, save_prompt, rollback_prompt, load_prompts
+from ...prompts import list_prompts, load_prompts, rollback_prompt, save_prompt
 from . import router
 
 logger = logging.getLogger(__name__)

@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
-from sqlmodel import SQLModel, Session, create_engine
+
 from sqlalchemy import text
+from sqlmodel import Session, SQLModel, create_engine
 
 from .storage import DB_PATH, ensure_dirs
 
@@ -91,8 +92,8 @@ def init_db() -> None:
     """Create all tables if they don't exist."""
     ensure_dirs()
     from . import models  # noqa: F401
-    from .scheduler import models as _sched_models  # noqa: F401
     from .personalization import models as _pers_models  # noqa: F401
+    from .scheduler import models as _sched_models  # noqa: F401
     SQLModel.metadata.create_all(engine)
     _enable_wal()
     _migrate()

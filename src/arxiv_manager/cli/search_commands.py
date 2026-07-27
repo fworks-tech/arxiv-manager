@@ -1,19 +1,19 @@
 """Search and fetch commands for arXiv papers."""
-from pathlib import Path
 
 import typer
 from rich.table import Table
+from sqlmodel import select
 
-from . import search_app, console
 from ..db import get_session
-from ..models import Paper, Figure, ImageStatus
-from ..storage import STORAGE_DIR
-from ..sourcing.arxiv import search_papers as do_search, get_paper_url
+from ..models import Figure, ImageStatus, Paper
+from ..sourcing import run_pipeline
+from ..sourcing.arxiv import get_paper_url
+from ..sourcing.arxiv import search_papers as do_search
 from ..sourcing.downloader import download_pdf
 from ..sourcing.extractor import extract_figures
 from ..sourcing.filters import compute_complexity, compute_file_hash, is_likely_logo_or_icon
-from ..sourcing import run_pipeline
-from sqlmodel import select
+from ..storage import STORAGE_DIR
+from . import console, search_app
 
 
 @search_app.command("papers")

@@ -3,9 +3,9 @@ from fastapi import Request
 from fastapi.responses import HTMLResponse
 from sqlmodel import select
 
-from ...models import Figure, Task
-from ...db import get_session
 from ...authoring.validator import validate_task
+from ...db import get_session
+from ...models import Figure, Task
 from ...tracking import get_stats
 from . import TEMPLATES, router
 

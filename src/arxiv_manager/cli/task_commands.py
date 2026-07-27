@@ -1,18 +1,17 @@
 """Task creation and management commands."""
-from pathlib import Path
 
 import typer
-from rich.table import Table
 from rich.panel import Panel
-from rich.prompt import Prompt, Confirm
+from rich.prompt import Confirm, Prompt
+from rich.table import Table
 from sqlmodel import select
 
-from . import task_app, console
-from ..db import get_session
-from ..models import Figure, Task, TaskStatus
-from ..authoring import create_task, update_task, list_tasks
-from ..authoring.validator import validate_task
+from ..authoring import create_task, list_tasks, update_task
 from ..authoring.ai_draft import draft_qa, draft_qa_consensus
+from ..authoring.validator import validate_task
+from ..db import get_session
+from ..models import Figure, Task
+from . import console, task_app
 
 
 @task_app.command("new")
@@ -137,7 +136,7 @@ def validate_existing_cmd(
         if warnings:
             feedback += f"\nWarnings: {warnings}"
 
-        console.print(f"\n[yellow]Validation errors found:[/]")
+        console.print("\n[yellow]Validation errors found:[/]")
         for e in validation.errors:
             console.print(f"  ❌ {e}")
 
@@ -286,7 +285,7 @@ def create_task_batch(
             )
 
         if not draft:
-            console.print(f"  [red]Draft failed; skipping.[/]")
+            console.print("  [red]Draft failed; skipping.[/]")
             continue
 
         question = draft["question"]
@@ -301,7 +300,7 @@ def create_task_batch(
             if auto:
                 console.print(f"  [yellow]Validation errors; skipping: {validation.errors[:2]}[/]")
                 continue
-            console.print(f"  [yellow]Validation errors:[/]")
+            console.print("  [yellow]Validation errors:[/]")
             for e in validation.errors:
                 console.print(f"    ❌ {e}")
             for w in validation.warnings[:2]:

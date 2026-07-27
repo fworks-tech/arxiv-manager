@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 
 from ...db import get_session
 from ...models import Figure, Task
-from ...tracking import set_difficulty, mark_submitted
+from ...tracking import mark_submitted, set_difficulty
 from . import router
 
 logger = logging.getLogger(__name__)
