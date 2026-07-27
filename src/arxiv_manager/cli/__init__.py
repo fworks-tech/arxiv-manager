@@ -29,9 +29,11 @@ def main():
 
 
 # Import sub-modules to register commands (eager — Typer requires this)
-from . import check  # noqa: E402, F811
-from . import search_commands  # noqa: E402
-from . import image_commands  # noqa: E402
-from . import task_commands  # noqa: E402
-from . import admin_commands  # noqa: E402
-from . import index_commands  # noqa: E402
+from . import (
+    admin_commands,  # noqa: E402
+    check,  # noqa: E402, F811
+    image_commands,  # noqa: E402
+    index_commands,  # noqa: E402
+    search_commands,  # noqa: E402
+    task_commands,  # noqa: E402
+)

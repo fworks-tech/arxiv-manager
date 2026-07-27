@@ -6,12 +6,11 @@ import json
 import logging
 import time as time_module
 from collections import Counter
-from pathlib import Path
 
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 
-from ...observability.cost_tracker import estimate_cost, format_cost, summarize_usage
+from ...observability.cost_tracker import summarize_usage
 from ...storage import STORAGE_DIR
 from . import TEMPLATES, router
 
@@ -23,9 +22,10 @@ _metrics_cache_ts: float = 0
 
 def _read_db_metrics() -> dict:
     """Read all metrics from the database."""
-    from sqlmodel import select, desc
+    from sqlmodel import desc, select
+
     from ...db import get_session
-    from ...models import GenerationAttempt, Task, IssueReport
+    from ...models import GenerationAttempt, IssueReport, Task
 
     session = get_session()
     try:

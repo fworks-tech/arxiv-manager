@@ -1,14 +1,13 @@
 """Image library management commands."""
-from pathlib import Path
 
 import typer
 from rich.table import Table
 from sqlmodel import select
 
-from . import images_app, console
 from ..db import get_session
 from ..models import Figure
 from ..sourcing.filters import audit_figure, compute_complexity
+from . import console, images_app
 
 
 @images_app.command("list")
@@ -65,7 +64,9 @@ def list_images(
 @images_app.command("audit")
 def audit_images_cmd():
     """Print image-library health report."""
-    import glob, os, sqlite3
+    import glob
+    import os
+    import sqlite3
 
     session = get_session()
     conn = sqlite3.connect("storage/arxiv-manager.db")
@@ -148,8 +149,11 @@ def clean_images(
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt"),
 ):
     """Remove trash files, broken DB rows, and move orphans to _trash/."""
-    import glob, os, sqlite3, shutil
+    import os
+    import shutil
+    import sqlite3
     from datetime import datetime
+
     from rich.prompt import Confirm
 
     if not yes and not Confirm.ask("This will delete trash + broken rows and move orphans. Continue?"):

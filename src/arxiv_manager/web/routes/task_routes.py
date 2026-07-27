@@ -6,12 +6,12 @@ from fastapi import Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import select
 
-from ...db import get_session
-from ...models import Task, Figure, GenerationAttempt
 from ...authoring import create_task, update_task
-from ...authoring.validator import validate_task
-from ...authoring.ai_draft import draft_qa, draft_with_self_critique
 from ...authoring._draft_telemetry import log_generation_attempt
+from ...authoring.ai_draft import draft_qa, draft_with_self_critique
+from ...authoring.validator import validate_task
+from ...db import get_session
+from ...models import Figure, GenerationAttempt, Task
 from ...storage import STORAGE_DIR
 from . import TEMPLATES, router
 
@@ -230,7 +230,7 @@ def _dedup_retry(img_path, api_key, difficulty, figure_type, complexity, prev_qu
 def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("challenging")):
     """Regenerate Q&A for a task using AI draft."""
     import os as os_mod
-    from ...authoring._history_context import inject_history_into_prompt
+
 
     logger.info("task regenerate task_id=%d difficulty=%s", task_id, difficulty)
     api_key = os_mod.environ.get("OPENCODE_API_KEY")
@@ -293,7 +293,8 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
 
         usage = draft.get("_usage", {})
         model = model_name
-        from ...observability.cost_tracker import estimate_cost, format_cost as _fmt_cost
+        from ...observability.cost_tracker import estimate_cost
+        from ...observability.cost_tracker import format_cost as _fmt_cost
         tok_in = usage.get("input_tokens", 0)
         tok_out = usage.get("output_tokens", 0)
         cost = _fmt_cost(estimate_cost(model, tok_in, tok_out))
@@ -316,9 +317,10 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
 def api_ai_fix(request: Request, task_id: int):
     """Use LLM to suggest a fix for validation errors on an existing task."""
     import os as os_mod
+
+    from ...authoring._draft_config import CONFIG
     from ...authoring._draft_prompts import FIX_PROMPT
     from ...authoring._history_context import inject_history_into_prompt
-    from ...authoring._draft_config import CONFIG
     from ...authoring.ai_draft._api_client import _call_opencode as _call
     from ...authoring.ai_draft._response_parser import _parse_llm_response
 
@@ -367,8 +369,10 @@ def api_ai_fix(request: Request, task_id: int):
             validation_context=validation_context,
         )
 
+        import base64 as _b64
+        import io as _io
+
         from PIL import Image as PILImage
-        import io as _io, base64 as _b64
         img_path = STORAGE_DIR / task.image_path
         b64_image = ""
         if img_path.exists():

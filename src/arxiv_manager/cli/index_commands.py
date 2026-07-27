@@ -22,6 +22,7 @@ def index_figures(
     paper titles, and metadata into the vector store for semantic search.
     """
     from rich import print as rprint
+
     from ..components.hybrid_retriever import HybridRetriever
 
     session = get_session()

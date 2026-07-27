@@ -10,14 +10,14 @@ from fastapi import File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from PIL import Image as PILImage
 
+from ...authoring._draft_telemetry import log_generation_attempt
+from ...authoring.ai_draft import draft_qa, draft_with_self_critique
+from ...authoring.image_analyzer import analyze_uploaded_image, validate_draft
 from ...db import get_session
 from ...models import Figure, ImageStatus
-from ...authoring.image_analyzer import analyze_uploaded_image, validate_draft
-from ...authoring.ai_draft import draft_qa, draft_with_self_critique
-from ...authoring._draft_telemetry import log_generation_attempt
-from ...sourcing.filters import compute_file_hash, audit_figure
-from ...storage import UPLOADS_DIR, STORAGE_DIR
-from . import TEMPLATES, router, _upload_cache, _UPLOAD_CACHE_MAX
+from ...sourcing.filters import audit_figure, compute_file_hash
+from ...storage import STORAGE_DIR, UPLOADS_DIR
+from . import _UPLOAD_CACHE_MAX, TEMPLATES, _upload_cache, router
 
 logger = logging.getLogger(__name__)
 

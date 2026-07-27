@@ -8,7 +8,7 @@ from typing import Any
 from sqlmodel import select
 
 from ..db import get_session
-from ..models import Task, Figure, SubmissionLog, TaskStatus, Difficulty
+from ..models import Difficulty, Figure, SubmissionLog, Task, TaskStatus
 
 
 def set_difficulty(

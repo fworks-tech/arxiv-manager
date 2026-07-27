@@ -22,6 +22,7 @@ def _check_db() -> dict:
         session = get_session()
         try:
             from sqlmodel import func, select
+
             from ...models import Figure, Paper, Task
             paper_count = session.exec(select(func.count(Paper.id))).one()
             fig_count = session.exec(select(func.count(Figure.id))).one()
