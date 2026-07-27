@@ -35,14 +35,34 @@ src/arxiv_manager/
 ├── components/             # RAG: hybrid retriever, reranker, config
 ├── services/               # CRAG: RAG pipeline, semantic cache, query router
 ├── agents/                 # Adaptive router, query decomposer, document grader, tools/
+│   ├── registry.py         # Agent metadata/capabilities registry
+│   ├── context.py          # AgentContext — shared state across agents
+│   ├── orchestrator.py     # Orchestrator — plans, delegates, aggregates
+│   └── reviewer.py         # Reviewer — critiques drafts
+├── scheduler/              # DB-backed async job queue with subprocess worker
+│   ├── models.py           # ScheduledTask (queued | running | done | failed | cancelled)
+│   ├── queue.py            # FIFO queue with priority, retry, cancel
+│   ├── worker.py           # Standalone worker subprocess (python -m ...worker)
+│   ├── manager.py          # Subprocess lifecycle (start/stop via sentinel file)
+│   └── routes.py           # API: enqueue, status, cancel, queue depth
+├── personalization/        # User accounts, auth, preferences, learning
+│   ├── models.py           # User, AuthToken, UserProfile, UserPreference
+│   ├── auth.py             # Password hashing (PBKDF2-SHA256), token management
+│   ├── middleware.py        # FastAPI AuthMiddleware (Bearer token / X-API-Key)
+│   ├── personalizer.py     # Apply preferences to routing configs
+│   └── routes.py           # API: login, register, profile, preferences
+├── vision/                 # Local CNN-based figure analysis
+│   ├── models.py           # Lazy-loaded ResNet-18 feature extractor
+│   ├── extractor.py        # 512-dim feature extraction + cosine similarity
+│   └── classifier.py       # Figure type classification with prototype matching
 ├── observability/          # Structured JSON logging, tracing, cost tracker
 ├── security/               # Input guard, content filter, output filter
 ├── prompts/                # Hot-swappable prompt registry (DB-backed)
-├── mcp/                    # MCP server (6 tools: generate, validate, history, search, health, analytics)
+├── mcp/                    # MCP server (8 tools: generate, validate, history, search, health, analytics, orchestrate, enqueue)
 ├── tracking/               # Task export, platform submission
 ├── evaluation/             # Golden dataset, offline eval script
 ├── models.py               # DB models (Paper, Figure, Task, GenerationAttempt, PromptTemplateRecord)
-├── db.py                   # SQLite engine + migrations
+├── db.py                   # SQLite engine + migrations + WAL mode
 └── storage.py              # Centralized storage paths
 ```
 
@@ -69,13 +89,20 @@ src/arxiv_manager/
 - **IssueReport feedback loop:** User-reported issues (too_easy, wrong_answer) and corrected answers are injected into the generation prompt via `build_figure_history`. Model run results (Qwen/Gemini passes) are copied onto GenerationAttempt on submit and influence few-shot ordering.
 - **Arithmetic consistency check:** Validation warns when a question asks for product/sum but the answer may be a simple count.
 - **AI Fix with image context:** The AI Fix endpoint now sends the figure image, figure history, and validation context to the LLM for context-aware fixes.
+- **Multi-agent orchestration:** Orchestrator plans subtasks → delegates to Generator → delegates to Reviewer → aggregates results. Uses `AgentContext` for shared state and delegation chains.
+- **DB-backed task scheduling:** Jobs are enqueued to `scheduled_tasks` table, picked up by a subprocess worker. Priority-based FIFO with automatic retry. No external dependencies (no Redis/Celery).
+- **Subprocess worker isolation:** Worker runs in a separate Python process via `subprocess.Popen`, communicates via shared SQLite (WAL mode). Sentinel file for graceful shutdown on all platforms.
+- **Token-based authentication:** PBKDF2-SHA256 password hashing, UUID tokens stored in DB. `AuthMiddleware` checks `Authorization: Bearer` or `X-API-Key` headers.
+- **User personalization:** `UserProfile` (model preference, difficulty, prompt style) + key-value `UserPreference` applied to routing configs via `personalizer.apply_preferences()`.
+- **Local CNN vision:** ResNet-18 feature extractor (lazy-loaded, ~44MB). Falls back to heuristic classifier when torch/torchvision unavailable. Prototype-based few-shot classification.
+- **Agent registry:** Dict-based lookup by name or capability. Used by orchestrator to discover available agents and their capabilities.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
 | `run.py` | FastAPI entry point |
-| `src/arxiv_manager/web/app.py` | App factory, route registration, logging, rate limiting, MCP |
+| `src/arxiv_manager/web/app.py` | App factory, route registration, logging, rate limiting, MCP, auth middleware |
 | `src/arxiv_manager/authoring/ai_draft/core.py` | Core generation pipeline with RAG injection |
 | `src/arxiv_manager/authoring/ai_draft/_api_client.py` | LLM API client (OpenCode), token usage capture |
 | `src/arxiv_manager/authoring/_history_context.py` | History injection, few-shot, model selection |
@@ -87,11 +114,37 @@ src/arxiv_manager/
 | `src/arxiv_manager/observability/cost_tracker.py` | Token/cost estimation per model |
 | `src/arxiv_manager/security/input_guard.py` | Prompt injection detection |
 | `src/arxiv_manager/prompts/__init__.py` | DB-backed prompt registry with versioning |
-| `src/arxiv_manager/mcp/__init__.py` | MCP server with 6 tools |
+| `src/arxiv_manager/mcp/__init__.py` | MCP server with 6+ tools |
 | `src/arxiv_manager/web/routes/health.py` | Health check endpoint |
 | `src/arxiv_manager/web/routes/prompt_routes.py` | Prompt management API |
+| `src/arxiv_manager/agents/registry.py` | Agent capability registry |
+| `src/arxiv_manager/agents/context.py` | AgentContext — shared state across agents |
+| `src/arxiv_manager/agents/orchestrator.py` | Multi-agent orchestrator |
+| `src/arxiv_manager/agents/reviewer.py` | Draft reviewer agent |
+| `src/arxiv_manager/scheduler/models.py` | ScheduledTask model |
+| `src/arxiv_manager/scheduler/queue.py` | DB-backed FIFO job queue |
+| `src/arxiv_manager/scheduler/worker.py` | Subprocess worker entry point |
+| `src/arxiv_manager/scheduler/manager.py` | Subprocess lifecycle (start/stop) |
+| `src/arxiv_manager/scheduler/routes.py` | Scheduler API endpoints |
+| `src/arxiv_manager/personalization/auth.py` | Password hashing + token auth |
+| `src/arxiv_manager/personalization/middleware.py` | FastAPI auth middleware |
+| `src/arxiv_manager/personalization/personalizer.py` | User preference application |
+| `src/arxiv_manager/personalization/routes.py` | Auth + profile API endpoints |
+| `src/arxiv_manager/vision/models.py` | Lazy ResNet-18 loader |
+| `src/arxiv_manager/vision/extractor.py` | 512-dim feature extraction |
+| `src/arxiv_manager/vision/classifier.py` | Figure type classification |
 | `evaluation/golden_dataset.json` | Golden dataset of 7 proven Q&A pairs |
 | `evaluation/offline_eval.py` | Offline evaluation harness |
+
+## New DB Tables
+
+| Table | Module | Purpose |
+|-------|--------|---------|
+| `scheduled_tasks` | `scheduler.models` | DB-backed async job queue |
+| `users` | `personalization.models` | User accounts |
+| `auth_tokens` | `personalization.models` | Bearer token storage |
+| `user_profiles` | `personalization.models` | User generation preferences |
+| `user_preferences` | `personalization.models` | Key-value preference pairs |
 
 ## Storage Layout
 

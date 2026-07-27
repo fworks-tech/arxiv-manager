@@ -86,4 +86,8 @@ def create_app() -> FastAPI:
     from ..mcp import mcp_router
     app.include_router(mcp_router)
 
+    # Auth middleware (must be added after routes for public path detection)
+    from ..personalization.middleware import AuthMiddleware
+    app.add_middleware(AuthMiddleware)
+
     return app
