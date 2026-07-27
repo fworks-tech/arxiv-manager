@@ -91,6 +91,8 @@ def init_db() -> None:
     """Create all tables if they don't exist."""
     ensure_dirs()
     from . import models  # noqa: F401
+    from .scheduler import models as _sched_models  # noqa: F401
+    from .personalization import models as _pers_models  # noqa: F401
     SQLModel.metadata.create_all(engine)
     _enable_wal()
     _migrate()

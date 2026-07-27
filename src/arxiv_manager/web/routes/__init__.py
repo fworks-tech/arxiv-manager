@@ -20,3 +20,7 @@ from . import lifecycle_routes  # noqa: E402
 from . import metrics  # noqa: E402
 from . import health  # noqa: E402
 from . import prompt_routes  # noqa: E402
+from ...scheduler.routes import router as scheduler_router  # noqa: E402
+from ...personalization.routes import router as personalization_router  # noqa: E402
+router.include_router(scheduler_router)
+router.include_router(personalization_router)

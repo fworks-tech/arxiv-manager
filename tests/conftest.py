@@ -219,7 +219,13 @@ def override_storage(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-def test_client(override_storage, mock_api_key, tmp_db_path, monkeypatch):
+def _testing_env(monkeypatch):
+    """Set OPENCODE_TESTING so AuthMiddleware skips auth."""
+    monkeypatch.setenv("OPENCODE_TESTING", "1")
+
+
+@pytest.fixture
+def test_client(override_storage, mock_api_key, tmp_db_path, monkeypatch, _testing_env):
     """Provides a FastAPI TestClient with temp storage, mocked API key,
     and a file-based test database."""
     from fastapi.testclient import TestClient
@@ -240,7 +246,7 @@ def test_client(override_storage, mock_api_key, tmp_db_path, monkeypatch):
 
 
 @pytest.fixture
-def test_client_no_key(override_storage, mock_no_api_key, tmp_db_path, monkeypatch):
+def test_client_no_key(override_storage, mock_no_api_key, tmp_db_path, monkeypatch, _testing_env):
     """Provides a TestClient without API key set (shared DB)."""
     from fastapi.testclient import TestClient
     import arxiv_manager.db as db_mod
