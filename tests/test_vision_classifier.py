@@ -58,8 +58,7 @@ class TestClassifyFigureCNN:
 
         store_prototype("chart_graph_text", chart_vec)
 
-        with patch("arxiv_manager.vision.classifier.extract_features",
-                   return_value=chart_vec * 0.95 + 0.05):
+        with patch("arxiv_manager.vision.classifier.extract_features", return_value=chart_vec * 0.95 + 0.05):
             with patch("arxiv_manager.vision.classifier.heuristic_classify") as mock_h:
                 mock_h.return_value = {
                     "figure_type": "general_image",
@@ -77,8 +76,7 @@ class TestClassifyFigureCNN:
 
         fake_feat = np.random.randn(512).astype(np.float32)
 
-        with patch("arxiv_manager.vision.classifier.extract_features",
-                   return_value=fake_feat):
+        with patch("arxiv_manager.vision.classifier.extract_features", return_value=fake_feat):
             with patch("arxiv_manager.vision.classifier.heuristic_classify") as mock_h:
                 mock_h.return_value = {
                     "figure_type": "general_image",
@@ -93,7 +91,6 @@ class TestClassifyFigureCNN:
 
 
 class TestPrototypeManagement:
-
     def setup_method(self):
         clear_prototypes()
 
@@ -117,4 +114,5 @@ class TestPrototypeManagement:
 
 def _get_prototype_count() -> int:
     from arxiv_manager.vision.classifier import _PROTOTYPES
+
     return sum(len(v) for v in _PROTOTYPES.values())

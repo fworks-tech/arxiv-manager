@@ -21,6 +21,7 @@ from arxiv_manager.models import Figure, Paper, Task
 # GET endpoints
 # ---------------------------------------------------------------------------
 
+
 class TestGetEndpoints:
     def test_get_dashboard(self, test_client):
         resp = test_client.get("/")
@@ -68,6 +69,7 @@ class TestGetEndpoints:
 # POST: Upload image
 # ---------------------------------------------------------------------------
 
+
 class TestUploadImage:
     def test_upload_image(self, test_client):
         """Upload a synthetic JPEG image."""
@@ -106,6 +108,7 @@ class TestUploadImage:
 # POST: Draft QA
 # ---------------------------------------------------------------------------
 
+
 class TestDraftQA:
     def test_draft_qa_needs_upload_first(self, test_client):
         """Draft without an existing upload returns error HTML."""
@@ -129,6 +132,7 @@ class TestDraftQA:
         )
         assert up.status_code == 200
         import re
+
         match = re.search(rb'data-upload-id="([^"]+)"', up.content)
         assert match, "No upload_id in response"
         upload_id = match.group(1).decode()
@@ -153,6 +157,7 @@ class TestDraftQA:
             files={"image": ("t.jpg", buf, "image/jpeg")},
         )
         import re
+
         match = re.search(rb'data-upload-id="([^"]+)"', up.content)
         assert match
         upload_id = match.group(1).decode()
@@ -170,6 +175,7 @@ class TestDraftQA:
 # POST: Propose task
 # ---------------------------------------------------------------------------
 
+
 class TestProposeTask:
     def test_propose_creates_task(self, test_client):
         """Propose creates a Task and redirects."""
@@ -183,6 +189,7 @@ class TestProposeTask:
             files={"image": ("t.jpg", buf, "image/jpeg")},
         )
         import re
+
         match = re.search(rb'data-upload-id="([^"]+)"', up.content)
         assert match
         upload_id = match.group(1).decode()
@@ -225,6 +232,7 @@ class TestProposeTask:
 # POST: Discard upload
 # ---------------------------------------------------------------------------
 
+
 class TestDiscardUpload:
     def test_discard_existing(self, test_client):
         """Discard an existing upload."""
@@ -238,6 +246,7 @@ class TestDiscardUpload:
             files={"image": ("t.jpg", buf, "image/jpeg")},
         )
         import re
+
         match = re.search(rb'data-upload-id="([^"]+)"', up.content)
         assert match
         upload_id = match.group(1).decode()
@@ -261,6 +270,7 @@ class TestDiscardUpload:
 # POST: Task validate
 # ---------------------------------------------------------------------------
 
+
 class TestTaskValidate:
     def test_validate_existing(self, test_client, sample_task):
         resp = test_client.post(f"/api/task/{sample_task.id}/validate")
@@ -276,12 +286,15 @@ class TestTaskValidate:
 # POST: Task regenerate
 # ---------------------------------------------------------------------------
 
+
 class TestTaskRegenerate:
     def test_regenerate_with_mock(self, test_client, override_storage, monkeypatch):
         """Regenerate with mocked API returns new Q&A."""
         import arxiv_manager.web.routes.task_routes as tr_mod
+
         def _fake_draft(**kw):
             return {"question": "Mock Q?", "answer": "99", "answer_format": "number", "task_type": "chart"}
+
         monkeypatch.setattr(tr_mod, "draft_with_self_critique", _fake_draft)
         monkeypatch.setattr(tr_mod, "draft_qa", _fake_draft)
 
@@ -289,6 +302,7 @@ class TestTaskRegenerate:
         import io
 
         from PIL import Image
+
         img = Image.new("RGB", (100, 100), (100, 150, 200))
         buf = io.BytesIO()
         img.save(buf, format="JPEG")
@@ -300,11 +314,18 @@ class TestTaskRegenerate:
         upload_id = match.group(1).decode()
 
         # Propose the task
-        prop = test_client.post("/api/image/propose", data={
-            "upload_id": upload_id, "question": "Q?", "answer": "1",
-            "answer_format": "number", "task_type": "chart",
-            "domain": "Physics", "title": "Test",
-        })
+        prop = test_client.post(
+            "/api/image/propose",
+            data={
+                "upload_id": upload_id,
+                "question": "Q?",
+                "answer": "1",
+                "answer_format": "number",
+                "task_type": "chart",
+                "domain": "Physics",
+                "title": "Test",
+            },
+        )
         task_id = None
         if prop.status_code in (303, 302):
             loc = prop.headers.get("location", "")
@@ -314,6 +335,7 @@ class TestTaskRegenerate:
         if not task_id:
             from arxiv_manager.db import get_session
             from arxiv_manager.models import Task
+
             s = get_session()
             tasks = s.exec(select(Task).order_by(Task.id.desc())).first()
             if tasks:
@@ -361,6 +383,7 @@ class TestTaskRegenerate:
 
         from arxiv_manager.db import get_session
         from arxiv_manager.models import Task
+
         s = get_session()
         t = s.exec(select(Task).where(Task.id == sample_task.id)).first()
         if t:
@@ -382,6 +405,7 @@ class TestTaskRegenerate:
 # POST: Task update
 # ---------------------------------------------------------------------------
 
+
 class TestTaskUpdate:
     def test_update_task(self, test_client, sample_task):
         resp = test_client.post(
@@ -402,8 +426,12 @@ class TestTaskUpdate:
         resp = test_client.post(
             "/api/task/99999/update",
             data={
-                "title": "X", "question": "Q?", "answer": "A",
-                "answer_format": "word", "task_type": "chart", "domain": "CS",
+                "title": "X",
+                "question": "Q?",
+                "answer": "A",
+                "answer_format": "word",
+                "task_type": "chart",
+                "domain": "CS",
             },
         )
         assert resp.status_code == 200  # Returns HTML with error or new-task form
@@ -413,12 +441,14 @@ class TestTaskUpdate:
 # POST: Task submit
 # ---------------------------------------------------------------------------
 
+
 class TestTaskSubmit:
     def test_submit_task(self, test_client, sample_task):
         resp = test_client.post(f"/api/task/{sample_task.id}/submit")
         assert resp.status_code in (200, 303, 302)
         # Verify status changed
         from arxiv_manager.db import get_session
+
         s = get_session()
         t = s.get(Task, sample_task.id)
         assert t.status == "submitted"
@@ -434,6 +464,7 @@ class TestTaskSubmit:
 # POST: Rhea review
 # ---------------------------------------------------------------------------
 
+
 class TestRheaReview:
     def test_rhea_review_passed(self, test_client, sample_task):
         resp = test_client.post(
@@ -442,6 +473,7 @@ class TestRheaReview:
         )
         assert resp.status_code in (200, 303, 302)
         from arxiv_manager.db import get_session
+
         s = get_session()
         t = s.get(Task, sample_task.id)
         assert t.rhea_reviewed is True
@@ -455,6 +487,7 @@ class TestRheaReview:
         )
         assert resp.status_code in (200, 303, 302)
         from arxiv_manager.db import get_session
+
         s = get_session()
         t = s.get(Task, sample_task.id)
         assert t.rhea_reviewed is True
@@ -474,6 +507,7 @@ class TestRheaReview:
             # May return HTML redirect on success
             pass
         from arxiv_manager.db import get_session
+
         s = get_session()
         t = s.get(Task, sample_task.id)
         assert t.rhea_passed is True
@@ -485,6 +519,7 @@ class TestRheaReview:
 # POST: Figure status
 # ---------------------------------------------------------------------------
 
+
 class TestFigureStatus:
     def test_update_figure_status(self, test_client, sample_figure):
         resp = test_client.post(
@@ -493,6 +528,7 @@ class TestFigureStatus:
         )
         assert resp.status_code in (200, 303, 302)
         from arxiv_manager.db import get_session
+
         s = get_session()
         f = s.get(Figure, sample_figure.id)
         assert f.status == "rejected"
@@ -502,6 +538,7 @@ class TestFigureStatus:
 # ---------------------------------------------------------------------------
 # POST: Bulk reject
 # ---------------------------------------------------------------------------
+
 
 class TestBulkReject:
     def test_bulk_reject(self, test_client, db_session):
@@ -520,6 +557,7 @@ class TestBulkReject:
         )
         assert resp.status_code in (200, 303, 302)
         from arxiv_manager.db import get_session
+
         s = get_session()
         ff1 = s.get(Figure, f1.id)
         ff2 = s.get(Figure, f2.id)
@@ -532,6 +570,7 @@ class TestBulkReject:
 # POST: Task difficulty
 # ---------------------------------------------------------------------------
 
+
 class TestTaskDifficulty:
     def test_update_difficulty(self, test_client, sample_task):
         resp = test_client.post(
@@ -540,6 +579,7 @@ class TestTaskDifficulty:
         )
         assert resp.status_code in (200, 303, 302)
         from arxiv_manager.db import get_session
+
         s = get_session()
         t = s.get(Task, sample_task.id)
         assert t.difficulty == "hardest"
@@ -551,6 +591,7 @@ class TestTaskDifficulty:
 # ---------------------------------------------------------------------------
 # Edge-case tests — not-found and missing-entity behavior
 # ---------------------------------------------------------------------------
+
 
 class TestEdgeCases:
     def test_rhea_review_not_found(self, test_client):
@@ -606,17 +647,20 @@ class TestGenerationHistory:
     def test_history_with_attempts(self, test_client, sample_task, sample_figure, db_session):
         """History renders attempt records when they exist."""
         from arxiv_manager.models import GenerationAttempt
-        db_session.add(GenerationAttempt(
-            figure_id=sample_figure.id,
-            task_id=sample_task.id,
-            generation_type="draft",
-            difficulty="challenging",
-            generated_question="Test historical question?",
-            generated_answer="42",
-            validation_quality=85.0,
-            success=True,
-            model_name="minimax-m3",
-        ))
+
+        db_session.add(
+            GenerationAttempt(
+                figure_id=sample_figure.id,
+                task_id=sample_task.id,
+                generation_type="draft",
+                difficulty="challenging",
+                generated_question="Test historical question?",
+                generated_answer="42",
+                validation_quality=85.0,
+                success=True,
+                model_name="minimax-m3",
+            )
+        )
         db_session.commit()
         resp = test_client.get(f"/api/task/{sample_task.id}/history")
         assert resp.status_code == 200

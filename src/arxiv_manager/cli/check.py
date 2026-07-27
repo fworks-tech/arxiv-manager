@@ -1,4 +1,5 @@
 """Pre-flight health check command."""
+
 from . import app, console
 
 
@@ -71,6 +72,7 @@ def check_api():
         data = resp.json()
         content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
         import re
+
         stripped = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
         if "OK" in stripped:
             console.print(f"[green]✓ Model responds (content={len(content)}c)[/]")

@@ -16,6 +16,7 @@ def test_init_db_creates_tables(fresh_engine, monkeypatch):
     """init_db creates all tables."""
     monkeypatch.setattr("arxiv_manager.db.engine", fresh_engine)
     from arxiv_manager.db import init_db
+
     init_db()
     # Check tables exist
     tables = SQLModel.metadata.tables.keys()
@@ -28,6 +29,7 @@ def test_get_session_crud(fresh_engine, monkeypatch):
     """Basic CRUD operations via get_session."""
     monkeypatch.setattr("arxiv_manager.db.engine", fresh_engine)
     from arxiv_manager.db import get_session, init_db
+
     init_db()
     from arxiv_manager.models import Figure, Task
 
@@ -71,6 +73,7 @@ def test_migration_adds_column(fresh_engine, monkeypatch):
     """_migrate adds rhea_override_notes column if missing."""
     monkeypatch.setattr("arxiv_manager.db.engine", fresh_engine)
     from arxiv_manager.db import init_db
+
     init_db()
 
     # Verify the column exists after init_db
@@ -83,9 +86,10 @@ def test_migration_idempotent(fresh_engine, monkeypatch):
     """_migrate is safe to run multiple times."""
     monkeypatch.setattr("arxiv_manager.db.engine", fresh_engine)
     from arxiv_manager.db import _migrate, init_db
-    init_db()       # Creates tables
-    _migrate()      # First migration (should be no-op)
-    _migrate()      # Second call should not raise
+
+    init_db()  # Creates tables
+    _migrate()  # First migration (should be no-op)
+    _migrate()  # Second call should not raise
 
 
 def test_task_query_by_status(fresh_engine, monkeypatch):
@@ -95,6 +99,7 @@ def test_task_query_by_status(fresh_engine, monkeypatch):
 
     from arxiv_manager.db import get_session, init_db
     from arxiv_manager.models import Figure, Paper, Task
+
     init_db()
 
     s = get_session()
@@ -124,6 +129,7 @@ def test_figure_query_by_paper(fresh_engine, monkeypatch):
 
     from arxiv_manager.db import get_session, init_db
     from arxiv_manager.models import Figure, Paper
+
     init_db()
 
     s = get_session()

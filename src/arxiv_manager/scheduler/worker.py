@@ -59,6 +59,7 @@ def _execute_generate_qa(job_id: int, payload: dict) -> None:
     """Generate a Q&A pair via the AI drafting pipeline."""
     try:
         from ..authoring.ai_draft.core import draft_qa
+
         result = draft_qa(**payload)
         if result:
             complete_job(job_id, result)
@@ -73,6 +74,7 @@ def _execute_validate_batch(job_id: int, payload: dict) -> None:
     """Validate a batch of Q&A pairs."""
     try:
         from ..authoring.validator import validate_task
+
         tasks = payload.get("tasks", [])
         results = []
         for t in tasks:
@@ -88,6 +90,7 @@ def _execute_rag_index(job_id: int, payload: dict) -> None:
     """Index figures in the RAG vector store."""
     try:
         from ..sourcing.indexers import index_figures
+
         count = index_figures(
             paper_ids=payload.get("paper_ids"),
             force=payload.get("force", False),
@@ -117,10 +120,8 @@ def _main_loop(poll_interval: float = 1.0) -> None:
 def main() -> None:
     """Worker entry point."""
     parser = argparse.ArgumentParser(description="Scheduler worker subprocess")
-    parser.add_argument("--sentinel", type=str, required=True,
-                        help="Path to sentinel file (worker exits when deleted)")
-    parser.add_argument("--poll-interval", type=float, default=1.0,
-                        help="Seconds between queue polls")
+    parser.add_argument("--sentinel", type=str, required=True, help="Path to sentinel file (worker exits when deleted)")
+    parser.add_argument("--poll-interval", type=float, default=1.0, help="Seconds between queue polls")
     args = parser.parse_args()
 
     global _SENTINEL_PATH

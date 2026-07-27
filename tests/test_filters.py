@@ -19,11 +19,14 @@ def _make_image(width=200, height=200, content="blank"):
         # Varied colored pixels like a chart
         for y in range(height):
             for x in range(width):
-                img.putpixel((x, y), (
-                    (x * 255 // width) % 256,
-                    (y * 255 // height) % 256,
-                    128,
-                ))
+                img.putpixel(
+                    (x, y),
+                    (
+                        (x * 255 // width) % 256,
+                        (y * 255 // height) % 256,
+                        128,
+                    ),
+                )
     elif content == "text_wall":
         # Dense dark pixels in horizontal bands simulating text paragraphs
         for y in range(20, height - 20, 12):

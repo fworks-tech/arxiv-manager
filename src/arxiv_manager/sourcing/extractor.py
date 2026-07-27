@@ -89,14 +89,16 @@ def extract_figures(pdf_path: Path, min_size: int = 300) -> list[dict]:
             pil_img.save(str(img_path), "PNG")
             caption = _extract_caption_for_image(page, img_rect)
 
-            results.append({
-                "image_path": f"figures/{img_hash}.png",
-                "page_num": page_num + 1,
-                "figure_num": _guess_figure_num(caption),
-                "width": pil_img.width,
-                "height": pil_img.height,
-                "caption": caption,
-            })
+            results.append(
+                {
+                    "image_path": f"figures/{img_hash}.png",
+                    "page_num": page_num + 1,
+                    "figure_num": _guess_figure_num(caption),
+                    "width": pil_img.width,
+                    "height": pil_img.height,
+                    "caption": caption,
+                }
+            )
 
         # 2. Extract vector figures by finding "Figure X" captions
         #    and looking ABOVE them for actual image content.
@@ -162,14 +164,16 @@ def extract_figures(pdf_path: Path, min_size: int = 300) -> list[dict]:
                 img_path = FIGURES_DIR / f"{img_hash}.png"
                 pix.save(str(img_path))
 
-                results.append({
-                    "image_path": f"figures/{img_hash}.png",
-                    "page_num": page_num + 1,
-                    "figure_num": fig_num,
-                    "width": pix.width,
-                    "height": pix.height,
-                    "caption": caption_text,
-                })
+                results.append(
+                    {
+                        "image_path": f"figures/{img_hash}.png",
+                        "page_num": page_num + 1,
+                        "figure_num": fig_num,
+                        "width": pix.width,
+                        "height": pix.height,
+                        "caption": caption_text,
+                    }
+                )
 
     doc.close()
     return results
@@ -198,7 +202,8 @@ def _find_figure_captions(page: fitz.Page) -> list[tuple]:
             # Search for "Figure X" or "Fig. X" pattern in merged text
             m = re.search(
                 r"(?:Fig(?:ure)?\.?\s*)(\d+(?:\.\d+)?[a-z]?)\s*[:.]?\s*",
-                merged_text, re.IGNORECASE,
+                merged_text,
+                re.IGNORECASE,
             )
             if not m:
                 continue
@@ -207,15 +212,15 @@ def _find_figure_captions(page: fitz.Page) -> list[tuple]:
             # 1. If preceded by lowercase letter or period → mid-sentence ref
             # 2. If "Figure" is far from start (> 30 chars) and not colon → inline
             # 3. Contains "see" "shows" "shown" before "Figure" in last 3 words → inline
-            before = merged_text[:m.start()].strip()
-            after_match = merged_text[m.end():].strip()
-            is_colon = after_match.startswith(':')
+            before = merged_text[: m.start()].strip()
+            after_match = merged_text[m.end() :].strip()
+            is_colon = after_match.startswith(":")
 
             # Check for sentence-context before "Figure"
             if before:
                 last_char = before[-1]
                 # Lowercase letter or punctuation before "Figure" = mid-sentence
-                if last_char.islower() or last_char in ('.', ',', ';'):
+                if last_char.islower() or last_char in (".", ",", ";"):
                     if not is_colon:
                         continue
 
@@ -241,10 +246,7 @@ def _find_figure_captions(page: fitz.Page) -> list[tuple]:
 
 def _extract_caption_for_image(page: fitz.Page, img_rect: fitz.Rect) -> str:
     """Extract caption text near an embedded image."""
-    search_rect = fitz.Rect(
-        img_rect.x0, img_rect.y1,
-        img_rect.x1, min(img_rect.y1 + 80, page.rect.height)
-    )
+    search_rect = fitz.Rect(img_rect.x0, img_rect.y1, img_rect.x1, min(img_rect.y1 + 80, page.rect.height))
     text_blocks = page.get_text("dict", clip=search_rect)
 
     caption_parts = []
@@ -300,7 +302,7 @@ def _has_content(pix: fitz.Pixmap, threshold: float = 0.03) -> bool:
     step = n * 50  # Sample every 50th pixel
     for i in range(0, min(len(samples), n * 5000), step):
         sampled += 1
-        r, g, b = samples[i], samples[i+1], samples[i+2]
+        r, g, b = samples[i], samples[i + 1], samples[i + 2]
         if r < 240 or g < 240 or b < 240:
             non_white += 1
 
@@ -340,7 +342,6 @@ def _is_likely_figure(pix: fitz.Pixmap, min_nonwhite_ratio: float = 0.04) -> boo
 
     r_vals, g_vals, b_vals = [], [], []
     horizontal_edges = 0
-    vertical_edges = 0
     total_sampled = 0
     prev_white = True
 
@@ -350,7 +351,7 @@ def _is_likely_figure(pix: fitz.Pixmap, min_nonwhite_ratio: float = 0.04) -> boo
             i = (y * w + x) * n
             if i + 2 >= len(samples):
                 break
-            r, g, b = samples[i], samples[i+1], samples[i+2]
+            r, g, b = samples[i], samples[i + 1], samples[i + 2]
             r_vals.append(r)
             g_vals.append(g)
             b_vals.append(b)
@@ -365,7 +366,7 @@ def _is_likely_figure(pix: fitz.Pixmap, min_nonwhite_ratio: float = 0.04) -> boo
         return False
 
     # Color variance: figures have more spread
-    avg_r, avg_g, avg_b = sum(r_vals) / len(r_vals), sum(g_vals) / len(g_vals), sum(b_vals) / len(b_vals)
+    avg_r, _avg_g, _avg_b = sum(r_vals) / len(r_vals), sum(g_vals) / len(g_vals), sum(b_vals) / len(b_vals)
     var_r = sum((v - avg_r) ** 2 for v in r_vals) / len(r_vals)
     color_variance = var_r
 

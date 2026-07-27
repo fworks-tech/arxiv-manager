@@ -13,9 +13,6 @@ from pathlib import Path
 class TestHybridRetriever:
     def test_retriever_init(self, tmp_chroma_path):
         """HybridRetriever can be initialized with a temp persist dir."""
-        from arxiv_manager.components.retriever_config import CHROMA_PERSIST_DIR
-
-        original = CHROMA_PERSIST_DIR
 
         class FakeRetriever:
             def __init__(self, *args, **kwargs):
@@ -33,6 +30,7 @@ class TestHybridRetriever:
 
         # Monkeypatch the import
         import arxiv_manager.components.hybrid_retriever as hr
+
         original_class = hr.HybridRetriever
         hr.HybridRetriever = FakeRetriever
 
@@ -49,17 +47,21 @@ class TestHybridRetriever:
 
     def test_retriever_can_be_mocked(self, monkeypatch):
         """Retriever can be monkeypatched for testing."""
+
         class FakeRAG:
             def __init__(self, *args, **kwargs):
                 pass
+
             def get_context(self, **kwargs):
                 return {"context_str": "mock context", "sources": [], "from_cache": False}
+
             def cache_result(self, **kwargs):
                 pass
 
         monkeypatch.setattr("arxiv_manager.services.rag_pipeline.RAGPipeline", FakeRAG)
         # Import after patching so the local reference picks up the fake
         from arxiv_manager.services.rag_pipeline import RAGPipeline as R
+
         r = R()
         ctx = r.get_context(query="test", figure_id=1)
         assert ctx["context_str"] == "mock context"
@@ -75,6 +77,7 @@ class TestSemanticCache:
         """A cache with no entries returns None for any query."""
         import arxiv_manager.components.retriever_config as cfg
         from arxiv_manager.services.semantic_cache import SemanticCache
+
         monkeypatch.setattr(cfg, "CHROMA_PERSIST_DIR", tmp_chroma_path)
 
         # With chroma not actually populated, search returns empty -> miss
@@ -85,6 +88,7 @@ class TestSemanticCache:
     def test_cache_imports_cleanly(self):
         """Importing semantic_cache does not trigger side effects."""
         from arxiv_manager.services.semantic_cache import SemanticCache
+
         assert SemanticCache is not None
 
 
@@ -97,6 +101,7 @@ class TestRAGPipeline:
     def test_rag_pipeline_init(self):
         """RAGPipeline initializes without error."""
         from arxiv_manager.services.rag_pipeline import RAGPipeline
+
         rag = RAGPipeline(use_cache=False, use_reranker=False)
         assert rag is not None
         ctx = rag.get_context(query="test query", figure_id=None)
@@ -127,6 +132,7 @@ class TestRAGPipeline:
 class TestCostTracker:
     def test_estimate_cost(self):
         from arxiv_manager.observability.cost_tracker import estimate_cost, format_cost
+
         cost = estimate_cost("minimax-m3", 1000, 500)
         assert cost > 0
         formatted = format_cost(cost)
@@ -134,6 +140,7 @@ class TestCostTracker:
 
     def test_summarize_usage(self):
         from arxiv_manager.observability.cost_tracker import summarize_usage
+
         records = [
             {"model_name": "minimax-m3", "input_tokens": 1000, "output_tokens": 500},
             {"model_name": "gpt-5", "input_tokens": 2000, "output_tokens": 1000},

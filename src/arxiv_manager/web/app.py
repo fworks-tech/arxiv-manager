@@ -18,13 +18,19 @@ TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 # Ensure all app loggers propagate to the root uvicorn handler
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
-for name in ("arxiv_manager.web.routes.pages", "arxiv_manager.web.routes.author_routes",
-               "arxiv_manager.web.routes.arxiv_routes", "arxiv_manager.web.routes.task_routes",
-               "arxiv_manager.web.routes.lifecycle_routes", "arxiv_manager.web.routes.metrics",
-               "arxiv_manager.web.routes.health",
-               "arxiv_manager.authoring.ai_draft",
-               "arxiv_manager.authoring.image_analyzer", "arxiv_manager.authoring.validator",
-               "arxiv_manager.sourcing.filters"):
+for name in (
+    "arxiv_manager.web.routes.pages",
+    "arxiv_manager.web.routes.author_routes",
+    "arxiv_manager.web.routes.arxiv_routes",
+    "arxiv_manager.web.routes.task_routes",
+    "arxiv_manager.web.routes.lifecycle_routes",
+    "arxiv_manager.web.routes.metrics",
+    "arxiv_manager.web.routes.health",
+    "arxiv_manager.authoring.ai_draft",
+    "arxiv_manager.authoring.image_analyzer",
+    "arxiv_manager.authoring.validator",
+    "arxiv_manager.sourcing.filters",
+):
     lgr = logging.getLogger(name)
     lgr.setLevel(logging.INFO)
     lgr.propagate = True
@@ -45,6 +51,7 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def rate_limit_middleware(request: Request, call_next):
         import time
+
         client_ip = request.client.host if request.client else "unknown"
         now = time.time()
 
@@ -79,14 +86,17 @@ def create_app() -> FastAPI:
 
     # Register routes
     from .routes import router
+
     app.include_router(router)
 
     # Register MCP endpoints
     from ..mcp import mcp_router
+
     app.include_router(mcp_router)
 
     # Auth middleware (must be added after routes for public path detection)
     from ..personalization.middleware import AuthMiddleware
+
     app.add_middleware(AuthMiddleware)
 
     return app

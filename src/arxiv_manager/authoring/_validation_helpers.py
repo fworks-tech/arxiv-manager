@@ -53,10 +53,17 @@ LONG_WINDED_INDICATORS = [
 TABLE_LIMITS = "Tables (text + arithmetic, little visuospatial reasoning) limited to 1-2 submissions"
 
 DOMAIN_JARGON = [
-    r"\bhybridization\b", r"\bsigma bond\b", r"\bpi bond\b",
-    r"\bLUMO\b", r"\bHOMO\b", r"\bsp[23]\b",
-    r"\bEBITDA\b", r"\bWACC\b", r"\bDCF\b",
-    r"\bp-value\b", r"\bchi.?square\b",
+    r"\bhybridization\b",
+    r"\bsigma bond\b",
+    r"\bpi bond\b",
+    r"\bLUMO\b",
+    r"\bHOMO\b",
+    r"\bsp[23]\b",
+    r"\bEBITDA\b",
+    r"\bWACC\b",
+    r"\bDCF\b",
+    r"\bp-value\b",
+    r"\bchi.?square\b",
 ]
 
 REASONING_INDICATORS = [
@@ -99,7 +106,10 @@ MULTI_PANEL_PATTERNS = [
 CHART_FURNITURE_ANTI_PATTERNS = [
     (r"\b(?:tick|axis|colorbar|legend)\s+(?:labels?|marks?|ticks?|numbers?)\b", "axis/label/tick counting"),
     (r"\b(?:count|how\s+many)\s+(?:the\s+)?(?:tick|axis|colorbar|legend)\b", "axis counting"),
-    (r"\b(?:labeled|numerical)\s+(?:tick|values?|labels?|numbers?)\b.*\b(?:axis|colorbar|legend|tick)\b", "labeled value counting"),
+    (
+        r"\b(?:labeled|numerical)\s+(?:tick|values?|labels?|numbers?)\b.*\b(?:axis|colorbar|legend|tick)\b",
+        "labeled value counting",
+    ),
 ]
 
 CHART_DATA_REFS = [
@@ -139,18 +149,61 @@ SPATIAL_PATTERNS = [
 ]
 
 WATERMARK_HINTS = [
-    r"shutterstock", r"getty", r"©", r"all rights reserved",
-    r"istock", r"alamy", r"watermark", r"stock photo",
+    r"shutterstock",
+    r"getty",
+    r"©",
+    r"all rights reserved",
+    r"istock",
+    r"alamy",
+    r"watermark",
+    r"stock photo",
 ]
 
 visual_refs = [
-    "chart", "graph", "figure", "image", "diagram", "plot",
-    "table", "panel", "bar", "line", "pie", "color", "shape",
-    "object", "left", "right", "top", "bottom", "above", "below",
-    "next to", "between", "behind", "front", "show", "display",
-    "axis", "label", "legend", "title", "y-axis", "x-axis",
-    "grid", "row", "column", "cell", "tile", "circle", "square",
-    "highlighted", "marked", "circled", "indicated", "pointed",
+    "chart",
+    "graph",
+    "figure",
+    "image",
+    "diagram",
+    "plot",
+    "table",
+    "panel",
+    "bar",
+    "line",
+    "pie",
+    "color",
+    "shape",
+    "object",
+    "left",
+    "right",
+    "top",
+    "bottom",
+    "above",
+    "below",
+    "next to",
+    "between",
+    "behind",
+    "front",
+    "show",
+    "display",
+    "axis",
+    "label",
+    "legend",
+    "title",
+    "y-axis",
+    "x-axis",
+    "grid",
+    "row",
+    "column",
+    "cell",
+    "tile",
+    "circle",
+    "square",
+    "highlighted",
+    "marked",
+    "circled",
+    "indicated",
+    "pointed",
 ]
 
 # ─── Helper functions ──────────────────────────────────────────────
@@ -165,7 +218,7 @@ def _is_binary_question(q: str) -> bool:
 
 
 def _count_sentences(text: str) -> int:
-    sentences = re.split(r'[.!?]+', text)
+    sentences = re.split(r"[.!?]+", text)
     return len([s for s in sentences if s.strip()])
 
 
@@ -316,8 +369,22 @@ def _references_multi_panel(q: str) -> bool:
 
 
 def _answer_is_extreme(a: str) -> bool:
-    extreme_words = {"highest", "lowest", "largest", "smallest", "maximum", "minimum",
-                     "most", "least", "best", "worst", "first", "last", "top", "bottom"}
+    extreme_words = {
+        "highest",
+        "lowest",
+        "largest",
+        "smallest",
+        "maximum",
+        "minimum",
+        "most",
+        "least",
+        "best",
+        "worst",
+        "first",
+        "last",
+        "top",
+        "bottom",
+    }
     return a.lower() in extreme_words
 
 

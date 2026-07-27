@@ -1,6 +1,7 @@
 """Image analysis orchestrator for the upload-Q&A page.
 
 Bridges existing tools into a single function call for the web UI."""
+
 from __future__ import annotations
 
 import logging
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def analyze_uploaded_image(image_path: Path | str) -> dict:
     """Run all filters on an uploaded image and determine difficulty potential.
-    
+
     Accepts both Path and str for callers that pass str() from _save_upload.
     """
     logger.info("analyze_uploaded_image entry path=%s", image_path)
@@ -34,8 +35,19 @@ def analyze_uploaded_image(image_path: Path | str) -> dict:
             reasons.append(f"low complexity ({audit['complexity_score']:.2f})")
         if audit["width"] < 200 or audit["height"] < 200:
             reasons.append("too small")
-        result = {"audit": audit, "suitability": "REJECTED", "suitability_reason": "; ".join(reasons), "figure_type_label": _type_label(audit)}
-        logger.info("analyze result REJECTED reason=%s cs=%.3f dims=%dx%d", result["suitability_reason"], audit["complexity_score"], audit["width"], audit["height"])
+        result = {
+            "audit": audit,
+            "suitability": "REJECTED",
+            "suitability_reason": "; ".join(reasons),
+            "figure_type_label": _type_label(audit),
+        }
+        logger.info(
+            "analyze result REJECTED reason=%s cs=%.3f dims=%dx%d",
+            result["suitability_reason"],
+            audit["complexity_score"],
+            audit["width"],
+            audit["height"],
+        )
         return result
 
     cs = audit["complexity_score"]
@@ -60,7 +72,12 @@ def analyze_uploaded_image(image_path: Path | str) -> dict:
         likelihood = "EASY"
         reason = f"Very low complexity ({cs:.2f}) — not suitable"
 
-    result = {"audit": audit, "suitability": likelihood, "suitability_reason": reason, "figure_type_label": _type_label(audit)}
+    result = {
+        "audit": audit,
+        "suitability": likelihood,
+        "suitability_reason": reason,
+        "figure_type_label": _type_label(audit),
+    }
     logger.info("analyze result %s cs=%.3f is_chart=%s dense=%s", likelihood, cs, is_chart, audit.get("is_dense"))
     return result
 

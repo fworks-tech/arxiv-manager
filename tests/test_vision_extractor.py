@@ -15,6 +15,7 @@ from arxiv_manager.vision.extractor import cosine_similarity, extract_features
 
 class _FakeFeatureExtractor(nn.Module):
     """Emits a fixed 512-dim feature vector per input."""
+
     def forward(self, x):
         return torch.ones(1, 512, 1, 1)
 
@@ -66,7 +67,6 @@ class TestExtractFeaturesSuccess:
 
 
 class TestCosineSimilarity:
-
     def test_identical_vectors(self):
         a = np.ones(512, dtype=np.float32)
         b = np.ones(512, dtype=np.float32)

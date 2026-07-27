@@ -56,7 +56,4 @@ def filter_relevant(
 ) -> list[dict[str, Any]]:
     """Filter to only relevant/partially-relevant documents above a score."""
     graded = [grade_document("", d) for d in documents]
-    return [
-        d for d in graded
-        if d["relevance_score"] >= min_score
-    ]
+    return [d for d in graded if d["relevance_score"] >= min_score]

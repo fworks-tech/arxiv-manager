@@ -74,13 +74,21 @@ def api_get_profile(request: Request) -> dict[str, Any]:
 
     session = get_session()
     try:
-        profile = session.query(UserProfile).filter(
-            UserProfile.user_id == user.id,
-        ).first()
+        profile = (
+            session.query(UserProfile)
+            .filter(
+                UserProfile.user_id == user.id,
+            )
+            .first()
+        )
 
-        prefs = session.query(UserPreference).filter(
-            UserPreference.user_id == user.id,
-        ).all()
+        prefs = (
+            session.query(UserPreference)
+            .filter(
+                UserPreference.user_id == user.id,
+            )
+            .all()
+        )
 
         return {
             "user_id": user.id,
@@ -91,7 +99,9 @@ def api_get_profile(request: Request) -> dict[str, Any]:
                 "preferred_difficulty": profile.preferred_difficulty if profile else "",
                 "preferred_figure_type": profile.preferred_figure_type if profile else "",
                 "prompt_style": profile.prompt_style if profile else "default",
-            } if profile else {},
+            }
+            if profile
+            else {},
             "preferences": {p.key: p.value for p in prefs},
         }
     finally:
@@ -107,16 +117,19 @@ def api_update_profile(request: Request, body: dict[str, str]) -> dict[str, Any]
 
     session = get_session()
     try:
-        profile = session.query(UserProfile).filter(
-            UserProfile.user_id == user.id,
-        ).first()
+        profile = (
+            session.query(UserProfile)
+            .filter(
+                UserProfile.user_id == user.id,
+            )
+            .first()
+        )
 
         if profile is None:
             profile = UserProfile(user_id=user.id)
             session.add(profile)
 
-        for field in ("preferred_model", "preferred_difficulty",
-                      "preferred_figure_type", "prompt_style"):
+        for field in ("preferred_model", "preferred_difficulty", "preferred_figure_type", "prompt_style"):
             if field in body:
                 setattr(profile, field, body[field])
 
@@ -135,9 +148,13 @@ def api_get_preferences(request: Request) -> dict[str, str]:
 
     session = get_session()
     try:
-        prefs = session.query(UserPreference).filter(
-            UserPreference.user_id == user.id,
-        ).all()
+        prefs = (
+            session.query(UserPreference)
+            .filter(
+                UserPreference.user_id == user.id,
+            )
+            .all()
+        )
         return {p.key: p.value for p in prefs}
     finally:
         session.close()

@@ -23,16 +23,18 @@ def _deduplicate_examples(rows, limit: int) -> list[dict[str, Any]]:
         q = r.generated_question.strip().lower()
         if q not in seen_questions:
             seen_questions.add(q)
-            examples.append({
-                "question": r.generated_question,
-                "answer": r.generated_answer,
-                "answer_format": r.generated_answer_format,
-                "task_type": r.generated_task_type,
-                "quality": r.validation_quality,
-                "figure_type": r.figure_type,
-                "difficulty": r.difficulty,
-                "complexity": r.complexity_score,
-            })
+            examples.append(
+                {
+                    "question": r.generated_question,
+                    "answer": r.generated_answer,
+                    "answer_format": r.generated_answer_format,
+                    "task_type": r.generated_task_type,
+                    "quality": r.validation_quality,
+                    "figure_type": r.figure_type,
+                    "difficulty": r.difficulty,
+                    "complexity": r.complexity_score,
+                }
+            )
             if len(examples) >= limit:
                 break
     return examples
@@ -66,8 +68,8 @@ def get_few_shot_examples(
             pass
 
         query = select(GenerationAttempt).where(
-            GenerationAttempt.success == True,
-            GenerationAttempt.validation_is_valid == True,
+            GenerationAttempt.success,
+            GenerationAttempt.validation_is_valid,
             GenerationAttempt.validation_quality >= 80,
             GenerationAttempt.generated_question != "",
         )
@@ -83,9 +85,7 @@ def get_few_shot_examples(
 
         # Order by: closest complexity match first, then Rhea-approved, then Qwen-failed/Gemini-passed
         if complexity_score > 0:
-            query = query.order_by(
-                abs(GenerationAttempt.complexity_score - complexity_score)
-            )
+            query = query.order_by(abs(GenerationAttempt.complexity_score - complexity_score))
         else:
             query = query.order_by(desc(GenerationAttempt.validation_quality))
         if reported_ids:
@@ -130,8 +130,7 @@ def build_figure_history(figure_id: int, max_attempts: int = 5) -> str:
         try:
             issue_rows = list(
                 session.exec(
-                    select(IssueReport).where(IssueReport.figure_id == figure_id)
-                    .order_by(IssueReport.created_at.asc())
+                    select(IssueReport).where(IssueReport.figure_id == figure_id).order_by(IssueReport.created_at.asc())
                 ).all()
             )
             for r in issue_rows:
@@ -166,6 +165,7 @@ def build_figure_history(figure_id: int, max_attempts: int = 5) -> str:
                 parts.append(f"quality={r.validation_quality:.0f}")
             if r.validation_errors and r.validation_errors != "[]":
                 import json
+
                 try:
                     errs = json.loads(r.validation_errors)
                     if errs:
@@ -175,7 +175,9 @@ def build_figure_history(figure_id: int, max_attempts: int = 5) -> str:
             if r.critique_score > 0:
                 parts.append(f"critique_score={r.critique_score}")
             if r.qwen_passes > 0 or r.gemini_passes > 0:
-                parts.append(f"model_runs: Qwen={r.qwen_passes}/{r.qwen_passes + r.gemini_passes} Gemini={r.gemini_passes}/{r.qwen_passes + r.gemini_passes}")
+                parts.append(
+                    f"model_runs: Qwen={r.qwen_passes}/{r.qwen_passes + r.gemini_passes} Gemini={r.gemini_passes}/{r.qwen_passes + r.gemini_passes}"
+                )
             blocks.append(" | ".join(parts))
             if r.id in reports:
                 for fb_line in reports[r.id]:
@@ -211,7 +213,7 @@ def select_best_model(
     session = get_session()
     try:
         query = select(GenerationAttempt).where(
-            GenerationAttempt.success == True,
+            GenerationAttempt.success,
             GenerationAttempt.validation_quality > 0,
             GenerationAttempt.model_name != "",
         )
@@ -244,9 +246,15 @@ def select_best_model(
                     best_model = model_name
 
         if best_model != default_model:
-            logger.info("select_best_model: %s over %s (avg=%.1f, n=%d) for figure_type=%s difficulty=%s",
-                        best_model, default_model, best_avg, len(model_scores.get(best_model, [])),
-                        figure_type, difficulty)
+            logger.info(
+                "select_best_model: %s over %s (avg=%.1f, n=%d) for figure_type=%s difficulty=%s",
+                best_model,
+                default_model,
+                best_avg,
+                len(model_scores.get(best_model, [])),
+                figure_type,
+                difficulty,
+            )
 
         return best_model
     except Exception:
@@ -280,10 +288,7 @@ def inject_history_into_prompt(
     if figure_id is not None:
         history = build_figure_history(figure_id)
         if history:
-            parts.append(
-                "PREVIOUS ATTEMPTS FOR THIS FIGURE (DO NOT repeat failed patterns):\n"
-                + history
-            )
+            parts.append("PREVIOUS ATTEMPTS FOR THIS FIGURE (DO NOT repeat failed patterns):\n" + history)
 
     # 2. Few-shot examples from similar successful generations
     examples = get_few_shot_examples(
@@ -300,8 +305,7 @@ def inject_history_into_prompt(
                 f"Q: {ex['question']}\nA: {ex['answer']} (format={ex['answer_format']}, type={ex['task_type']}, quality={ex['quality']:.0f})"
             )
         parts.append(
-            "HIGH-QUALITY EXAMPLES from similar figures (emulate these patterns):\n"
-            + "\n---\n".join(ex_blocks)
+            "HIGH-QUALITY EXAMPLES from similar figures (emulate these patterns):\n" + "\n---\n".join(ex_blocks)
         )
 
     # 3. Previous question (existing mechanism, but enhanced with answer)
@@ -314,10 +318,7 @@ def inject_history_into_prompt(
 
     # 4. Current task validation issues to fix
     if validation_context:
-        parts.append(
-            "VALIDATION ISSUES TO FIX in the current task:\n"
-            + validation_context
-        )
+        parts.append("VALIDATION ISSUES TO FIX in the current task:\n" + validation_context)
 
     if not parts:
         return base_prompt

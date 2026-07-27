@@ -1,4 +1,5 @@
 """Response parsing for LLM outputs — think-block extraction and JSON parsing."""
+
 from __future__ import annotations
 
 import json
@@ -68,16 +69,16 @@ def _parse_llm_response(text: str | None, raw_text: str = "") -> dict | None:
     if data:
         return data
 
-    start = text.find('{')
+    start = text.find("{")
     if start >= 0:
         depth = 0
         for end in range(start, len(text)):
-            if text[end] == '{':
+            if text[end] == "{":
                 depth += 1
-            elif text[end] == '}':
+            elif text[end] == "}":
                 depth -= 1
                 if depth == 0:
-                    candidate = text[start:end + 1]
+                    candidate = text[start : end + 1]
                     if '"question"' in candidate:
                         data = _parse_candidate(candidate)
                         if data:
@@ -120,16 +121,16 @@ def _parse_critique_response(text: str | None, raw_text: str = "") -> dict | Non
     if data:
         return data
 
-    start = cleaned.find('{')
+    start = cleaned.find("{")
     if start >= 0:
         depth = 0
         for end in range(start, len(cleaned)):
-            if cleaned[end] == '{':
+            if cleaned[end] == "{":
                 depth += 1
-            elif cleaned[end] == '}':
+            elif cleaned[end] == "}":
                 depth -= 1
                 if depth == 0:
-                    candidate = cleaned[start:end + 1]
+                    candidate = cleaned[start : end + 1]
                     if '"score"' in candidate:
                         data = _parse(candidate)
                         if data:

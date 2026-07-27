@@ -1,4 +1,5 @@
 """Multi-attempt consensus and self-critique drafting flows."""
+
 from __future__ import annotations
 
 import base64
@@ -50,14 +51,13 @@ def draft_qa_consensus(
             continue
 
         from .validator import validate_task as _validate
+
         v = _validate(
-            draft["question"], draft["answer"], draft.get("answer_format", "word"),
+            draft["question"],
+            draft["answer"],
+            draft.get("answer_format", "word"),
         )
-        score = (
-            v.quality_score
-            + (50 if v.is_valid else 0)
-            + (10 if v.quality_score >= 80 else 0)
-        )
+        score = v.quality_score + (50 if v.is_valid else 0) + (10 if v.quality_score >= 80 else 0)
         attempts.append((draft, score))
 
         if v.errors or v.warnings:
@@ -77,11 +77,14 @@ def draft_qa_consensus(
 
     if verify:
         from ._verifier import verify_draft
+
         verified = verify_draft(image_path, best, api_key=api_key)
         if verified:
             from .validator import validate_task as _validate
+
             v_verified = _validate(
-                verified["question"], verified["answer"],
+                verified["question"],
+                verified["answer"],
                 verified.get("answer_format", "word"),
             )
             if v_verified.is_valid:
@@ -104,8 +107,7 @@ def draft_with_self_critique(
     figure_id: int | None = None,
 ) -> dict | None:
     """Draft a Q&A pair and self-critique the question's difficulty."""
-    logger.info("self_critique entry difficulty=%s figure_type=%s max_rounds=%d",
-                difficulty, figure_type, max_rounds)
+    logger.info("self_critique entry difficulty=%s figure_type=%s max_rounds=%d", difficulty, figure_type, max_rounds)
 
     if not api_key:
         api_key = _get_api_key()
@@ -114,6 +116,7 @@ def draft_with_self_critique(
         return None
 
     from PIL import Image
+
     with Image.open(image_path) as img:
         if img.mode in ("RGBA", "P"):
             img = img.convert("RGB")
@@ -146,12 +149,17 @@ def draft_with_self_critique(
 
         try:
             critique = _call_opencode(
-                api_key, prompt, b64, model, retries=2, difficulty=difficulty,
-                media_type="image/jpeg", parser=_parse_critique_response,
+                api_key,
+                prompt,
+                b64,
+                model,
+                retries=2,
+                difficulty=difficulty,
+                media_type="image/jpeg",
+                parser=_parse_critique_response,
             )
         except Exception as e:
-            logger.warning("self_critique: model call failed round=%d err=%s",
-                           round_idx, str(e)[:100])
+            logger.warning("self_critique: model call failed round=%d err=%s", round_idx, str(e)[:100])
             break
 
         if not critique:

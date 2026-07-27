@@ -21,9 +21,11 @@ def scheduler_client(monkeypatch, tmp_path):
         return Session(engine)
 
     import arxiv_manager.scheduler.queue as q_mod
+
     monkeypatch.setattr(q_mod, "get_session", _fake_session)
 
     from arxiv_manager.scheduler.routes import router
+
     app = FastAPI()
     app.include_router(router)
 
@@ -32,13 +34,15 @@ def scheduler_client(monkeypatch, tmp_path):
 
 
 class TestEnqueueEndpoint:
-
     def test_enqueue(self, scheduler_client):
-        resp = scheduler_client.post("/api/scheduler/enqueue", json={
-            "type": "generate_qa",
-            "payload": {"image_path": "/tmp/test.png"},
-            "priority": 5,
-        })
+        resp = scheduler_client.post(
+            "/api/scheduler/enqueue",
+            json={
+                "type": "generate_qa",
+                "payload": {"image_path": "/tmp/test.png"},
+                "priority": 5,
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert "job_id" in data
@@ -50,18 +54,23 @@ class TestEnqueueEndpoint:
         assert "type is required" in resp.json()["detail"]
 
     def test_enqueue_defaults(self, scheduler_client):
-        resp = scheduler_client.post("/api/scheduler/enqueue", json={
-            "type": "validate_batch",
-        })
+        resp = scheduler_client.post(
+            "/api/scheduler/enqueue",
+            json={
+                "type": "validate_batch",
+            },
+        )
         assert resp.status_code == 200
 
 
 class TestJobStatusEndpoint:
-
     def test_get_status(self, scheduler_client):
-        resp = scheduler_client.post("/api/scheduler/enqueue", json={
-            "type": "generate_qa",
-        })
+        resp = scheduler_client.post(
+            "/api/scheduler/enqueue",
+            json={
+                "type": "generate_qa",
+            },
+        )
         job_id = resp.json()["job_id"]
 
         resp = scheduler_client.get(f"/api/scheduler/status/{job_id}")
@@ -78,9 +87,12 @@ class TestJobStatusEndpoint:
 
         import arxiv_manager.scheduler.queue as q_mod
 
-        resp = scheduler_client.post("/api/scheduler/enqueue", json={
-            "type": "generate_qa",
-        })
+        resp = scheduler_client.post(
+            "/api/scheduler/enqueue",
+            json={
+                "type": "generate_qa",
+            },
+        )
         job_id = resp.json()["job_id"]
 
         # Simulate completion via queue module
@@ -91,11 +103,13 @@ class TestJobStatusEndpoint:
 
 
 class TestCancelEndpoint:
-
     def test_cancel(self, scheduler_client):
-        resp = scheduler_client.post("/api/scheduler/enqueue", json={
-            "type": "generate_qa",
-        })
+        resp = scheduler_client.post(
+            "/api/scheduler/enqueue",
+            json={
+                "type": "generate_qa",
+            },
+        )
         job_id = resp.json()["job_id"]
 
         resp = scheduler_client.post(f"/api/scheduler/cancel/{job_id}")
@@ -108,7 +122,6 @@ class TestCancelEndpoint:
 
 
 class TestQueueEndpoint:
-
     def test_queue_list(self, scheduler_client):
         scheduler_client.post("/api/scheduler/enqueue", json={"type": "rag_index"})
         scheduler_client.post("/api/scheduler/enqueue", json={"type": "generate_qa"})

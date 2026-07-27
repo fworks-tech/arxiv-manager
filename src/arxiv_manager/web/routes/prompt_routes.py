@@ -37,8 +37,12 @@ def api_save_prompt(name: str, body: SavePromptBody) -> JSONResponse:
     if not body.text:
         return JSONResponse({"error": "Missing 'text' field"}, status_code=400)
     version = save_prompt(
-        name=name, text=body.text, author=body.author,
-        description=body.description, tags=body.tags, status=body.status,
+        name=name,
+        text=body.text,
+        author=body.author,
+        description=body.description,
+        tags=body.tags,
+        status=body.status,
     )
     return JSONResponse({"name": name, "version": version, "status": "saved"})
 

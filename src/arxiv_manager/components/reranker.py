@@ -22,6 +22,7 @@ def _get_reranker():
     if _reranker is None:
         try:
             from sentence_transformers import CrossEncoder
+
             _reranker = CrossEncoder(RERANKER_MODEL_NAME)
             logger.info("reranker: loaded %s", RERANKER_MODEL_NAME)
         except Exception as e:

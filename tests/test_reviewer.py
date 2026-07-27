@@ -7,7 +7,6 @@ from arxiv_manager.agents.reviewer import review_draft
 
 
 class TestReviewDraft:
-
     def test_review_empty_draft(self):
         result = review_draft({"question": "", "answer": ""})
         assert result["score"] == 1

@@ -61,9 +61,8 @@ def mark_submitted(task_id: int, platform_task_id: str = "") -> Task | None:
 
         # Capture Rhea feedback on all attached GenerationAttempt records
         from ..models import GenerationAttempt
-        attempts = list(session.exec(
-            select(GenerationAttempt).where(GenerationAttempt.task_id == task_id)
-        ).all())
+
+        attempts = list(session.exec(select(GenerationAttempt).where(GenerationAttempt.task_id == task_id)).all())
         for a in attempts:
             a.rhea_passed = task.rhea_passed
             a.rhea_notes = task.rhea_notes[:500]
@@ -99,9 +98,7 @@ def mark_status(task_id: int, status: str, notes: str = "") -> Task | None:
 
         # Update latest submission log
         log = session.exec(
-            select(SubmissionLog)
-            .where(SubmissionLog.task_id == task_id)
-            .order_by(SubmissionLog.submitted_at.desc())
+            select(SubmissionLog).where(SubmissionLog.task_id == task_id).order_by(SubmissionLog.submitted_at.desc())
         ).first()
         if log:
             log.review_status = status

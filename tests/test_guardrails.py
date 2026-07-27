@@ -1,4 +1,5 @@
 """Tests for the guardrails system — composable quality checks."""
+
 from arxiv_manager.authoring._guardrails import (
     GUARDRAILS,
     check_answer_format_match,
@@ -153,14 +154,22 @@ class TestRunGuardrailsCallback:
     def test_callback_invoked_when_guardrails_fail(self, sample_image_chart_path):
         """run_guardrails invokes draft_qa_callback when guardrails fail."""
         from arxiv_manager.authoring._guardrails import run_guardrails
+
         callback_called = False
+
         def fake_callback(**kw):
             nonlocal callback_called
             callback_called = True
-            return {"question": "Q?", "answer": "5", "_raw_response": "",
-                    "_validation_quality": 80, "_validation_is_valid": True}
+            return {
+                "question": "Q?",
+                "answer": "5",
+                "_raw_response": "",
+                "_validation_quality": 80,
+                "_validation_is_valid": True,
+            }
+
         # Empty answer triggers check_answer_plausible failure → triggers callback
-        result = run_guardrails(
+        run_guardrails(
             {"answer": ""},
             {"min_quality": 0},
             api_key="test-key",
@@ -173,12 +182,14 @@ class TestRunGuardrailsCallback:
     def test_guardrails_import_does_not_trigger_ai_draft(self):
         """Importing _guardrails does NOT trigger ai_draft import."""
         import sys
+
         # Capture ai_draft keys before import
-        pre_keys = {k for k in sys.modules if 'ai_draft' in k}
+        pre_keys = {k for k in sys.modules if "ai_draft" in k}
         # Import guardrails
         from arxiv_manager.authoring._guardrails import run_guardrails
+
         # Get ai_draft keys after import
-        post_keys = {k for k in sys.modules if 'ai_draft' in k}
+        post_keys = {k for k in sys.modules if "ai_draft" in k}
         # No new ai_draft modules should have been loaded
         new_keys = post_keys - pre_keys
         assert len(new_keys) == 0, f"guardrails import triggered ai_draft loading: {new_keys}"

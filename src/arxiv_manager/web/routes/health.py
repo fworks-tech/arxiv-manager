@@ -24,6 +24,7 @@ def _check_db() -> dict:
             from sqlmodel import func, select
 
             from ...models import Figure, Paper, Task
+
             paper_count = session.exec(select(func.count(Paper.id))).one()
             fig_count = session.exec(select(func.count(Figure.id))).one()
             task_count = session.exec(select(func.count(Task.id))).one()
@@ -55,6 +56,7 @@ def _check_llm() -> dict:
         return {"status": "skipped", "reason": "no api key"}
     try:
         import httpx
+
         start = time.monotonic()
         resp = httpx.post(
             "https://opencode.ai/zen/go/v1/chat/completions",
@@ -96,10 +98,7 @@ def health_check(request: Request) -> JSONResponse:
     if full and key_status["status"] == "ok":
         checks["llm"] = _check_llm()
 
-    all_ok = all(
-        v.get("status") == "ok" or v.get("status") == "skipped"
-        for v in checks.values()
-    )
+    all_ok = all(v.get("status") == "ok" or v.get("status") == "skipped" for v in checks.values())
 
     return JSONResponse(
         content={

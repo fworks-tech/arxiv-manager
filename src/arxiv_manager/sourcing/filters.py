@@ -7,6 +7,7 @@ import hashlib
 import logging
 from pathlib import Path
 
+import imagehash
 from PIL import Image
 
 logger = logging.getLogger(__name__)
@@ -42,12 +43,7 @@ def compute_complexity(image_path: Path) -> float:
     except Exception:
         return 0.0
 
-    score = (
-        0.20 * color_score
-        + 0.30 * edge_score
-        + 0.20 * detail_score
-        + 0.30 * density_score
-    )
+    score = 0.20 * color_score + 0.30 * edge_score + 0.20 * detail_score + 0.30 * density_score
     return round(min(max(score, 0.0), 1.0), 3)
 
 

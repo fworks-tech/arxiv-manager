@@ -17,6 +17,7 @@ def _get_telemetry_path() -> Path:
     global _TELEMETRY_PATH
     if _TELEMETRY_PATH is None:
         from ..storage import STORAGE_DIR
+
         _TELEMETRY_PATH = STORAGE_DIR / "_draft_telemetry.jsonl"
     return _TELEMETRY_PATH
 

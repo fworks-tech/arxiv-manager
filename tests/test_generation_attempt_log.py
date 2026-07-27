@@ -95,9 +95,7 @@ class TestLogGenerationAttempt:
             generated_answer="42",
             success=True,
         )
-        records = list(db_session.exec(
-            __import__("sqlmodel").select(GenerationAttempt)
-        ).all())
+        records = list(db_session.exec(__import__("sqlmodel").select(GenerationAttempt)).all())
         assert len(records) == 1
         r = records[0]
         assert r.figure_id == figure_id
@@ -119,9 +117,7 @@ class TestLogGenerationAttempt:
             figure_id=sample_figure.id,
             attempt_number=1,
         )
-        records = list(db_session.exec(
-            __import__("sqlmodel").select(GenerationAttempt)
-        ).all())
+        records = list(db_session.exec(__import__("sqlmodel").select(GenerationAttempt)).all())
         assert len(records) == 1
         r = records[0]
         assert r.generated_question == ""

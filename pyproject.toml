@@ -41,6 +41,7 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N"]
+per-file-ignores = {"src/arxiv_manager/authoring/_draft_prompts.py" = ["E501"], "src/arxiv_manager/authoring/_rule_groups.py" = ["E501"], "src/arxiv_manager/authoring/_history_context.py" = ["E501"], "src/arxiv_manager/authoring/ai_draft/core.py" = ["E501"], "src/arxiv_manager/cli/task_commands.py" = ["E501"], "src/arxiv_manager/sourcing/__init__.py" = ["E501"], "tests/*" = ["E501"]}
 
 [tool.coverage.run]
 source = ["src"]

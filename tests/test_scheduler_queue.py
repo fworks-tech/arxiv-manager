@@ -30,14 +30,16 @@ def queue_engine(tmp_path):
 @pytest.fixture
 def patch_session(queue_engine, monkeypatch):
     """Patch get_session to return a session bound to the test engine."""
+
     def _fake_session():
         return Session(queue_engine)
+
     import arxiv_manager.scheduler.queue as q_mod
+
     monkeypatch.setattr(q_mod, "get_session", _fake_session)
 
 
 class TestEnqueue:
-
     def test_enqueue_basic(self, patch_session):
         job = enqueue("generate_qa", {"image_path": "/tmp/test.png", "difficulty": "challenging"})
         assert job.id is not None
@@ -59,7 +61,6 @@ class TestEnqueue:
 
 
 class TestDequeue:
-
     def test_dequeue_returns_oldest_highest_priority(self, patch_session):
         enqueue("generate_qa", priority=1)
         enqueue("generate_qa", priority=5)
@@ -81,7 +82,6 @@ class TestDequeue:
 
 
 class TestCompleteAndFail:
-
     def test_complete_job(self, patch_session):
         job = enqueue("generate_qa")
         completed = complete_job(job.id, {"question": "test", "answer": "42"})
@@ -108,7 +108,6 @@ class TestCompleteAndFail:
 
 
 class TestCancel:
-
     def test_cancel_queued(self, patch_session):
         job = enqueue("generate_qa")
         cancelled = cancel_job(job.id)
@@ -125,7 +124,6 @@ class TestCancel:
 
 
 class TestQuery:
-
     def test_get_job_status(self, patch_session):
         job = enqueue("generate_qa", priority=3)
         status = get_job_status(job.id)
@@ -138,6 +136,7 @@ class TestQuery:
 
     def test_list_queue_orders_by_newest(self, patch_session):
         import time
+
         j1 = enqueue("type_a")
         time.sleep(0.01)
         j2 = enqueue("type_b")

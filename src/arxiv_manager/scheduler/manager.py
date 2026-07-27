@@ -50,9 +50,13 @@ def start_worker(poll_interval: float = 1.0) -> int | None:
 
     _PROCESS = subprocess.Popen(
         [
-            sys.executable, "-m", "arxiv_manager.scheduler.worker",
-            "--sentinel", str(sentinel),
-            "--poll-interval", str(poll_interval),
+            sys.executable,
+            "-m",
+            "arxiv_manager.scheduler.worker",
+            "--sentinel",
+            str(sentinel),
+            "--poll-interval",
+            str(poll_interval),
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

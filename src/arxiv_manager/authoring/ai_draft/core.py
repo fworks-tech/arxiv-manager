@@ -1,4 +1,5 @@
 """Core drafting function — prompt building, history injection, guardrails."""
+
 from __future__ import annotations
 
 import base64
@@ -43,8 +44,13 @@ def draft_qa(
     use_rag: bool = True,
 ) -> dict | None:
     """Draft a Q&A pair from an image using an LLM."""
-    logger.info("draft_qa entry image=%s difficulty=%s figure_type=%s complexity=%.3f",
-                image_path, difficulty, figure_type, complexity_score)
+    logger.info(
+        "draft_qa entry image=%s difficulty=%s figure_type=%s complexity=%.3f",
+        image_path,
+        difficulty,
+        figure_type,
+        complexity_score,
+    )
 
     if not api_key:
         api_key = _get_api_key()
@@ -89,6 +95,7 @@ def draft_qa(
         prompt += f"\nType: {task_type_hint}"
 
     from .._history_context import inject_history_into_prompt, select_best_model
+
     if model is None:
         model = select_best_model(
             figure_type=figure_type,
@@ -112,6 +119,7 @@ def draft_qa(
     if use_rag and not feedback and figure_id is not None:
         try:
             from ...services.rag_pipeline import get_pipeline as _get_rag
+
             rag_ctx = _get_rag().get_context(
                 query=prompt,
                 figure_id=figure_id,
@@ -145,9 +153,12 @@ def draft_qa(
 
     if result is not None:
         if not result.get("question", "").strip() or not result.get("answer", "").strip():
-            logger.warning("draft_qa: empty Q&A after API call (question=%r answer=%r raw=%.300s)",
-                           result.get("question", ""), result.get("answer", ""),
-                           result.get("_raw_response", "")[:300])
+            logger.warning(
+                "draft_qa: empty Q&A after API call (question=%r answer=%r raw=%.300s)",
+                result.get("question", ""),
+                result.get("answer", ""),
+                result.get("_raw_response", "")[:300],
+            )
             result = None
             ok = False
 
@@ -206,10 +217,14 @@ def draft_qa(
             result["_validation_warnings"] = v2.warnings
 
     elapsed = time.time() - start
-    error_msg = _err if '_err' in dir() else ""
+    error_msg = _err if "_err" in dir() else ""
     log_draft(
-        model=model_id, ok=ok, elapsed=elapsed,
-        difficulty=difficulty, figure_type=figure_type or "",
-        figure_path=str(image_path), error=error_msg,
+        model=model_id,
+        ok=ok,
+        elapsed=elapsed,
+        difficulty=difficulty,
+        figure_type=figure_type or "",
+        figure_path=str(image_path),
+        error=error_msg,
     )
     return result

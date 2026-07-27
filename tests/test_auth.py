@@ -26,8 +26,10 @@ def auth_engine(tmp_path):
 def patch_auth_session(auth_engine, monkeypatch):
     def _fake():
         return Session(auth_engine)
+
     import arxiv_manager.db as db_mod
     import arxiv_manager.personalization.auth as auth_mod
+
     monkeypatch.setattr(db_mod, "get_session", _fake)
     monkeypatch.setattr(auth_mod, "get_session", _fake)
 
@@ -44,7 +46,6 @@ def sample_user(patch_auth_session, auth_engine):
 
 
 class TestPasswordHashing:
-
     def test_hash_and_verify(self):
         pwd = "my_secret_password_123"
         hashed = hash_password(pwd)
@@ -68,7 +69,6 @@ class TestPasswordHashing:
 
 
 class TestTokenCreation:
-
     def test_create_and_validate(self, patch_auth_session, sample_user):
         token = create_token(sample_user)
         user = validate_token(token.token)
@@ -81,7 +81,6 @@ class TestTokenCreation:
 
 
 class TestLogin:
-
     def test_login_success(self, patch_auth_session, sample_user):
         result = login_user("testuser", "password123")
         assert "token" in result

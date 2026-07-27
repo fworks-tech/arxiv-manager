@@ -1,4 +1,5 @@
 """Draft verification — asks the model to check its own answer."""
+
 from __future__ import annotations
 
 import base64
@@ -50,8 +51,13 @@ def verify_draft(
     start = time.time()
     try:
         verified = _call_opencode(
-            api_key, prompt, b64, model=model,
-            difficulty="", retries=1, media_type=media_type,
+            api_key,
+            prompt,
+            b64,
+            model=model,
+            difficulty="",
+            retries=1,
+            media_type=media_type,
         )
     except Exception:
         verified = None
@@ -59,15 +65,22 @@ def verify_draft(
     elapsed = time.time() - start
     if verified and all(k in verified for k in ("question", "answer", "answer_format", "task_type")):
         log_draft(
-            model=model or CONFIG.default_model, ok=True,
-            elapsed=elapsed, difficulty="verify",
-            figure_type="", figure_path=str(image_path), error="",
+            model=model or CONFIG.default_model,
+            ok=True,
+            elapsed=elapsed,
+            difficulty="verify",
+            figure_type="",
+            figure_path=str(image_path),
+            error="",
         )
         return verified
     log_draft(
-        model=model or CONFIG.default_model, ok=False,
-        elapsed=elapsed, difficulty="verify",
-        figure_type="", figure_path=str(image_path),
+        model=model or CONFIG.default_model,
+        ok=False,
+        elapsed=elapsed,
+        difficulty="verify",
+        figure_type="",
+        figure_path=str(image_path),
         error="verify_failed_kept_original",
     )
     return draft
