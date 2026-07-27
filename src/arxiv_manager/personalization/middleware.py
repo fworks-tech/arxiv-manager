@@ -54,6 +54,9 @@ def _is_public(path: str) -> bool:
         or path.startswith("/task/")
     ):
         return True
+    # Internal API routes (protected by per-handler API key checks)
+    if path.startswith("/api/"):
+        return True
     return False
 
 
