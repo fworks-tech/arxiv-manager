@@ -72,31 +72,34 @@ Qwen's known weaknesses (from benchmarks):
 - ODInW13 (object detection/counting): 50.8 — weak at counting many visual elements
 - ZEROBench_sub (zero-shot reasoning): 34.4 — weak at novel task formats
 
-Proven Challenging strategies:
+Proven Challenging strategies (genuine visual REASONING, not mechanical tasks):
 1. Cross-panel comparison: "What is the difference between the maximum [axis] value in panel A and the maximum in panel B?"
-2. Spatial relationship + classification: "How many [elements] are connected to [specific component]?" (count after tracing)
-3. Threshold filter + read: "Which panel has the highest [attribute] value, and what is it?"
-4. Visual classification + sum: "Count [type A] that [criterion] and [type B] that [criterion]. Sum both."
-5. Value-at-intersection: "At the x-value of [value], what is the approximate y-value in panel [panel]?"
-6. Cross-attribute comparison + count: "How many more [type A] than [type B] are visible? (must classify each first)"
-7. Cross-panel arithmetic: "Sum the peak values across all panels in the figure."
+2. Value-at-specific-location: "At x=[value], what is the approximate y-value of [series] in panel X?"
+3. Peak/trough reading: "What is the maximum y-value on the axis of panel A, and which panel has the highest maximum?"
+4. Ratio across panels: "What is the ratio of the peak value in panel X to the peak value in panel Y?"
+5. Trend-based comparison: "Between x=[a] and x=[b], which panel shows the steepest increase?"
+6. Cross-panel arithmetic: "Sum the peak values across all panels in the figure."
+7. Visual flow tracing: "Trace the path from [component A] to [component B]. Which intermediate component receives inputs from both?"
+8. Attribute comparison: "Which component has the larger value: the one labeled [X] or the one labeled [Y]?"
 
-ANTI-PATTERNS (DO NOT USE):
-- Counting axis labels, tick marks, colorbar ticks, legends, or similar OCR-able elements
+🚫 ANTI-PATTERNS (DO NOT USE — these are mechanical, not reasoning):
+- "Count the number of X, Y, and Z" where the primary effort is tallying many items — not visual reasoning
+- "Classify [A], [B], [C], then sum all counts" — counting with labels, not reasoning
+- "How many arrows/connections touch [component]?" — counting instead of interpreting
+- Counting chart furniture: axis labels, tick marks, colorbar ticks, legends — OCR-able, useless
+- Chaining multiple independent counts with addition/multiplication — manufactured difficulty
 - Any question answerable from text alone (must require the image)
-- "How many X" without a filter, comparison, or arithmetic operation
-- Generic "How many [elements] are visible?" without constraints
 - Providing all numerical data in the question text (the model must READ from the chart)
 
 Authoring principles (from QA handbook):
-- Prefer REASONING over recognition: compose multiple series, filter by attribute, compare across panels
-- Add ONE intermediate reasoning step: combine two values and compute, or locate then compare
+- Prefer REASONING over recognition: interpret visual patterns, compare values, read specific data points
+- Add ONE intermediate reasoning step: combine two values, or locate then compare
 - Pin the answer down with constraints
 - Make the answer exact-matchable: smallest unit
 - Question must require the image
 - Answer must be objective
 
-Rules: English, 1 sentence, must need the image, no yes/no, answer is 1 word or number. No option restriction. No "how does" / "what trend" / no "none" / "cannot be determined". Answer must be an UNUSUAL number (not 2, 3, 4, 5) to avoid Qwen guessing.
+Rules: English, 1 sentence, must need the image, no yes/no, answer is 1 word or number. No option restriction. No "how does" / "what trend" / no "none" / "cannot be determined".
 Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"chart|general_image|spatial"}}"""),
 )
 
@@ -136,12 +139,16 @@ Qwen's known weaknesses (from benchmarks):
 - ODInW13 (object detection/counting): 50.8 — weak at counting many visual elements
 - ZEROBench_sub (zero-shot reasoning): 34.4 — weak at novel task formats
 
-Use these strategies:
+Use these strategies (genuine visual REASONING, not mechanical tasks):
 1. Multi-panel reasoning: "Compare [element A] in panel X with [element B] in panel Y — which is larger and by how much?"
-2. Spatial tracing + classification: "Trace the path from [A] to [B]. How many [type] elements does it cross?"
-3. Cross-attribute comparison: "Which [category] has the most [attribute] across all panels?"
-4. Conditional classification + count: "Excluding [region], how many [elements] remain after classification?"
+2. Value-at-specific-location: "At x=[value], what is the y-value of series [name] in panel X?"
+3. Cross-attribute comparison: "Which [category] has the highest [attribute] across all panels?"
+4. Peak/trough reading: "What is the y-value at the global maximum of the curve in panel A?"
 5. Value comparison across charts: "What is the ratio of [value A] in panel X to [value B] in panel Y?"
+6. Visual flow tracing: "Trace the path from [component A] to [component B]. What component sits at the junction?"
+7. Attribute comparison: "Which connected component has the largest [attribute]: [X] or [Y]?"
+
+🚫 DO NOT make counting the primary difficulty. The challenge MUST come from interpreting visual patterns, relationships, or reading specific values — NOT from tallying items.
 
 QA handbook rules:
 - English, 1 sentence (2 max for format spec), must need the image
@@ -150,7 +157,6 @@ QA handbook rules:
 - No option restriction like "Out of the 3..."
 - No domain jargon (no sp3, p-value, EBITDA, etc.)
 - Answer is 1 word or 1 number (smallest possible unit)
-- The answer must be an UNUSUAL number (not 2, 3, 4, 5) to avoid Qwen guessing
 
 Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"chart|general_image|spatial"}}"""),
 )
@@ -167,37 +173,40 @@ Qwen's known weaknesses (from benchmarks):
 PROVEN example (cross-panel comparison):
 "What is the difference between the maximum value of series A in panel X and the maximum value of series B in panel Y?" → requires reading peaks from two charts [Challenging: Qwen 0/4, Gemini 4/4]
 
-Use these PROVEN Challenging strategies (visual reasoning FIRST, counting as final step only):
+Use these PROVEN Challenging strategies (genuine visual REASONING, not mechanical tasks):
 1. Cross-panel comparison: "What is the difference between [value A] in panel X and [value B] in panel Y?"
-2. Visual classification + count: "Count [elements] that [subjective criterion]. How many are there?"
-3. Spatial targeting: "How many [elements] touch/connect to [specific component]?"
-4. Threshold filter + read: "How many bars exceed [value]? Which panel has the most?"
-5. Multi-type classification + sum: "Classify [type A], [type B], [type C], then sum all three counts."
-6. Value-at-intersection: "At the x-value of [value], what is the approximate y-value in panel [panel]?"
-7. Cross-panel arithmetic: "Sum the peak values across all panels."
+2. Value-at-specific-location: "At x=[value], what is the approximate y-value of [series] in panel X?"
+3. Peak/trough reading: "What is the maximum y-value on the axis of panel A, and which panel has the highest maximum?"
+4. Ratio across panels: "What is the ratio of the peak value in panel X to the peak value in panel Y?"
+5. Trend-based comparison: "Between x=[a] and x=[b], which panel shows the steepest increase?"
+6. Cross-panel arithmetic: "Sum the maximum y-axis values across all panels."
+7. Visual flow tracing: "Trace the path from [component A] to [component B]. Which intermediate component receives inputs from both?"
+8. Attribute comparison: "Which component has the larger value: the one labeled [X] or the one labeled [Y]?"
 
-CHART-SPECIFIC strategies (when figure_type = chart_graph_text or chart):
-8. Read-and-compare: "What is the difference between the maximum [axis] value in panel A and the maximum in panel B?" (requires reading peaks from each chart)
-9. Value-at-intersection: "At the x-value of [value], what is the approximate y-value in panel [panel]?" (requires reading a specific point on a curve)
-10. Ratio across panels: "What is the ratio of [quantity A] in panel [panel] to [quantity A] in panel [panel]?" (requires reading values then dividing)
-11. Threshold-based reading: "How many of the bars in panel A exceed a value of [number]?" (requires reading each bar's value, comparing to threshold)
-12. Cross-panel arithmetic: "Sum the peak z-values across all panels in the figure." (requires reading each panel's peak then adding)
+CHART-SPECIFIC strategies (for chart_graph_text or chart figures):
+9. Read-and-compare: "What is the difference between the maximum [axis] value in panel A and the maximum in panel B?"
+10. Value-at-intersection: "At x=[value], what is the y-value of series [name]?"
+11. Ratio across panels: "What is the ratio of [quantity A] in panel X to [quantity A] in panel Y?"
+12. Cross-panel arithmetic: "Sum the peak z-values across all panels in the figure."
 
-🚫 ANTI-PATTERNS (DO NOT USE) for chart figures:
-- "How many tick labels are on the [axis]?" — Qwen can OCR these perfectly. USELESS.
-- "Count the [axis] labels in panel A" — same problem, mechanical counting.
-- Any question whose answer is the count of axis labels, colorbar ticks, legends, or similar OCR-able elements.
-- "How many [elements] are visible in the image?" without a filter, comparison, or arithmetic operation.
-- "Count the number of X, Y, and Z" where X/Y/Z are visual artifacts (labels, ticks, grids) rather than data values.
+🚫 DO NOT make counting the primary difficulty. The challenge MUST come from interpreting visual patterns, relationships, trends, or data values — NOT from how many items need counting. If you must count, it must be the final step AFTER genuine visual reasoning (classification, comparison, tracing, value reading), and the count itself must be small and obvious.
+
+🚫 ANTI-PATTERNS (DO NOT USE — these are mechanical, not reasoning):
+- "Count the number of X, Y, and Z" where the primary effort is tallying many items
+- "Classify [A], [B], [C], then sum all counts" — counting with labels, not reasoning
+- "How many arrows/connections touch [component]?" without requiring classification or comparison
+- "How many bars exceed [value]?" — counting instead of reading and comparing specific values
+- Counting chart furniture: tick labels, axis labels, colorbar ticks, legends — OCR-able, useless
+- Chaining multiple independent counts with addition/multiplication — manufactured difficulty
+- Any question answerable from text alone without seeing the image
 
 The question MUST:
-- Reference specific axis VALUES, data POINTS, peaks, regions, or numerical features of the data (not just chart furniture)
-- Require COMPARISON across panels OR ARITHMETIC on values OR READING a specific value at a specific location
-- Be UNANSWERABLE from text alone — must require the actual chart data
+- Reference specific VALUES, data points, peaks, regions, or visual features
+- Require COMPARISON, READING a value, or TRACING a visual relationship
+- Be UNANSWERABLE from text alone — the image must be indispensable
+- Present a meaningful visual challenge, not a counting exercise
 
-AVOID "manufactured difficulty": making the question hard mainly by requiring a large manual count + arbitrary filters, or chaining counting with unnecessary arithmetic just because Qwen struggles with it. The challenge should come from comparing or interpreting a meaningful visual pattern, relationship, or trend.
-
-Even if the image looks simple or has few elements, FORCE a multi-step question — combine attributes, apply filters, or compare across panels. A simple question defeats the purpose. The author explicitly chose Challenging.
+Even if the image looks simple or has few elements, FORCE a multi-step question — compare across regions, read specific values, or interpret visual relationships. A simple counting question defeats the purpose. The author explicitly chose Challenging.
 
 QA handbook rules:
 - English, 1 sentence (2 max for format spec), must need the image
@@ -206,7 +215,6 @@ QA handbook rules:
 - No option restriction like "Out of the 3..."
 - No domain jargon (no sp3, p-value, EBITDA, etc.)
 - Answer is 1 word or 1 number (smallest possible unit)
-- The answer must be an UNUSUAL number (not 2, 3, 4, 5) to avoid Qwen guessing
 - The question must be CLEAR enough that a careful Gemini pass can solve it
 - Add ONE intermediate reasoning step: combine two values, or locate then compare
 - Pin the answer down with constraints: specify which series, panel, axis, subset
@@ -254,12 +262,12 @@ Qwen's known weaknesses:
 - ZEROBench_sub (zero-shot reasoning): 34.4 — weak at novel spatial tasks
 - RefSpatialBench: 64.3 — moderate at referenced spatial relations
 
-Use these PROVEN spatial strategies for Challenging:
+Use these PROVEN spatial strategies for Challenging (genuine visual REASONING, not mechanical counting):
 1. Multi-object exclusion: "Which is the third object to the right of X, excluding objects smaller than Y?"
 2. Depth + attribute: "Which object furthest from the camera has the brightest color?"
 3. Perspective switching + occlusion: "From the seated person's view, which object is partially blocked by the lamp?"
 4. Multi-step containment: "What object sits on the surface that is between the plant and the window?"
-5. Relative positioning with count: "Count how many objects are between the white chair and the blue table."
+5. Spatial comparison: "Which object is closer to the camera: the [A] on the left or the [B] on the right?"
 
 QA handbook rules:
 - English, 1 sentence (2 max for format spec), must need the image
@@ -286,14 +294,14 @@ Qwen's known weaknesses:
 - ODInW13: 50.8 — weak at detecting many objects
 - ZEROBench_sub: 34.4 — weak at novel spatial tasks
 
-Strategies:
-1. Count objects across depth planes: "How many objects are closer to the camera than the red chair?"
-2. Spatial paths: "Starting from the doorway, which object would you pass third before reaching the sink?"
-3. Occlusion counting: "How many objects are partially hidden by the table?"
-4. Multi-step filtering: "Among objects on the top shelf, which is to the left of the blue vase and darker than the gray box?"
+Strategies (genuine visual REASONING, not mechanical counting):
+1. Depth-plane comparison: "Which object appears closer to the camera: the red chair or the blue table?"
+2. Spatial paths: "Starting from the doorway and moving toward the sink, which object would you pass third?"
+3. Multi-step filtering: "Among objects on the top shelf, which is to the left of the blue vase and darker than the gray box?"
+4. Object relationship: "What object sits between the plant and the window, and is it above or below the counter?"
 
 Rules: English, 1 sentence (2 max for format spec), must need the image. No yes/no. Answer is 1 word or number.
-No trick answers. Answer must be UNUSUAL number (not 2, 3, 4, 5).
+No trick answers.
 Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"general_image"}}"""),
 )
 

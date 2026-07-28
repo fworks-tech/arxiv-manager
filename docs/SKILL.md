@@ -74,29 +74,31 @@ Complexity score from `audit_figure()` (0-1 scale):
 PROVEN example (cross-panel comparison):
 > "What is the difference between the maximum value of series A in panel X and the maximum value of series B in panel Y?" → requires reading peaks from two charts
 
-Proven strategies (visual reasoning FIRST, counting as final step only):
+Proven strategies (genuine visual REASONING, not mechanical tasks):
 1. **Cross-panel comparison**: "What is the difference between [value A] in panel X and [value B] in panel Y?"
-2. **Visual classification + count**: "Count [elements] that [subjective criterion]. How many are there?"
-3. **Spatial targeting**: "How many [elements] touch/connect to [specific component]?"
-4. **Threshold filter + read**: "How many bars exceed [value]? Which panel has the most?"
-5. **Multi-type classification + sum**: "Classify [type A], [type B], [type C], then sum all three counts."
-6. **Value-at-intersection**: "At the x-value of [value], what is the approximate y-value in panel [panel]?"
-7. **Cross-panel arithmetic**: "Sum the peak values across all panels."
+2. **Value-at-specific-location**: "At x=[value], what is the approximate y-value of [series] in panel X?"
+3. **Peak/trough reading**: "What is the maximum y-value on the axis of panel A, and which panel has the highest maximum?"
+4. **Ratio across panels**: "What is the ratio of the peak value in panel X to the peak value in panel Y?"
+5. **Trend-based comparison**: "Between x=[a] and x=[b], which panel shows the steepest increase?"
+6. **Cross-panel arithmetic**: "Sum the maximum y-axis values across all panels."
+7. **Visual flow tracing**: "Trace the path from [component A] to [component B]. Which intermediate component receives inputs from both?"
+8. **Attribute comparison**: "Which component has the larger value: the one labeled [X] or the one labeled [Y]?"
 
 **Chart-specific strategies** (when `figure_type = chart_graph_text`):
-8. **Read-and-compare**: "What is the difference between the maximum [axis] value in panel A and the maximum in panel B?"
-9. **Value-at-intersection**: "At the x-value of [value], what is the approximate y-value in panel [panel]?"
-10. **Ratio across panels**: "What is the ratio of [quantity A] in panel [panel] to [quantity A] in panel [panel]?"
-11. **Threshold-based reading**: "How many of the bars in panel A exceed a value of [number]?"
+9. **Read-and-compare**: "What is the difference between the maximum [axis] value in panel A and the maximum in panel B?"
+10. **Value-at-intersection**: "At x=[value], what is the y-value of series [name]?"
+11. **Ratio across panels**: "What is the ratio of [quantity A] in panel X to [quantity A] in panel Y?"
 12. **Cross-panel arithmetic**: "Sum the peak z-values across all panels in the figure."
 
 ### HARDEST Patterns (both models fail)
 
 1. **Multi-panel reasoning**: "Compare [element A] in panel X with [element B] in panel Y — which is larger and by how much?"
-2. **Spatial tracing + classification**: "Trace the path from [A] to [B]. How many [type] elements does it cross?"
-3. **Cross-attribute comparison**: "Which [category] has the most [attribute] across all panels?"
-4. **Conditional classification + count**: "Excluding [region], how many [elements] remain after classification?"
+2. **Value-at-specific-location**: "At x=[value], what is the y-value of series [name] in panel X?"
+3. **Cross-attribute comparison**: "Which [category] has the highest [attribute] across all panels?"
+4. **Peak/trough reading**: "What is the y-value at the global maximum of the curve in panel A?"
 5. **Value comparison across charts**: "What is the ratio of [value A] in panel X to [value B] in panel Y?"
+6. **Visual flow tracing**: "Trace the path from [component A] to [component B]. What component sits at the junction?"
+7. **Attribute comparison**: "Which connected component has the largest [attribute]: [X] or [Y]?"
 
 ## Spatial Reasoning (Natural Images)
 
@@ -115,13 +117,13 @@ For natural images (photos, scenes) — NOT charts or diagrams.
 2. Depth + attribute: "Which object furthest from the camera has the brightest color?"
 3. Perspective switching + occlusion: "From the seated person's view, which object is partially blocked by the lamp?"
 4. Multi-step containment: "What object sits on the surface that is between the plant and the window?"
-5. Relative positioning with count: "Count how many objects are between the white chair and the blue table."
+5. Spatial comparison: "Which object is closer to the camera: the [A] on the left or the [B] on the right?"
 
 ### HARDEST Spatial (both fail)
-1. Count across depth planes: "How many objects are closer to the camera than the red chair?"
+1. Depth-plane comparison: "Which object appears closer to the camera: the red chair or the blue table?"
 2. Spatial paths: "Starting from the doorway, which object would you pass third before reaching the sink?"
-3. Occlusion counting: "How many objects are partially hidden by the table?"
-4. Multi-step filtering: "Among objects on the top shelf, which is to the left of the blue vase and darker than the gray box?"
+3. Multi-step filtering: "Among objects on the top shelf, which is to the left of the blue vase and darker than the gray box?"
+4. Object relationship: "What object sits between the plant and the window, and is it above or below the counter?"
 
 ## Chart Anti-Patterns (NEVER use for charts)
 
@@ -192,8 +194,7 @@ All questions must:
 6. Not be explanation questions ("how does", "what trend")
 7. Not use trick answers ("none", "cannot be determined")
 8. Not use option restriction ("Out of the 3...")
-9. Have an unusual answer number (avoid 2, 3, 4, 5 — Qwen guesses these)
-10. No domain jargon
+9. No domain jargon
 
 ## AI Drafting Pipeline
 
@@ -309,7 +310,6 @@ arXiv search → download PDF → extract figures → audit → filter → store
 - **Simple counting**: "How many cells in this grid?" → Qwen passes easily
 - **Chart furniture counting**: axis labels, ticks, colorbars → Qwen OCRs perfectly
 - **Questions with text shortcuts**: caption gives away the answer
-- **Small numbers**: 2, 3, 4, 5 are guessable by Qwen
 - **Objective classification**: clear criteria = easy for Qwen
 - **Pure math**: ratio/difference of values stated in question text — image not required
 - **Generic count without filter**: "How many X are in the image?"
