@@ -89,6 +89,29 @@ def get_task(task_id: int) -> Task | None:
         session.close()
 
 
+def delete_task(task_id: int) -> bool:
+    """Delete a task and all related records (generation_attempts, issue_reports, submission_logs)."""
+    from sqlmodel import delete
+
+    from ..db import get_session
+    from ..models import GenerationAttempt, IssueReport, SubmissionLog
+
+    session = get_session()
+    try:
+        task = session.get(Task, task_id)
+        if not task:
+            return False
+
+        session.exec(delete(GenerationAttempt).where(GenerationAttempt.task_id == task_id))
+        session.exec(delete(IssueReport).where(IssueReport.task_id == task_id))
+        session.exec(delete(SubmissionLog).where(SubmissionLog.task_id == task_id))
+        session.delete(task)
+        session.commit()
+        return True
+    finally:
+        session.close()
+
+
 def list_tasks(status: str | None = None, limit: int = 50) -> list[Task]:
     """List tasks, optionally filtered by status."""
     from sqlmodel import select

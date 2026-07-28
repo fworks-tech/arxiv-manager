@@ -69,8 +69,13 @@
                         {% endif %}
                     </td>
                     <td class="px-4 py-3 text-sm text-gray-500 hidden lg:table-cell">{% if t.ai_generated %}<span class="text-green-600 font-medium">AI</span>{% else %}<span class="text-gray-400">Manual</span>{% endif %}</td>
-                    <td class="px-4 py-3 text-right">
+                    <td class="px-4 py-3 text-right flex items-center gap-2 justify-end">
                         <a href="/task/{{ t.id }}" class="inline-flex items-center px-3 py-1.5 bg-[#1a1a2e] text-white rounded-lg text-xs font-medium hover:bg-[#16213e] transition-colors">Edit</a>
+                        <button type="button"
+                                hx-post="/api/task/{{ t.id }}/delete"
+                                hx-confirm="Delete task #{{ t.id }}? This cannot be undone."
+                                hx-target="body"
+                                class="inline-flex items-center px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors">Delete</button>
                     </td>
                 </tr>
                 {% endfor %}

@@ -438,6 +438,80 @@ class TestTaskUpdate:
 
 
 # ---------------------------------------------------------------------------
+# POST: Task delete
+# ---------------------------------------------------------------------------
+
+
+class TestTaskDelete:
+    def test_delete_task(self, test_client, sample_task):
+        resp = test_client.post(f"/api/task/{sample_task.id}/delete")
+        # Redirects to /tasks (303 → TestClient follows to 200)
+        assert resp.status_code in (200, 303, 302)
+        from arxiv_manager.db import get_session
+
+        s = get_session()
+        t = s.get(Task, sample_task.id)
+        assert t is None
+        s.close()
+
+    def test_delete_not_found(self, test_client):
+        resp = test_client.post("/api/task/99999/delete")
+        assert resp.status_code == 404
+
+    def test_delete_cascades_to_related(
+        self, test_client, sample_task, sample_figure, db_session
+    ):
+        """Deleting a task also deletes its GenerationAttempts, IssueReports, and SubmissionLogs."""
+        from arxiv_manager.db import get_session as _get_session
+        from arxiv_manager.models import GenerationAttempt, IssueReport, SubmissionLog
+
+        db_session.add(
+            GenerationAttempt(
+                figure_id=sample_figure.id,
+                task_id=sample_task.id,
+                generation_type="draft",
+                difficulty="easy",
+                generated_question="Q?",
+                generated_answer="A",
+                success=True,
+            )
+        )
+        db_session.add(
+            IssueReport(
+                task_id=sample_task.id,
+                figure_id=sample_figure.id,
+                reason="too_easy",
+            )
+        )
+        db_session.add(
+            SubmissionLog(
+                task_id=sample_task.id,
+            )
+        )
+        db_session.commit()
+
+        resp = test_client.post(f"/api/task/{sample_task.id}/delete")
+        assert resp.status_code in (200, 303, 302)
+
+        # Use a fresh session to avoid stale identity map
+        fresh = _get_session()
+        try:
+            assert fresh.get(Task, sample_task.id) is None
+            assert (
+                fresh.exec(select(GenerationAttempt).where(GenerationAttempt.task_id == sample_task.id)).first()
+                is None
+            )
+            assert (
+                fresh.exec(select(IssueReport).where(IssueReport.task_id == sample_task.id)).first() is None
+            )
+            assert (
+                fresh.exec(select(SubmissionLog).where(SubmissionLog.task_id == sample_task.id)).first() is None
+            )
+        finally:
+            fresh.close()
+
+
+# ---------------------------------------------------------------------------
 # POST: Task submit
 # ---------------------------------------------------------------------------
 
