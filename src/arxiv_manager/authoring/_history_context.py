@@ -227,7 +227,35 @@ def build_task_history(task_id: int, figure_id: int, max_events: int = 20) -> st
         if not attempts and not events:
             return ""
 
+        # Collect issue reports first — model must see them before attempts
+        issues: list[str] = []
+        for e in sorted(events, key=lambda x: x.created_at, reverse=True):
+            if e.event_type != "issue_report":
+                continue
+            try:
+                details = json.loads(e.details) if e.details else {}
+            except (json.JSONDecodeError, TypeError):
+                details = {}
+            reason = details.get("reason", "?")
+            issue_desc = details.get("description", "")
+            corr = details.get("corrected_answer", "")
+            line = f"Issue: {reason}"
+            if issue_desc:
+                line += f" — {issue_desc[:200]}"
+            if corr:
+                line += f" (corrected answer: {corr})"
+            if line not in issues:
+                issues.append(line)
+
         blocks: list[str] = []
+
+        # User feedback FIRST
+        if issues:
+            blocks.append("USER FEEDBACK — APPLY THIS: Do NOT repeat these errors. Do NOT create the same kind of question.")
+            for issue_line in issues:
+                blocks.append(f"  ❌ {issue_line}")
+
+        # Then generation attempts
         for i, r in enumerate(attempts, 1):
             parts = [f"Attempt {i}: {r.generation_type}"]
             if r.difficulty:
@@ -251,18 +279,19 @@ def build_task_history(task_id: int, figure_id: int, max_events: int = 20) -> st
                 )
             blocks.append(" | ".join(parts))
 
+        # Other task events (updates, difficulty changes, etc.)
         for e in events:
             try:
                 details = json.loads(e.details) if e.details else {}
             except (json.JSONDecodeError, TypeError):
                 details = {}
+            if e.event_type == "issue_report":
+                continue  # already collected above
             if e.event_type == "update" and "changed_fields" in details:
                 fields = ", ".join(details["changed_fields"])
                 blocks.append(f"   [Updated: {fields}]")
             elif e.event_type == "difficulty_change":
                 blocks.append(f"   [Difficulty: {details.get('old_difficulty','?')} -> {details.get('new_difficulty','?')}]")
-            elif e.event_type == "issue_report":
-                blocks.append(f"   [Issue reported: {details.get('reason','?')}]")
             elif e.event_type == "rhea_review":
                 passed = details.get("rhea_passed", False)
                 blocks.append(f"   [Rhea review: {'PASSED' if passed else 'FAILED'}]")
@@ -378,7 +407,7 @@ def inject_history_into_prompt(
     if figure_id is not None and task_id is not None:
         history = build_task_history(task_id, figure_id)
         if history:
-            parts.append("TASK HISTORY (DO NOT repeat failed patterns):\n" + history)
+            parts.append("TASK HISTORY — contains user feedback you MUST follow:\n" + history)
     elif figure_id is not None:
         history = build_figure_history(figure_id)
         if history:
