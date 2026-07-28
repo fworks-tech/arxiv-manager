@@ -20,6 +20,37 @@ def _extract_reasoning(text: str) -> tuple[str, str]:
     return cleaned, reasoning
 
 
+def _extract_json_from_text(source: str, key_hint: str, reasoning: str = "") -> dict | None:
+    """Search a text string for a balanced JSON object containing key_hint.
+
+    Returns parsed dict or None.
+    """
+    for txt in (source, reasoning):
+        if not txt:
+            continue
+        start = txt.find("{")
+        if start < 0:
+            continue
+        depth = 0
+        for end in range(start, len(txt)):
+            if txt[end] == "{":
+                depth += 1
+            elif txt[end] == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = txt[start: end + 1]
+                    if key_hint in candidate:
+                        try:
+                            data = json.loads(candidate)
+                            key_name = key_hint.strip('"\'')
+                            if key_name in data:
+                                return data
+                        except json.JSONDecodeError:
+                            pass
+                    break
+    return None
+
+
 def _parse_llm_response(text: str | None, raw_text: str = "") -> dict | None:
     """Parse JSON from LLM response, handling markdown code blocks and <think> tags.
 
@@ -69,21 +100,14 @@ def _parse_llm_response(text: str | None, raw_text: str = "") -> dict | None:
     if data:
         return data
 
-    start = text.find("{")
-    if start >= 0:
-        depth = 0
-        for end in range(start, len(text)):
-            if text[end] == "{":
-                depth += 1
-            elif text[end] == "}":
-                depth -= 1
-                if depth == 0:
-                    candidate = text[start : end + 1]
-                    if '"question"' in candidate:
-                        data = _parse_candidate(candidate)
-                        if data:
-                            return data
-                    break
+    # Search cleaned text for JSON with "question" key
+    found = _extract_json_from_text(text, '"question"', reasoning)
+    if found and "question" in found and "answer" in found:
+        found["_reasoning_trace"] = reasoning
+        found["_raw_response"] = raw_text or text
+        found.setdefault("answer_format", "number")
+        found.setdefault("task_type", "chart")
+        return found
 
     logger.warning("_parse_llm_response: could not parse (len=%d, preview=%.200s)", len(text), text[:200])
     return None
@@ -121,21 +145,12 @@ def _parse_critique_response(text: str | None, raw_text: str = "") -> dict | Non
     if data:
         return data
 
-    start = cleaned.find("{")
-    if start >= 0:
-        depth = 0
-        for end in range(start, len(cleaned)):
-            if cleaned[end] == "{":
-                depth += 1
-            elif cleaned[end] == "}":
-                depth -= 1
-                if depth == 0:
-                    candidate = cleaned[start : end + 1]
-                    if '"score"' in candidate:
-                        data = _parse(candidate)
-                        if data:
-                            return data
-                    break
+    # Search cleaned text and reasoning for JSON with "score" key
+    found = _extract_json_from_text(cleaned, '"score"', reasoning)
+    if found and "score" in found:
+        found["_reasoning_trace"] = reasoning
+        found["_raw_response"] = raw_text or cleaned
+        return found
 
     logger.warning("_parse_critique_response: could not parse (len=%d, preview=%.200s)", len(text), text[:200])
     return None
