@@ -459,23 +459,6 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
             model_name,
         )
 
-        log_task_event(
-            task.id,
-            "regeneration",
-            {
-                "difficulty": difficulty,
-                "model": model_name,
-                "old_question": prev_question,
-                "new_question": draft["question"],
-                "new_answer": draft["answer"],
-                "answer_format": draft.get("answer_format", "number"),
-                "task_type": draft.get("task_type", "chart"),
-                "input_tokens": draft.get("_usage", {}).get("input_tokens", 0),
-                "output_tokens": draft.get("_usage", {}).get("output_tokens", 0),
-            },
-            quality_score=draft.get("_validation_quality", 0.0),
-        )
-
         usage = draft.get("_usage", {})
         model = model_name
         from ...observability.cost_tracker import estimate_cost
