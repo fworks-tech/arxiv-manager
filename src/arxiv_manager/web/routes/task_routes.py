@@ -182,8 +182,7 @@ def api_task_history(request: Request, task_id: int):
             ts = e.created_at.strftime("%Y-%m-%d %H:%M") if e.created_at else ""
             event_dict: dict = {"event_type": e.event_type, "created_at": ts}
             event_dict.update(details)
-            if e.quality_score > 0:
-                event_dict["quality"] = e.quality_score
+            event_dict["quality"] = e.quality_score or 0
             merged.append(event_dict)
 
         merged.sort(key=lambda x: x.get("created_at", ""), reverse=True)
