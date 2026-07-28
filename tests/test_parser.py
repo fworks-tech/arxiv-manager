@@ -61,6 +61,14 @@ def test_parses_json_after_think_and_fences():
     assert r["answer"] == "42"
 
 
+def test_parses_json_inside_think_block():
+    """JSON embedded within a single think block — no closing </think> before it."""
+    text = '<think>Analyzing: {"question": "How many?", "answer": "5", "answer_format": "number", "task_type": "chart"} end</think>'
+    r = _parse_llm_response(text)
+    assert r is not None
+    assert r["answer"] == "5"
+
+
 def test_returns_none_for_empty_content():
     """Empty content (model returned no usable text) returns None."""
     assert _parse_llm_response("") is None

@@ -20,7 +20,6 @@ class PromptTemplate(NamedTuple):
 
 
 _STRICT_JSON = "Do NOT use <think> tags. Output ONLY valid JSON. No explanation before or after.\n"
-_JSON_SUFFIX = '\nReturn JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"chart|general_image|spatial"}}'
 
 
 def _with_strict(prompt: str) -> str:
