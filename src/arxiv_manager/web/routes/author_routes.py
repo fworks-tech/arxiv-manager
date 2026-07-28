@@ -10,6 +10,7 @@ from pathlib import Path
 from fastapi import File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from PIL import Image as PILImage
+from sqlmodel import select
 
 from ...authoring._draft_telemetry import log_generation_attempt
 from ...authoring.ai_draft import draft_qa, draft_with_self_critique
@@ -156,20 +157,53 @@ def api_draft_qa(
             if p.exists():
                 img_path = p
                 break
-    figure_type = analysis["audit"].get("figure_type", "")
-    complexity = analysis["audit"].get("complexity_score", 0.0)
-    analysis.get("suitability", "")
+    audit = analysis["audit"]
+    figure_type = audit.get("figure_type", "")
+    complexity = audit.get("complexity_score", 0.0)
+    is_dense = audit.get("is_dense", False)
+    is_text_only = audit.get("is_text_only", False)
+    suitability = analysis.get("suitability", "")
+    suitability_reason = analysis.get("suitability_reason", "")
+
+    # Look up figure_id by image hash — enables figure history + RAG
+    figure_id: int | None = None
+    try:
+        img_hash = compute_file_hash(img_path)
+        s = get_session()
+        try:
+            existing = s.exec(select(Figure).where(Figure.image_hash == img_hash)).first()
+            if existing:
+                figure_id = existing.id
+                logger.info("draft: found existing figure id=%d for hash=%s", figure_id, img_hash[:8])
+        finally:
+            s.close()
+    except Exception:
+        pass
+
+    # Build analysis context to guide generation
+    analysis_parts: list[str] = []
+    if suitability and suitability != "REJECTED":
+        analysis_parts.append(f"Image suitability for difficulty: {suitability}")
+    if suitability_reason:
+        analysis_parts.append(suitability_reason)
+    if is_dense:
+        analysis_parts.append("Image is visually dense — good for multi-step questions")
+    if is_text_only:
+        analysis_parts.append("WARNING: Image contains mostly text — avoid OCR-based questions")
+    validation_context = "; ".join(analysis_parts) if analysis_parts else ""
 
     try:
         if difficulty in ("challenging", "hardest"):
             draft = draft_with_self_critique(
                 image_path=img_path,
-                max_rounds=1,
+                max_rounds=2,
                 api_key=api_key,
                 difficulty=difficulty,
                 figure_type=figure_type,
                 complexity_score=complexity,
                 previous_question=previous_question,
+                figure_id=figure_id,
+                validation_context=validation_context,
             )
             if draft is None:
                 draft = draft_qa(
@@ -179,6 +213,8 @@ def api_draft_qa(
                     figure_type=figure_type,
                     complexity_score=complexity,
                     previous_question=previous_question,
+                    figure_id=figure_id,
+                    validation_context=validation_context,
                 )
         else:
             draft = draft_qa(
@@ -188,6 +224,8 @@ def api_draft_qa(
                 figure_type=figure_type,
                 complexity_score=complexity,
                 previous_question=previous_question,
+                figure_id=figure_id,
+                validation_context=validation_context,
             )
     except ValueError as e:
         return TEMPLATES.TemplateResponse(
