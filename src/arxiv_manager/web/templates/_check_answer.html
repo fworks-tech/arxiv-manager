@@ -22,8 +22,22 @@
   <div class="text-sm space-y-1">
     <div><span class="text-gray-500">Golden answer:</span> <strong class="text-gray-900">{{ golden_answer }}</strong></div>
     <div><span class="text-gray-500">VLM answer:</span> <strong class="text-gray-900">{{ vlm_answer }}</strong></div>
+    {% if vlm_reasoning %}
+    <div class="mt-2 pt-2 border-t border-gray-200">
+      <details class="group">
+        <summary class="text-xs font-medium text-gray-600 cursor-pointer hover:text-gray-900 select-none">VLM reasoning <span class="text-gray-400 group-open:hidden">▶</span><span class="text-gray-400 hidden group-open:inline">▼</span></summary>
+        <div class="mt-1 text-xs text-gray-600 bg-gray-50 rounded p-2 whitespace-pre-wrap font-mono">{{ vlm_reasoning }}</div>
+      </details>
+    </div>
+    {% endif %}
     {% if explanation %}
     <div class="text-xs text-gray-500 mt-1 italic">{{ explanation }}</div>
+    {% endif %}
+    {% if not match and analysis %}
+    <div class="mt-2 p-2 bg-red-50 border border-red-100 rounded-lg">
+      <div class="text-xs font-medium text-red-700 mb-1">Analysis</div>
+      <div class="text-xs text-red-600 whitespace-pre-wrap">{{ analysis }}</div>
+    </div>
     {% endif %}
     {% if tokens > 0 %}
     <div class="text-xs text-gray-400 mt-1">{{ tokens }} tokens · logged to Task History</div>

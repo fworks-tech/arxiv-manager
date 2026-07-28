@@ -293,10 +293,15 @@ Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number
 CHECK_ANSWER_PROMPT = PromptTemplate(
     "CHECK_ANSWER_PROMPT",
     """Answer the question based ONLY on the image. Do not guess.
+Think step by step before giving your final answer.
 
 Question: {question}
 
-Return ONLY valid JSON with a single key "answer": {{"answer": "<your final answer>"}}""",
+Return ONLY valid JSON with two keys:
+- "reasoning": "<step-by-step reasoning showing what you observed and how you computed the answer>"
+- "answer": "<your final answer>"
+
+Return ONLY valid JSON: {{"reasoning": "<your step-by-step reasoning>", "answer": "<your final answer>"}}""",
 )
 
 
@@ -311,11 +316,14 @@ Consider:
 - Different phrasings that convey the same meaning
 - The question context when interpreting answers
 
+When the answers DIFFER, analyze the VLM's reasoning to identify what it may have miscounted or misinterpreted, and suggest what the correct reasoning should be.
+
 Question: {question}
 Expected answer: {golden_answer}
 Proposed answer: {vlm_answer}
+VLM reasoning: {vlm_reasoning}
 
-Return ONLY valid JSON: {{"match": true/false, "explanation": "<brief reason why they match or differ>"}}""",
+Return ONLY valid JSON: {{"match": true/false, "explanation": "<brief reason why they match or differ>", "analysis": "<if match=false: based on the VLM's reasoning, identify what it miscounted or misinterpreted and what the correct approach should be. If match=true: return empty string>"}}""",
 )
 
 

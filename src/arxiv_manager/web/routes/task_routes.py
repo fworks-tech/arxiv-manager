@@ -819,6 +819,7 @@ def api_check_answer(request: Request, task_id: int):
             )
 
         vlm_answer = vlm_result["answer"].strip()
+        vlm_reasoning = vlm_result.get("reasoning", "").strip()
         input_tokens = vlm_result.get("_usage", {}).get("input_tokens", 0)
         output_tokens = vlm_result.get("_usage", {}).get("output_tokens", 0)
         total_tokens = input_tokens + output_tokens
@@ -828,6 +829,7 @@ def api_check_answer(request: Request, task_id: int):
             question=task.question,
             golden_answer=task.answer,
             vlm_answer=vlm_answer,
+            vlm_reasoning=vlm_reasoning,
         )
 
         def _parse_verification(content: str, raw_text: str = "") -> dict | None:
@@ -870,9 +872,11 @@ def api_check_answer(request: Request, task_id: int):
 
         match = False
         explanation = ""
+        analysis = ""
         if verify_result:
             match = bool(verify_result.get("match", False))
             explanation = verify_result.get("explanation", "")
+            analysis = verify_result.get("analysis", "")
 
         # Log to TaskEvent
         log_task_event(
@@ -883,8 +887,10 @@ def api_check_answer(request: Request, task_id: int):
                 "verifier": CONFIG.text_model,
                 "golden_answer": task.answer,
                 "vlm_answer": vlm_answer,
+                "vlm_reasoning": vlm_reasoning,
                 "match": match,
                 "explanation": explanation,
+                "analysis": analysis,
                 "tokens": total_tokens,
             },
             quality_score=1.0 if match else 0.0,
@@ -896,8 +902,10 @@ def api_check_answer(request: Request, task_id: int):
             {
                 "golden_answer": task.answer,
                 "vlm_answer": vlm_answer,
+                "vlm_reasoning": vlm_reasoning,
                 "match": match,
                 "explanation": explanation,
+                "analysis": analysis,
                 "tokens": total_tokens,
             },
         )
