@@ -26,8 +26,8 @@
       <span class="text-gray-400">{{ e.model_name }}</span>
       {% endif %}
       <span class="ml-auto text-gray-400 flex items-center gap-2">
-        {% if e.total_tokens > 0 %}
-        <span title="{{ e.input_tokens }} in + {{ e.output_tokens }} out = {{ e.total_tokens }} tokens">🪙 {{ e.total_tokens }} tok</span>
+        {% if e.total_tokens|default(0) > 0 %}
+        <span title="{{ e.input_tokens|default(0) }} in + {{ e.output_tokens|default(0) }} out = {{ e.total_tokens }} tokens">🪙 {{ e.total_tokens }} tok</span>
         {% endif %}
         {% if e.cost_str and e.cost_str != "$0.0000" %}
         <span>{{ e.cost_str }}</span>

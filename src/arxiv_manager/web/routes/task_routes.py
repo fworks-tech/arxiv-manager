@@ -180,9 +180,39 @@ def api_task_history(request: Request, task_id: int):
             except (_json.JSONDecodeError, TypeError):
                 details = {}
             ts = e.created_at.strftime("%Y-%m-%d %H:%M") if e.created_at else ""
-            event_dict: dict = {"event_type": e.event_type, "created_at": ts}
+            event_dict: dict = {
+                "event_type": e.event_type,
+                "created_at": ts,
+                "quality": e.quality_score or 0,
+                "total_tokens": 0,
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cost_str": "",
+                "generation_type": "",
+                "difficulty": "",
+                "model_name": "",
+                "generated_question": "",
+                "generated_answer": "",
+                "generated_answer_format": "",
+                "errors": [],
+                "changed_fields": [],
+                "old_values": {},
+                "new_values": {},
+                "reason": "",
+                "description": "",
+                "corrected_answer": "",
+                "old_question": "",
+                "new_question": "",
+                "old_answer": "",
+                "new_answer": "",
+                "old_difficulty": "",
+                "new_difficulty": "",
+                "qwen_passes": 0,
+                "gemini_passes": 0,
+                "rhea_passed": False,
+                "rhea_notes": "",
+            }
             event_dict.update(details)
-            event_dict["quality"] = e.quality_score or 0
             merged.append(event_dict)
 
         merged.sort(key=lambda x: x.get("created_at", ""), reverse=True)
