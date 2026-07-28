@@ -2,10 +2,17 @@
 
 import io
 import random
+import sys
+from pathlib import Path
 
 import pytest
 from PIL import Image
 from sqlmodel import Session, SQLModel, create_engine
+
+# Ensure src/ is on path so the arxiv_manager package is importable
+_src = Path(__file__).resolve().parent.parent / "src"
+if str(_src) not in sys.path:
+    sys.path.insert(0, str(_src))
 
 # ---------------------------------------------------------------------------
 # Image helpers
