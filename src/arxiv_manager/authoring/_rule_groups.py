@@ -38,6 +38,9 @@ from ._validation_helpers import (
     _requires_arithmetic,
     _restricts_options,
 )
+from ._validation_helpers import (
+    _is_manufactured_difficulty as _check_manufactured,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +116,7 @@ def _run_content_checks(result, q: str, a: str, answer_format: str) -> None:
         result.passed_checks.append("Not an explanation question")
 
 
-def _run_complexity_checks(result, q: str, figure_type: str, task_type: str) -> None:
+def _run_complexity_checks(result, q: str, figure_type: str, task_type: str, difficulty: str = "") -> None:
     """Rules 12-12d: Reasoning depth, chart anti-patterns, generic count, chart math-only."""
     if _has_reasoning_depth(q):
         result.passed_checks.append("Question requires multi-step reasoning")
@@ -144,6 +147,13 @@ def _run_complexity_checks(result, q: str, figure_type: str, task_type: str) -> 
     if _is_generic_count_question(q):
         result.errors.append(
             "Question is a generic count ('How many X in the image?') without a filter, comparison, or arithmetic — too easy for Qwen"
+        )
+
+    if _check_manufactured(q, difficulty):
+        result.errors.append(
+            "Question uses counting as the main difficulty source ('manufactured difficulty'). "
+            "Visual reasoning (comparison, spatial relationships, classification across panels) "
+            "should be the primary challenge. Counting can be the final step after meaningful visual analysis."
         )
 
     if is_chart and _is_chart_math_only(q):

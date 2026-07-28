@@ -18,8 +18,9 @@ def compute_complexity(image_path: Path) -> float:
 
     Uses color variance, edge density, detail, and element density.
     Element density (connected-component count) is the strongest predictor
-    of Challenging-task suitability — images with many discrete elements
-    force Qwen to actually count rather than guess.
+    of Challenging-task suitability -- images with many discrete elements
+    provide material for multi-step visual classification, comparison, and
+    cross-panel reasoning.
     """
     try:
         with Image.open(image_path) as img:

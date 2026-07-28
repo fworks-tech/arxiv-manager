@@ -502,6 +502,52 @@ def test_generic_count_with_filter_passes():
     assert result.is_valid
 
 
+def test_manufactured_difficulty_count_and_sum():
+    """'Count X and Y, then sum them' is manufactured difficulty for Challenging."""
+    result = validate_task(
+        "Count the red bars and blue bars, then sum them.",
+        "12",
+        "number",
+        difficulty="challenging",
+    )
+    assert any("manufactured difficulty" in e.lower() for e in result.errors)
+
+
+def test_manufactured_difficulty_skips_easy():
+    """Counting patterns are NOT manufactured difficulty for Easy."""
+    result = validate_task(
+        "Count the red bars and blue bars, then sum them.",
+        "12",
+        "number",
+        difficulty="easy",
+    )
+    assert not any("manufactured difficulty" in e.lower() for e in result.errors)
+
+
+def test_manufactured_difficulty_allows_reasoning():
+    """Threshold filter + read is NOT manufactured difficulty."""
+    result = validate_task(
+        "How many bars exceed a value of 10 in the chart?",
+        "3",
+        "number",
+        difficulty="challenging",
+        figure_type="chart_graph_text",
+        task_type="chart",
+    )
+    assert all("manufactured difficulty" not in e.lower() for e in result.errors)
+
+
+def test_manufactured_difficulty_multi_step():
+    """Multi-step count with classification is NOT manufactured difficulty."""
+    result = validate_task(
+        "How many of the visible objects are in the back row vs. the front row?",
+        "5",
+        "phrase",
+        difficulty="challenging",
+    )
+    assert not any("manufactured difficulty" in e.lower() for e in result.errors)
+
+
 def test_reasoning_factor_recognized():
     """'factor' is recognized as a reasoning indicator."""
     result = validate_task(

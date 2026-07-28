@@ -61,19 +61,27 @@ Complexity score from `audit_figure()` (0-1 scale):
 - Avoid counting large numbers (>10)
 - Answer is 1 word or 1 number
 
+### Manufacturing Difficult — Key Guidance
+
+> **What to avoid**: making a task difficult mainly by requiring a large manual count + arbitrary filters, or chaining counting with unnecessary arithmetic just because Qwen struggles with it. This is "manufactured difficulty" and should be avoided.
+
+> **What's acceptable**: Counting as the **final step** after meaningful visual reasoning — tracing connections, resolving spatial relationships, distinguishing overlapping/obscured elements, or applying a visually meaningful condition. The challenge should come from comparing or interpreting a meaningful visual pattern, relationship, or trend.
+
+**Applies to**: Chart tasks primarily, both rework tasks AND future tasks.
+
 ### CHALLENGING Patterns (Qwen-fail, Gemini-pass)
 
-PROVEN example (optical computing):
-> "Count these three types of elements in the diagram, excluding anything inside the blue dashed boxes: (1) black rectangular mirrors, (2) standalone gray ellipse lenses, and (3) groups of colored filter bars. Sum all three counts." → 18 (6 mirrors + 8 lenses + 4 filter groups)
+PROVEN example (cross-panel comparison):
+> "What is the difference between the maximum value of series A in panel X and the maximum value of series B in panel Y?" → requires reading peaks from two charts
 
-Strategies:
-1. **Multi-type count + sum**: "Count these three types of elements, then give their sum: (1) [type A], (2) [type B], (3) [type C]"
-2. **Multi-type count + sum + exclusion**: "Count [type A], [type B], and [type C] excluding anything inside [region]. Sum all three counts."
-3. **Subjective classification + count**: "Count [elements] that contain color (not gray or blank). How many are there?"
-4. **Spatial targeting + count**: "Count arrows entering red block X, blue block Y, and green block Z combined."
-5. **Threshold filter + count**: "Count [elements] with [attribute] greater than [value] across all panels."
-6. **Cross-attribute filter + arithmetic**: "How many more [type A] than [type B] are visible in the image?"
-7. **Spatial + count**: "How many of the visible [objects] are in the back row vs. the front row?"
+Proven strategies (visual reasoning FIRST, counting as final step only):
+1. **Cross-panel comparison**: "What is the difference between [value A] in panel X and [value B] in panel Y?"
+2. **Visual classification + count**: "Count [elements] that [subjective criterion]. How many are there?"
+3. **Spatial targeting**: "How many [elements] touch/connect to [specific component]?"
+4. **Threshold filter + read**: "How many bars exceed [value]? Which panel has the most?"
+5. **Multi-type classification + sum**: "Classify [type A], [type B], [type C], then sum all three counts."
+6. **Value-at-intersection**: "At the x-value of [value], what is the approximate y-value in panel [panel]?"
+7. **Cross-panel arithmetic**: "Sum the peak values across all panels."
 
 **Chart-specific strategies** (when `figure_type = chart_graph_text`):
 8. **Read-and-compare**: "What is the difference between the maximum [axis] value in panel A and the maximum in panel B?"
@@ -84,11 +92,11 @@ Strategies:
 
 ### HARDEST Patterns (both models fail)
 
-1. **Multi-type counting + sum**: "Count all [type A] and [type B], then give their sum"
-2. **Subjective classification**: "Count [elements] that appear to contain [subjective criterion]"
-3. **Exclusion counting**: "Excluding [subset], how many [elements] remain?"
-4. **Spatial classification**: "How many [elements] touch/connect to [specific component]?"
-5. **Path tracing**: "Trace path from [A] through [B] to [C]. How many [elements] does it cross?"
+1. **Multi-panel reasoning**: "Compare [element A] in panel X with [element B] in panel Y — which is larger and by how much?"
+2. **Spatial tracing + classification**: "Trace the path from [A] to [B]. How many [type] elements does it cross?"
+3. **Cross-attribute comparison**: "Which [category] has the most [attribute] across all panels?"
+4. **Conditional classification + count**: "Excluding [region], how many [elements] remain after classification?"
+5. **Value comparison across charts**: "What is the ratio of [value A] in panel X to [value B] in panel Y?"
 
 ## Spatial Reasoning (Natural Images)
 

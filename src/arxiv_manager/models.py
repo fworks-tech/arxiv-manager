@@ -168,6 +168,24 @@ class PromptTemplateRecord(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.now)
 
 
+class TaskEvent(SQLModel, table=True):
+    """Audit trail for all task state changes.
+
+    Tracks validation results, updates, difficulty changes, Rhea reviews,
+    issue reports, AI fixes, deletions, and submissions. Used by the
+    Task History section and injected as context during regeneration.
+    """
+
+    __tablename__ = "task_events"
+
+    id: int | None = Field(default=None, primary_key=True)
+    task_id: int = Field(foreign_key="tasks.id", index=True)
+    event_type: str = Field(index=True)  # See docstring for allowed values
+    details: str = ""  # JSON string with event-specific old/new data
+    quality_score: float = 0.0
+    created_at: datetime = Field(default_factory=datetime.now)
+
+
 class SubmissionLog(SQLModel, table=True):
     """Tracks task submissions."""
 

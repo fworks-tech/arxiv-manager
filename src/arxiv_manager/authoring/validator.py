@@ -70,15 +70,17 @@ def validate_task(
     options: list[str] | None = None,
     figure_type: str = "",
     task_type: str = "",
+    difficulty: str = "",
 ) -> ValidationResult:
     """Validate a task against all handbook rules."""
     logger.info(
-        "validate_task entry q_len=%d a_len=%d fmt=%s ftype=%s ttype=%s",
+        "validate_task entry q_len=%d a_len=%d fmt=%s ftype=%s ttype=%s difficulty=%s",
         len(question),
         len(answer),
         answer_format,
         figure_type,
         task_type,
+        difficulty,
     )
     result = ValidationResult()
     q = question.strip()
@@ -86,7 +88,7 @@ def validate_task(
 
     _run_format_checks(result, q, a, answer_format)
     _run_content_checks(result, q, a, answer_format)
-    _run_complexity_checks(result, q, figure_type, task_type)
+    _run_complexity_checks(result, q, figure_type, task_type, difficulty)
     _run_handbook_basics(result, q, a, caption)
     _run_visual_tests(result, q, a)
     _run_final_checks(result, q, a, options, figure_type, task_type, image_path)

@@ -304,6 +304,27 @@ def _references_chart_data(q: str) -> bool:
     return any(re.search(p, q_lower) for p in CHART_DATA_REFS)
 
 
+MANUFACTURED_DIFFICULTY_PATTERNS = [
+    r"^count\s+.*?\s+and\s+.*?\s+then\s+(?:count|add|sum|give)",
+    r"^how\s+many\s+.*?\s+and\s+how\s+many\s+",
+    r"^count\s+.*?\s+then\s+(?:add|sum|multiply|give)",
+]
+
+
+def _is_manufactured_difficulty(q: str, difficulty: str) -> bool:
+    """Detect counting-only questions that use quantity as main difficulty.
+
+    Fires for challenging/hardest when the question relies on bare counting
+    without meaningful visual reasoning (comparison, spatial, classification).
+    Counting is acceptable as a *final step* after reasoning, not as primary
+    difficulty source.
+    """
+    if difficulty not in ("challenging", "hardest"):
+        return False
+    q_stripped = q.strip().lower()
+    return any(re.search(p, q_stripped) for p in MANUFACTURED_DIFFICULTY_PATTERNS)
+
+
 def _is_generic_count_question(q: str) -> bool:
     q_stripped = q.strip().lower()
     for pattern in GENERIC_COUNT_PATTERNS:

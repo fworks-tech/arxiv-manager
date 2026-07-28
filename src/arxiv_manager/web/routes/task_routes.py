@@ -7,7 +7,7 @@ from fastapi import Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import select
 
-from ...authoring import create_task, update_task
+from ...authoring import create_task, log_task_event, update_task
 from ...authoring._draft_telemetry import log_generation_attempt
 from ...authoring.ai_draft import draft_qa, draft_with_self_critique
 from ...authoring.validator import validate_task
@@ -115,86 +115,87 @@ def api_update_task(
     )
 
 
-@router.post("/api/task/{task_id}/validate", response_class=HTMLResponse)
-def api_validate_task(request: Request, task_id: int):
-    """Re-validate a task (HTMX endpoint)."""
-    logger.info("task revalidate task_id=%d", task_id)
-    session = get_session()
-    try:
-        task = session.get(Task, task_id)
-        if not task:
-            return HTMLResponse("Not found", status_code=404)
+@router.get("/api/task/{task_id}/task-history", response_class=HTMLResponse)
+def api_task_history(request: Request, task_id: int):
+    """Return unified task history (generation attempts + task events) as HTML partial."""
+    from ...models import TaskEvent
 
-        figure = session.get(Figure, task.figure_id)
-        figure_type = getattr(figure, "figure_type", "") if figure else ""
-        validation = validate_task(
-            task.question, task.answer, task.answer_format, figure_type=figure_type, task_type=task.task_type
-        )
-
-        return TEMPLATES.TemplateResponse(request, "_validation.html", {"validation": validation})
-    finally:
-        session.close()
-
-
-@router.get("/api/task/{task_id}/history", response_class=HTMLResponse)
-def api_generation_history(request: Request, task_id: int):
-    """Return generation history for a task's figure as HTML partial."""
     session = get_session()
     try:
         task = session.get(Task, task_id)
         if not task:
             return HTMLResponse("Task not found", status_code=404)
 
-        rows = list(
+        # Query generation attempts
+        attempts = list(
             session.exec(
                 select(GenerationAttempt)
-                .where(
-                    (GenerationAttempt.task_id == task_id)
-                    | ((GenerationAttempt.figure_id == task.figure_id) & (GenerationAttempt.task_id != task_id))
-                )
+                .where(GenerationAttempt.task_id == task_id)
                 .order_by(GenerationAttempt.created_at.desc())
                 .limit(50)
             ).all()
         )
 
-        attempts = []
-        seen_qa: set[tuple[str, str]] = set()
-        for r in rows:
-            q_key = (r.generated_question or "").strip().lower(), (r.generated_answer or "").strip().lower()
-            if q_key in seen_qa:
-                continue
-            seen_qa.add(q_key)
+        # Query task events
+        events = list(
+            session.exec(
+                select(TaskEvent)
+                .where(TaskEvent.task_id == task_id)
+                .order_by(TaskEvent.created_at.desc())
+                .limit(50)
+            ).all()
+        )
+
+        # Merge as unified event list sorted by created_at DESC
+        merged: list[dict] = []
+
+        for r in attempts:
             errors_list = (
                 _json.loads(r.validation_errors)
                 if r.validation_errors and r.validation_errors.strip() not in ("", "[]")
                 else []
             )
-            attempts.append(
+            merged.append(
                 {
+                    "event_type": "regeneration",
                     "generation_type": r.generation_type,
                     "difficulty": r.difficulty or "",
                     "model_name": r.model_name or "",
-                    "prompt_version_id": r.prompt_version_id or "",
                     "generated_question": r.generated_question or "",
                     "generated_answer": r.generated_answer or "",
                     "generated_answer_format": r.generated_answer_format or "",
-                    "validation_quality": r.validation_quality,
+                    "quality": r.validation_quality,
                     "errors": errors_list,
-                    "reasoning_trace": r.reasoning_trace or "",
                     "total_tokens": r.total_tokens or 0,
                     "input_tokens": r.input_tokens or 0,
                     "output_tokens": r.output_tokens or 0,
+                    "cost_str": "",
                     "created_at": r.created_at.strftime("%Y-%m-%d %H:%M") if r.created_at else "",
                 }
             )
 
-        return TEMPLATES.TemplateResponse(request, "_generation_history.html", {"attempts": attempts})
+        for e in events:
+            try:
+                details = _json.loads(e.details) if e.details else {}
+            except (_json.JSONDecodeError, TypeError):
+                details = {}
+            ts = e.created_at.strftime("%Y-%m-%d %H:%M") if e.created_at else ""
+            event_dict: dict = {"event_type": e.event_type, "created_at": ts}
+            event_dict.update(details)
+            if e.quality_score > 0:
+                event_dict["quality"] = e.quality_score
+            merged.append(event_dict)
+
+        merged.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+        return TEMPLATES.TemplateResponse(request, "_task_history.html", {"events": merged})
     finally:
         session.close()
 
 
 def _do_regenerate(
-    image_path, api_key, difficulty, figure_type, complexity, prev_question, figure_id, validation_context=""
+    image_path, api_key, difficulty, figure_type, complexity, prev_question, figure_id,
+    validation_context="", task_id=None,
 ):
     """Generate a single draft, with self-critique fallback for challenging/hardest."""
     try:
@@ -209,6 +210,7 @@ def _do_regenerate(
                 previous_question=prev_question,
                 validation_context=validation_context,
                 figure_id=figure_id,
+                task_id=task_id,
             )
             if draft is None:
                 draft = draft_qa(
@@ -220,6 +222,7 @@ def _do_regenerate(
                     previous_question=prev_question,
                     validation_context=validation_context,
                     figure_id=figure_id,
+                    task_id=task_id,
                 )
         else:
             draft = draft_qa(
@@ -231,6 +234,7 @@ def _do_regenerate(
                 previous_question=prev_question,
                 validation_context=validation_context,
                 figure_id=figure_id,
+                task_id=task_id,
             )
         return draft
     except ValueError:
@@ -274,6 +278,10 @@ def _log_attempt(
         input_tokens=usage.get("input_tokens", 0),
         output_tokens=usage.get("output_tokens", 0),
         total_tokens=usage.get("total_tokens", 0),
+        validation_quality=draft.get("_validation_quality", 0.0),
+        validation_is_valid=draft.get("_validation_is_valid", False),
+        validation_errors=draft.get("_validation_errors", "[]"),
+        validation_warnings=draft.get("_validation_warnings", "[]"),
         success=True,
     )
 
@@ -294,7 +302,8 @@ def _dedup_retry(
     """If the draft matches the existing answer, retry up to 2 times."""
     for dedup_attempt in range(1, 3):
         draft2 = _do_regenerate(
-            img_path, api_key, difficulty, figure_type, complexity, prev_question, figure_id, validation_context
+            img_path, api_key, difficulty, figure_type, complexity,
+            prev_question, figure_id, validation_context, task_id=task_id,
         )
         if draft2:
             _log_attempt(
@@ -356,7 +365,8 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
             validation_context += "Warnings: " + "; ".join(v.warnings[:3])
 
         draft = _do_regenerate(
-            img_path, api_key, difficulty, figure_type, complexity, prev_question, task.figure_id, validation_context
+            img_path, api_key, difficulty, figure_type, complexity,
+            prev_question, task.figure_id, validation_context, task_id=task.id,
         )
         if not draft:
             return {"error": "Draft generation failed", "ok": False}
@@ -418,6 +428,23 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
             complexity,
             prev_question,
             model_name,
+        )
+
+        log_task_event(
+            task.id,
+            "regeneration",
+            {
+                "difficulty": difficulty,
+                "model": model_name,
+                "old_question": prev_question,
+                "new_question": draft["question"],
+                "new_answer": draft["answer"],
+                "answer_format": draft.get("answer_format", "number"),
+                "task_type": draft.get("task_type", "chart"),
+                "input_tokens": draft.get("_usage", {}).get("input_tokens", 0),
+                "output_tokens": draft.get("_usage", {}).get("output_tokens", 0),
+            },
+            quality_score=draft.get("_validation_quality", 0.0),
         )
 
         usage = draft.get("_usage", {})
@@ -568,8 +595,17 @@ def api_apply_fix(
 ):
     """Apply an AI-suggested fix to a task."""
     from ...authoring import update_task
+    from ...db import get_session as _get_session
 
     logger.info("task apply-fix task_id=%d", task_id)
+    s = _get_session()
+    try:
+        task_before = s.get(Task, task_id)
+        old_q = task_before.question if task_before else ""
+        old_a = task_before.answer if task_before else ""
+    finally:
+        s.close()
+
     _v = validate_task(question, answer, answer_format, task_type=task_type)
     if not _v.is_valid and _v.quality_score < 30:
         return HTMLResponse(
@@ -583,6 +619,11 @@ def api_apply_fix(
         answer=answer,
         answer_format=answer_format,
         task_type=task_type,
+    )
+    log_task_event(
+        task_id,
+        "ai_fix",
+        {"old_question": old_q, "old_answer": old_a, "new_question": question, "new_answer": answer},
     )
     return RedirectResponse(url=f"/task/{task_id}", status_code=303)
 
@@ -621,6 +662,12 @@ def api_report_issue(
         session.add(report)
         session.commit()
 
+        log_task_event(
+            task_id,
+            "issue_report",
+            {"reason": reason, "description": description, "corrected_answer": corrected_answer},
+        )
+
         return HTMLResponse("""
         <div class="bg-green-50 border border-green-200 rounded-xl p-4 mt-4">
             <div class="flex items-center gap-2 text-sm">
@@ -640,6 +687,7 @@ def api_delete_task(task_id: int):
     from ...authoring import delete_task as _delete_task
 
     logger.info("task delete task_id=%d", task_id)
+    log_task_event(task_id, "delete", {"reason": "user_requested"})
     if not _delete_task(task_id):
         return HTMLResponse("Task not found", status_code=404)
     return RedirectResponse(url="/tasks", status_code=303)

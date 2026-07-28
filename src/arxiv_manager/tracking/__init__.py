@@ -7,6 +7,7 @@ from typing import Any
 
 from sqlmodel import select
 
+from ..authoring import log_task_event
 from ..db import get_session
 from ..models import Difficulty, Figure, SubmissionLog, Task, TaskStatus
 
@@ -81,6 +82,12 @@ def mark_submitted(task_id: int, platform_task_id: str = "") -> Task | None:
         session.add(task)
         session.commit()
         session.refresh(task)
+
+        log_task_event(
+            task_id,
+            "submit",
+            {"qwen_passes": task.qwen_passes, "gemini_passes": task.gemini_passes, "total_runs": task.total_runs},
+        )
         return task
     finally:
         session.close()

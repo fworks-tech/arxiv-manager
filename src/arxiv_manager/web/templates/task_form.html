@@ -93,8 +93,6 @@
                             {% if task %}Update Task{% else %}Create Task{% endif %}
                         </button>
                         {% if task %}
-                         <button type="button" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
-                                hx-post="/api/task/{{ task.id }}/validate" hx-target="#validation-box">Validate</button>
                         <button type="button" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
                                 hx-post="/api/task/{{ task.id }}/ai-fix" hx-target="#ai-fix-box" hx-swap="innerHTML"
                                 hx-indicator="#ai-fix-indicator">AI Fix</button>
@@ -111,7 +109,6 @@
                     </div>
                 </div>
             </form>
-            <div id="validation-box" class="mt-4"></div>
             <div id="ai-fix-box" class="mt-2"></div>
             <div id="report-box" class="mt-2"></div>
         </div>
@@ -187,8 +184,8 @@ Type: {{ task.task_type }}</textarea>
         </div>
 
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Generation History</h2>
-            <div id="generation-history-content" hx-get="/api/task/{{ task.id }}/history" hx-trigger="load" hx-swap="innerHTML">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Task History</h2>
+            <div id="task-history-content" hx-get="/api/task/{{ task.id }}/task-history" hx-trigger="load" hx-swap="innerHTML">
                 <div class="text-center py-4 text-gray-400 text-sm">Loading history...</div>
             </div>
         </div>

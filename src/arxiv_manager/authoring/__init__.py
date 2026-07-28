@@ -2,7 +2,33 @@
 
 from __future__ import annotations
 
+import json
+
 from ..models import AnswerFormat, Task, TaskStatus, TaskType
+
+
+def log_task_event(
+    task_id: int,
+    event_type: str,
+    details: dict | None = None,
+    quality_score: float = 0.0,
+) -> None:
+    """Append an event to the task audit trail (TaskEvent table)."""
+    from ..db import get_session
+    from ..models import TaskEvent
+
+    session = get_session()
+    try:
+        event = TaskEvent(
+            task_id=task_id,
+            event_type=event_type,
+            details=json.dumps(details or {}),
+            quality_score=quality_score,
+        )
+        session.add(event)
+        session.commit()
+    finally:
+        session.close()
 
 
 def create_task(
@@ -66,6 +92,8 @@ def update_task(task_id: int, **kwargs) -> Task | None:
         if not task:
             return None
 
+        old_values = {k: str(getattr(task, k, "")) for k in kwargs if hasattr(task, k)}
+
         for key, value in kwargs.items():
             if hasattr(task, key):
                 setattr(task, key, value)
@@ -73,6 +101,16 @@ def update_task(task_id: int, **kwargs) -> Task | None:
         session.add(task)
         session.commit()
         session.refresh(task)
+
+        log_task_event(
+            task_id,
+            "update",
+            {
+                "changed_fields": list(kwargs.keys()),
+                "old_values": old_values,
+                "new_values": {k: str(v) for k, v in kwargs.items()},
+            },
+        )
         return task
     finally:
         session.close()
@@ -101,6 +139,13 @@ def delete_task(task_id: int) -> bool:
         task = session.get(Task, task_id)
         if not task:
             return False
+
+        # Log event before deletion (needs task data still available)
+        log_task_event(
+            task_id,
+            "delete",
+            {"figure_id": task.figure_id, "status": task.status, "difficulty": task.difficulty},
+        )
 
         session.exec(delete(GenerationAttempt).where(GenerationAttempt.task_id == task_id))
         session.exec(delete(IssueReport).where(IssueReport.task_id == task_id))

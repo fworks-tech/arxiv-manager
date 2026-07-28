@@ -7,6 +7,7 @@ from successful past generations.
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
@@ -164,8 +165,6 @@ def build_figure_history(figure_id: int, max_attempts: int = 5) -> str:
             if r.validation_quality > 0:
                 parts.append(f"quality={r.validation_quality:.0f}")
             if r.validation_errors and r.validation_errors != "[]":
-                import json
-
                 try:
                     errs = json.loads(r.validation_errors)
                     if errs:
@@ -189,6 +188,92 @@ def build_figure_history(figure_id: int, max_attempts: int = 5) -> str:
         return "\n".join(blocks)
     except Exception:
         logger.debug("build_figure_history: no data yet (table may not exist)")
+        return ""
+    finally:
+        session.close()
+
+
+def build_task_history(task_id: int, figure_id: int, max_events: int = 20) -> str:
+    """Build a structured history block merging generation attempts and task events.
+
+    Returns a formatted string suitable for prompt injection, or empty string
+    if no history exists.
+    """
+    from ..db import get_session
+    from ..models import GenerationAttempt, TaskEvent
+
+    session = get_session()
+    try:
+        # Generation attempts for this figure
+        attempts = list(
+            session.exec(
+                select(GenerationAttempt)
+                .where(GenerationAttempt.figure_id == figure_id)
+                .order_by(desc(GenerationAttempt.created_at))
+                .limit(max_events)
+            ).all()
+        )
+
+        # Task events for this task
+        events = list(
+            session.exec(
+                select(TaskEvent)
+                .where(TaskEvent.task_id == task_id)
+                .order_by(desc(TaskEvent.created_at))
+                .limit(max_events)
+            ).all()
+        )
+
+        if not attempts and not events:
+            return ""
+
+        blocks: list[str] = []
+        for i, r in enumerate(attempts, 1):
+            parts = [f"Attempt {i}: {r.generation_type}"]
+            if r.difficulty:
+                parts.append(f"difficulty={r.difficulty}")
+            if r.generated_question:
+                parts.append(f"question={r.generated_question}")
+            if r.generated_answer:
+                parts.append(f"answer={r.generated_answer}")
+            if r.validation_quality > 0:
+                parts.append(f"quality={r.validation_quality:.0f}")
+            if r.validation_errors and r.validation_errors != "[]":
+                try:
+                    errs = json.loads(r.validation_errors)
+                    if errs:
+                        parts.append(f"errors={'; '.join(errs[:3])}")
+                except json.JSONDecodeError:
+                    pass
+            if r.qwen_passes > 0 or r.gemini_passes > 0:
+                parts.append(
+                    f"model_runs: Qwen={r.qwen_passes}/{r.qwen_passes + r.gemini_passes} Gemini={r.gemini_passes}/{r.qwen_passes + r.gemini_passes}"
+                )
+            blocks.append(" | ".join(parts))
+
+        for e in events:
+            try:
+                details = json.loads(e.details) if e.details else {}
+            except (json.JSONDecodeError, TypeError):
+                details = {}
+            if e.event_type == "update" and "changed_fields" in details:
+                fields = ", ".join(details["changed_fields"])
+                blocks.append(f"   [Updated: {fields}]")
+            elif e.event_type == "difficulty_change":
+                blocks.append(f"   [Difficulty: {details.get('old_difficulty','?')} -> {details.get('new_difficulty','?')}]")
+            elif e.event_type == "issue_report":
+                blocks.append(f"   [Issue reported: {details.get('reason','?')}]")
+            elif e.event_type == "rhea_review":
+                passed = details.get("rhea_passed", False)
+                blocks.append(f"   [Rhea review: {'PASSED' if passed else 'FAILED'}]")
+            elif e.event_type == "ai_fix":
+                blocks.append("   [AI fix applied]")
+            elif e.event_type == "submit":
+                blocks.append("   [Submitted]")
+
+        return "\n".join(blocks)
+    except Exception:
+        logger.debug("build_task_history: no data yet (table may not exist)")
         return ""
     finally:
         session.close()
@@ -273,19 +358,28 @@ def inject_history_into_prompt(
     task_type: str = "",
     previous_question: str = "",
     validation_context: str = "",
+    task_id: int | None = None,
+    task: Any | None = None,
 ) -> str:
     """Enrich a prompt with figure history and few-shot examples.
 
     Appends sections to the base prompt if data is available:
-    1. Past generation history for this figure (including user issue reports)
+    1. Task history (generation attempts + task events)
     2. Few-shot examples from successful past generations
     3. Previous question reminder
     4. Current task validation issues to fix
+    5. Current task state (question, answer, difficulty, status)
+    6. Rhea review feedback (if any)
+    7. Model run results (if any)
     """
     parts: list[str] = []
 
-    # 1. Figure history
-    if figure_id is not None:
+    # 1. Task history (combines generation attempts + task events)
+    if figure_id is not None and task_id is not None:
+        history = build_task_history(task_id, figure_id)
+        if history:
+            parts.append("TASK HISTORY (DO NOT repeat failed patterns):\n" + history)
+    elif figure_id is not None:
         history = build_figure_history(figure_id)
         if history:
             parts.append("PREVIOUS ATTEMPTS FOR THIS FIGURE (DO NOT repeat failed patterns):\n" + history)
@@ -319,6 +413,47 @@ def inject_history_into_prompt(
     # 4. Current task validation issues to fix
     if validation_context:
         parts.append("VALIDATION ISSUES TO FIX in the current task:\n" + validation_context)
+
+    # 5. Current task state (new)
+    # Auto-fetch task from DB if only task_id is provided
+    if task is None and task_id is not None:
+        try:
+            from ..db import get_session as _get_session
+            from ..models import Task as _Task
+
+            s = _get_session()
+            try:
+                task = s.get(_Task, task_id)
+            finally:
+                s.close()
+        except Exception:
+            pass
+
+    if task is not None:
+        state_parts = [
+            "CURRENT TASK STATE:",
+            f"Question: {task.question}",
+            f"Answer: {task.answer}",
+            f"Difficulty: {task.difficulty}",
+            f"Status: {task.status}",
+        ]
+        parts.append("\n".join(state_parts))
+
+        # 6. Rhea review feedback (new)
+        if task.rhea_reviewed:
+            rhea_line = f"RHEA REVIEW: {'PASSED' if task.rhea_passed else 'FAILED'}"
+            if task.rhea_notes:
+                rhea_line += f" — {task.rhea_notes}"
+            parts.append(rhea_line)
+
+        # 7. Model run results (new)
+        if task.qwen_passes > 0 or task.gemini_passes > 0:
+            total_runs = task.qwen_passes + task.gemini_passes
+            parts.append(
+                f"MODEL PERFORMANCE ON CURRENT TASK:\n"
+                f"Qwen: {task.qwen_passes}/{total_runs} passes\n"
+                f"Gemini: {task.gemini_passes}/{total_runs} passes"
+            )
 
     if not parts:
         return base_prompt

@@ -41,6 +41,7 @@ def draft_qa(
     previous_question: str = "",
     validation_context: str = "",
     figure_id: int | None = None,
+    task_id: int | None = None,
     use_rag: bool = True,
 ) -> dict | None:
     """Draft a Q&A pair from an image using an LLM."""
@@ -90,7 +91,7 @@ def draft_qa(
     if figure_type:
         prompt += f"\nFigure type: {figure_type} (chart_graph_text = scientific chart/plot/diagram; general_image = photo/scene)"
     if complexity_score > 0:
-        prompt += f"\nFigure complexity: {complexity_score:.2f}/1.0 (higher = more complex, candidate for hard multi-step counting)"
+        prompt += f"\nFigure complexity: {complexity_score:.2f}/1.0 (higher = more complex, candidate for hard multi-step visual reasoning)"
     if task_type_hint:
         prompt += f"\nType: {task_type_hint}"
 
@@ -112,6 +113,7 @@ def draft_qa(
         task_type=task_type_hint,
         previous_question=previous_question,
         validation_context=validation_context,
+        task_id=task_id,
     )
 
     # 3. RAG context injection (Phase 3, lazy singleton)

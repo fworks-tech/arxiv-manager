@@ -5,6 +5,7 @@ import logging
 from fastapi import Form, Request
 from fastapi.responses import RedirectResponse
 
+from ...authoring import log_task_event
 from ...db import get_session
 from ...models import Figure, Task
 from ...tracking import mark_submitted, set_difficulty
@@ -57,7 +58,20 @@ def update_task_difficulty(
 ):
     """Update task difficulty (HTMX endpoint)."""
     logger.info("task difficulty task_id=%d difficulty=%s qwen=%d gemini=%d", task_id, difficulty, qwen, gemini)
+    from ...db import get_session as _get_session
+
+    s = _get_session()
+    try:
+        t = s.get(Task, task_id)
+        old_diff = t.difficulty if t else ""
+    finally:
+        s.close()
     set_difficulty(task_id, difficulty, qwen, gemini)
+    log_task_event(
+        task_id,
+        "difficulty_change",
+        {"old_difficulty": old_diff, "new_difficulty": difficulty, "qwen_passes": qwen, "gemini_passes": gemini},
+    )
     return RedirectResponse(url=f"/task/{task_id}", status_code=303)
 
 
@@ -88,6 +102,10 @@ def update_rhea(
             task.rhea_notes = rhea_notes
             session.add(task)
             session.commit()
+            log_task_event(
+                task_id, "rhea_review",
+                {"rhea_reviewed": rhea_reviewed, "rhea_passed": rhea_passed, "rhea_notes": rhea_notes},
+            )
     finally:
         session.close()
     return RedirectResponse(url=f"/task/{task_id}", status_code=303)

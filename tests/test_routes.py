@@ -267,22 +267,6 @@ class TestDiscardUpload:
 
 
 # ---------------------------------------------------------------------------
-# POST: Task validate
-# ---------------------------------------------------------------------------
-
-
-class TestTaskValidate:
-    def test_validate_existing(self, test_client, sample_task):
-        resp = test_client.post(f"/api/task/{sample_task.id}/validate")
-        assert resp.status_code == 200
-        assert b"checks passed" in resp.content or b"Issues found" in resp.content
-
-    def test_validate_not_found(self, test_client):
-        resp = test_client.post("/api/task/99999/validate")
-        assert resp.status_code == 404
-
-
-# ---------------------------------------------------------------------------
 # POST: Task regenerate
 # ---------------------------------------------------------------------------
 
@@ -706,20 +690,20 @@ class TestEdgeCases:
 # ─── Generation History ──────────────────────────────────────────────
 
 
-class TestGenerationHistory:
+class TestTaskHistory:
     def test_history_not_found(self, test_client):
-        """GET /api/task/99999/history returns 404 for non-existent task."""
-        resp = test_client.get("/api/task/99999/history")
+        """GET /api/task/99999/task-history returns 404 for non-existent task."""
+        resp = test_client.get("/api/task/99999/task-history")
         assert resp.status_code == 404
 
     def test_history_empty(self, test_client, sample_task):
-        """History for a task with no attempts returns empty-state partial."""
-        resp = test_client.get(f"/api/task/{sample_task.id}/history")
+        """History for a task with no data returns empty-state partial."""
+        resp = test_client.get(f"/api/task/{sample_task.id}/task-history")
         assert resp.status_code == 200
-        assert "No previous generations" in resp.text
+        assert "No task history yet" in resp.text
 
     def test_history_with_attempts(self, test_client, sample_task, sample_figure, db_session):
-        """History renders attempt records when they exist."""
+        """History renders generation attempt records."""
         from arxiv_manager.models import GenerationAttempt
 
         db_session.add(
@@ -736,9 +720,98 @@ class TestGenerationHistory:
             )
         )
         db_session.commit()
-        resp = test_client.get(f"/api/task/{sample_task.id}/history")
+        resp = test_client.get(f"/api/task/{sample_task.id}/task-history")
         assert resp.status_code == 200
         assert "Test historical question?" in resp.text
         assert "draft" in resp.text
         assert "challenging" in resp.text
         assert "42" in resp.text
+
+    def test_history_with_task_events(self, test_client, sample_task, db_session):
+        """History renders TaskEvent records."""
+        from arxiv_manager.models import TaskEvent
+
+        db_session.add(
+            TaskEvent(
+                task_id=sample_task.id,
+                event_type="update",
+                details='{"changed_fields": ["question"], "old_values": {"question": "Old Q?"}, "new_values": {"question": "New Q?"}}',
+            )
+        )
+        db_session.commit()
+        resp = test_client.get(f"/api/task/{sample_task.id}/task-history")
+        assert resp.status_code == 200
+        assert "Task Update" in resp.text
+        assert "Old Q?" in resp.text
+        assert "New Q?" in resp.text
+
+
+# ─── TaskEvent logging ─────────────────────────────────────────────
+
+
+class TestTaskEventLogging:
+    def test_submit_creates_task_event(self, test_client, sample_task):
+        """Submitting a task logs a TaskEvent."""
+        from arxiv_manager.models import TaskEvent
+
+        resp = test_client.post(f"/api/task/{sample_task.id}/submit")
+        assert resp.status_code in (200, 303, 302)
+        from arxiv_manager.db import get_session
+
+        s = get_session()
+        event = s.exec(select(TaskEvent).where(TaskEvent.task_id == sample_task.id)).first()
+        s.close()
+        assert event is not None
+        assert event.event_type == "submit"
+
+    def test_difficulty_change_creates_task_event(self, test_client, sample_task):
+        """Updating difficulty logs a TaskEvent."""
+        from arxiv_manager.models import TaskEvent
+
+        resp = test_client.post(
+            f"/api/task/{sample_task.id}/difficulty",
+            data={"difficulty": "hardest", "qwen": "2", "gemini": "4"},
+        )
+        assert resp.status_code in (200, 303, 302)
+        from arxiv_manager.db import get_session
+
+        s = get_session()
+        event = s.exec(
+            select(TaskEvent).where(TaskEvent.task_id == sample_task.id, TaskEvent.event_type == "difficulty_change")
+        ).first()
+        s.close()
+        assert event is not None
+        assert event.event_type == "difficulty_change"
+
+    def test_rhea_review_creates_task_event(self, test_client, sample_task):
+        """Rhea review logs a TaskEvent."""
+        from arxiv_manager.models import TaskEvent
+
+        resp = test_client.post(
+            f"/api/task/{sample_task.id}/rhea",
+            data={"rhea_reviewed": "true", "rhea_passed": "true", "rhea_notes": "Good"},
+        )
+        assert resp.status_code in (200, 303, 302)
+        from arxiv_manager.db import get_session
+
+        s = get_session()
+        event = s.exec(
+            select(TaskEvent).where(TaskEvent.task_id == sample_task.id, TaskEvent.event_type == "rhea_review")
+        ).first()
+        s.close()
+        assert event is not None
+
+    def test_delete_creates_task_event(self, test_client, sample_task):
+        """Deleting a task logs a TaskEvent."""
+        from arxiv_manager.models import TaskEvent
+
+        resp = test_client.post(f"/api/task/{sample_task.id}/delete")
+        assert resp.status_code in (200, 303, 302)
+        from arxiv_manager.db import get_session
+
+        s = get_session()
+        event = s.exec(
+            select(TaskEvent).where(TaskEvent.task_id == sample_task.id, TaskEvent.event_type == "delete")
+        ).first()
+        s.close()
+        assert event is not None

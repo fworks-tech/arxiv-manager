@@ -75,6 +75,7 @@ src/arxiv_manager/
 - **IssueReport:** User-reported issues on generation attempts (reason, description, corrected_answer) — fed back into generation prompts
 - **PromptTemplateRecord:** DB-backed prompt templates with versioning, rollback support
 - **SubmissionLog:** Task submission tracking with review status
+- **TaskEvent:** Audit trail for all task state changes (regeneration, update, difficulty_change, rhea_review, issue_report, ai_fix, submit, delete) — used by Task History UI and injected as context during regeneration
 
 ## Key Patterns
 
@@ -88,6 +89,9 @@ src/arxiv_manager/
 - **Cost tracking:** Token usage captured from API responses, cost estimated per model
 - **IssueReport feedback loop:** User-reported issues (too_easy, wrong_answer) and corrected answers are injected into the generation prompt via `build_figure_history`. Model run results (Qwen/Gemini passes) are copied onto GenerationAttempt on submit and influence few-shot ordering.
 - **Arithmetic consistency check:** Validation warns when a question asks for product/sum but the answer may be a simple count.
+- **Manufactured difficulty detection:** Validation errors when counting is the primary difficulty source (counting-only chains like "count X and Y then sum" without visual reasoning). Challenge should come from visual reasoning — counting is acceptable only as a final step after meaningful analysis.
+- **TaskEvent audit trail:** Every task action (regeneration, update, difficulty change, Rhea review, issue report, AI fix, submit, delete) is logged to `task_events` table with JSON details. Used by the Task History UI and injected as context during regeneration.
+- **Task state injection in regenerate:** Regeneration prompt now includes current task state (question, answer, difficulty, status), Rhea review results, and model performance metrics (Qwen/Gemini pass rates) as additional context.
 - **AI Fix with image context:** The AI Fix endpoint now sends the figure image, figure history, and validation context to the LLM for context-aware fixes.
 - **Multi-agent orchestration:** Orchestrator plans subtasks → delegates to Generator → delegates to Reviewer → aggregates results. Uses `AgentContext` for shared state and delegation chains.
 - **DB-backed task scheduling:** Jobs are enqueued to `scheduled_tasks` table, picked up by a subprocess worker. Priority-based FIFO with automatic retry. No external dependencies (no Redis/Celery).
@@ -105,8 +109,9 @@ src/arxiv_manager/
 | `src/arxiv_manager/web/app.py` | App factory, route registration, logging, rate limiting, MCP, auth middleware |
 | `src/arxiv_manager/authoring/ai_draft/core.py` | Core generation pipeline with RAG injection |
 | `src/arxiv_manager/authoring/ai_draft/_api_client.py` | LLM API client (OpenCode), token usage capture |
-| `src/arxiv_manager/authoring/_history_context.py` | History injection, few-shot, model selection |
-| `src/arxiv_manager/authoring/validator.py` | Handbook validation rules |
+| `src/arxiv_manager/authoring/_history_context.py` | History injection (build_task_history + build_figure_history), few-shot, model selection, task state injection |
+| `src/arxiv_manager/authoring/_validation_helpers.py` | Validation patterns: generic count, manufactured difficulty, chart anti-patterns, reasoning indicators |
+| `src/arxiv_manager/authoring/validator.py` | Handbook validation rules (now includes manufactured difficulty check) |
 | `src/arxiv_manager/authoring/_guardrails.py` | Quality guardrails |
 | `src/arxiv_manager/components/hybrid_retriever.py` | ChromaDB + sentence-transformers hybrid search |
 | `src/arxiv_manager/services/rag_pipeline.py` | CRAG orchestrator (cache → retrieve → rerank) |
@@ -145,6 +150,7 @@ src/arxiv_manager/
 | `auth_tokens` | `personalization.models` | Bearer token storage |
 | `user_profiles` | `personalization.models` | User generation preferences |
 | `user_preferences` | `personalization.models` | Key-value preference pairs |
+| `task_events` | `models.py` | Unified audit trail for all task state changes (regeneration, update, difficulty_change, rhea_review, issue_report, ai_fix, submit, delete) |
 
 ## Storage Layout
 

@@ -23,7 +23,7 @@ AI-powered assistant for creating challenging visual-reasoning Q&A tasks from sc
 - **CRAG (RAG + CAG)** — Semantic cache check first, then hybrid keyword + vector retrieve, cross-encoder rerank
 - **Prompt Versioning** — 11 prompt templates, each content-addressed (SHA-256); every generation records which version produced it
 - **Hot-Swappable Prompts** — DB-backed prompt registry; save, rollback, reload via API without code changes
-- **Generation History** — Every draft, critique, and regeneration is logged with reasoning traces, validation scores, token usage, and prompt version info
+- **Task History** — Every draft, critique, regeneration, update, difficulty change, Rhea review, issue report, and AI fix is logged with full context in a unified audit trail
 - **Guardrails** — Answer plausibility, format validation, diversity checks, and quality thresholds catch bad outputs before they reach the user
 - **Few-Shot Learning** — Past successful generations (quality >= 80) are injected as examples into new prompts, improving quality over time
 - **Query Router** — Routes requests to optimal pipeline based on difficulty (simple / RAG-enhanced / self-critique / consensus)
@@ -148,8 +148,9 @@ arxiv-manager web
 | GET | `/` | Dashboard |
 | POST | `/api/image/upload` | Upload an image |
 | POST | `/api/image/draft` | Generate AI draft |
-| POST | `/api/task/{id}/validate` | Validate a task |
 | POST | `/api/task/{id}/regenerate` | Regenerate with self-critique |
+| GET | `/api/task/{id}/task-history` | Unified task history (generations + events) |
+| POST | `/api/task/{id}/delete` | Delete a task (cascades to related records) |
 
 Full API docs at `/docs` (Swagger) when the server is running.
 

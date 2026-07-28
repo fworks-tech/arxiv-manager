@@ -105,6 +105,7 @@ def draft_with_self_critique(
     previous_question: str = "",
     validation_context: str = "",
     figure_id: int | None = None,
+    task_id: int | None = None,
 ) -> dict | None:
     """Draft a Q&A pair and self-critique the question's difficulty."""
     logger.info("self_critique entry difficulty=%s figure_type=%s max_rounds=%d", difficulty, figure_type, max_rounds)
@@ -136,6 +137,7 @@ def draft_with_self_critique(
         previous_question=previous_question,
         validation_context=validation_context,
         figure_id=figure_id,
+        task_id=task_id,
     )
     if draft is None:
         logger.warning("self_critique: initial draft failed")

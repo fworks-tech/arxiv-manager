@@ -132,6 +132,48 @@ def test_generation_attempt_custom_values():
     assert a.validation_quality == 90.0
 
 
+# ─── TaskEvent ────────────────────────────────────────────────────
+
+
+def test_task_event_defaults():
+    """TaskEvent() with minimum fields has sensible defaults."""
+    from arxiv_manager.models import TaskEvent
+
+    e = TaskEvent(task_id=1, event_type="update")
+    assert e.task_id == 1
+    assert e.event_type == "update"
+    assert e.details == ""
+    assert e.quality_score == 0.0
+    assert e.id is None
+
+
+def test_task_event_custom_values():
+    """TaskEvent stores custom values including JSON details."""
+    import json
+
+    from arxiv_manager.models import TaskEvent
+
+    e = TaskEvent(
+        task_id=42,
+        event_type="regeneration",
+        details=json.dumps({"new_question": "Q?", "old_question": "Old Q?"}),
+        quality_score=85.0,
+    )
+    assert e.task_id == 42
+    assert e.event_type == "regeneration"
+    parsed = json.loads(e.details)
+    assert parsed["new_question"] == "Q?"
+    assert e.quality_score == 85.0
+
+
+def test_task_event_timestamps():
+    """TaskEvent has auto-timestamp."""
+    from arxiv_manager.models import TaskEvent
+
+    e = TaskEvent(task_id=1, event_type="submit")
+    assert e.created_at is not None
+
+
 def test_generation_attempt_nullable_figure_id():
     """figure_id and task_id are nullable for draft-before-propose flow."""
     a = GenerationAttempt()
