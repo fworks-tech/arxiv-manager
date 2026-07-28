@@ -1,0 +1,33 @@
+<div class="border rounded-xl p-4 mt-4
+  {% if error %}border-red-200 bg-red-50
+  {% elif match %}border-green-200 bg-green-50
+  {% else %}border-yellow-200 bg-yellow-50{% endif %}">
+  {% if error %}
+  <div class="flex items-center gap-2 text-sm">
+    <span>⚠️</span>
+    <span class="font-semibold text-red-700">Check failed</span>
+    <span class="text-xs text-red-600 ml-auto">{{ error }}</span>
+  </div>
+  {% else %}
+  <div class="flex items-center gap-2 text-sm mb-2">
+    {% if match %}
+    <span>✅</span>
+    <span class="font-semibold text-green-800">VLM got it right</span>
+    {% else %}
+    <span>❌</span>
+    <span class="font-semibold text-yellow-800">VLM got it wrong</span>
+    {% endif %}
+    <span class="text-xs text-gray-500 ml-auto">minimax-m3</span>
+  </div>
+  <div class="text-sm space-y-1">
+    <div><span class="text-gray-500">Golden answer:</span> <strong class="text-gray-900">{{ golden_answer }}</strong></div>
+    <div><span class="text-gray-500">VLM answer:</span> <strong class="text-gray-900">{{ vlm_answer }}</strong></div>
+    {% if explanation %}
+    <div class="text-xs text-gray-500 mt-1 italic">{{ explanation }}</div>
+    {% endif %}
+    {% if tokens > 0 %}
+    <div class="text-xs text-gray-400 mt-1">{{ tokens }} tokens · logged to Task History</div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>

@@ -197,11 +197,19 @@ Type: {{ task.task_type }}</textarea>
                     <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">Mark as Submitted</button>
                 </form>
                 <button type="button"
+                        hx-post="/api/task/{{ task.id }}/check-answer"
+                        hx-target="#check-answer-box"
+                        hx-swap="innerHTML"
+                        hx-indicator="#check-answer-indicator"
+                        class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors">Check Answer</button>
+                <span id="check-answer-indicator" class="htmx-indicator"><svg class="spinner inline-block w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="4" stroke-linecap="round" class="opacity-75"/></svg></span>
+                <button type="button"
                         hx-post="/api/task/{{ task.id }}/delete"
                         hx-confirm="Delete task #{{ task.id }}? This cannot be undone."
                         hx-target="body"
                         class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors">Delete Task</button>
             </div>
+            <div id="check-answer-box" class="mt-2"></div>
         </div>
         {% endif %}
     </div>

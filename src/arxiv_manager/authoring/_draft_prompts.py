@@ -290,6 +290,35 @@ Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number
 )
 
 
+CHECK_ANSWER_PROMPT = PromptTemplate(
+    "CHECK_ANSWER_PROMPT",
+    """Answer the question based ONLY on the image. Do not guess.
+
+Question: {question}
+
+Return ONLY valid JSON with a single key "answer": {{"answer": "<your final answer>"}}""",
+)
+
+
+VERIFY_ANSWER_PROMPT = PromptTemplate(
+    "VERIFY_ANSWER_PROMPT",
+    """You are verifying whether a proposed answer means the same thing as the expected answer for a visual-reasoning question.
+
+Consider:
+- Synonyms and equivalent expressions ("more than half" ≈ "majority")
+- Numeric equivalence ("10" ≈ "ten", "0.5" ≈ "1/2")
+- Unit differences ("50%" ≈ "half", "100cm" ≈ "1m")
+- Different phrasings that convey the same meaning
+- The question context when interpreting answers
+
+Question: {question}
+Expected answer: {golden_answer}
+Proposed answer: {vlm_answer}
+
+Return ONLY valid JSON: {{"match": true/false, "explanation": "<brief reason why they match or differ>"}}""",
+)
+
+
 VERIFY_PROMPT = PromptTemplate(
     "VERIFY_PROMPT",
     """Look at this image carefully. The question and answer below were
@@ -372,6 +401,8 @@ PROMPT_TEMPLATES: dict[str, PromptTemplate] = {
         SPATIAL_DRAFT_PROMPT,
         SPATIAL_CHALLENGING_PROMPT,
         SPATIAL_HARDEST_PROMPT,
+        CHECK_ANSWER_PROMPT,
+        VERIFY_ANSWER_PROMPT,
         VERIFY_PROMPT,
         SELF_CRITIQUE_PROMPT,
         FIX_PROMPT,

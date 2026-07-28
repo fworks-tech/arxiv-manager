@@ -21,7 +21,7 @@ AI-powered assistant for extracting scientific figures from arXiv PDFs, analyzin
 src/arxiv_manager/
 ├── authoring/
 │   ├── ai_draft/           # LLM integration (client, parser, core, composition)
-│   ├── _draft_prompts.py   # 11 prompt templates with SHA-256 versioning
+│   ├── _draft_prompts.py   # 13 prompt templates with SHA-256 versioning (includes CHECK_ANSWER_PROMPT + VERIFY_ANSWER_PROMPT)
 │   ├── _draft_telemetry.py # Generation attempt logging to DB + JSONL
 │   ├── _guardrails.py      # Quality checks with auto-retry + feedback
 │   ├── _history_context.py # History injection, few-shot, model selection
@@ -93,6 +93,7 @@ src/arxiv_manager/
 - **TaskEvent audit trail:** Every task action (regeneration, update, difficulty change, Rhea review, issue report, AI fix, submit, delete) is logged to `task_events` table with JSON details. Used by the Task History UI and injected as context during regeneration.
 - **Task state injection in regenerate:** Regeneration prompt now includes current task state (question, answer, difficulty, status), Rhea review results, and model performance metrics (Qwen/Gemini pass rates) as additional context.
 - **AI Fix with image context:** The AI Fix endpoint now sends the figure image, figure history, and validation context to the LLM for context-aware fixes.
+- **Check Answer (VLM verification):** "Check Answer" button sends the task image + question to `minimax-m3` (VLM), then verifies the VLM's answer against the golden answer using `deepseek-v4-flash` (text-only) for unbiased semantic equivalence. Result displayed inline and logged as `TaskEvent(event_type="check_answer")`. Helps authors discover if a task is answerable and whether it's challenging enough to stump VLMs.
 - **Multi-agent orchestration:** Orchestrator plans subtasks → delegates to Generator → delegates to Reviewer → aggregates results. Uses `AgentContext` for shared state and delegation chains.
 - **DB-backed task scheduling:** Jobs are enqueued to `scheduled_tasks` table, picked up by a subprocess worker. Priority-based FIFO with automatic retry. No external dependencies (no Redis/Celery).
 - **Subprocess worker isolation:** Worker runs in a separate Python process via `subprocess.Popen`, communicates via shared SQLite (WAL mode). Sentinel file for graceful shutdown on all platforms.

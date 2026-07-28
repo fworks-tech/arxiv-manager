@@ -280,8 +280,8 @@ def _log_attempt(
         total_tokens=usage.get("total_tokens", 0),
         validation_quality=draft.get("_validation_quality", 0.0),
         validation_is_valid=draft.get("_validation_is_valid", False),
-        validation_errors=draft.get("_validation_errors", "[]"),
-        validation_warnings=draft.get("_validation_warnings", "[]"),
+        validation_errors=_json.dumps(draft.get("_validation_errors", [])),
+        validation_warnings=_json.dumps(draft.get("_validation_warnings", [])),
         success=True,
     )
 
@@ -712,5 +712,182 @@ def api_quality_trend(request: Request, task_id: int):
 
         scores = [r.validation_quality for r in rows if r.validation_quality > 0]
         return TEMPLATES.TemplateResponse(request, "_quality_trend.html", {"scores": scores})
+    finally:
+        session.close()
+
+
+@router.post("/api/task/{task_id}/check-answer", response_class=HTMLResponse)
+def api_check_answer(request: Request, task_id: int):
+    """Send task image + question to minimax-m3, then verify answer against golden answer."""
+    import base64 as _b64
+    import io as _io
+    import json as _json
+    import os as _os
+
+    from PIL import Image as PILImage
+
+    from ...authoring._draft_config import CONFIG
+    from ...authoring._draft_prompts import CHECK_ANSWER_PROMPT, VERIFY_ANSWER_PROMPT
+    from ...authoring.ai_draft._api_client import _call_opencode as _call
+
+    api_key = _os.environ.get("OPENCODE_API_KEY")
+    if not api_key:
+        return TEMPLATES.TemplateResponse(
+            request, "_check_answer.html", {"error": "No OPENCODE_API_KEY set"}
+        )
+
+    session = get_session()
+    try:
+        task = session.get(Task, task_id)
+        if not task:
+            return TEMPLATES.TemplateResponse(
+                request, "_check_answer.html", {"error": "Task not found"}
+            )
+
+        # Build prompt and load image
+        check_prompt = CHECK_ANSWER_PROMPT.text.format(question=task.question)
+
+        img_path = STORAGE_DIR / task.image_path
+        b64_image = ""
+        if not img_path.exists():
+            return TEMPLATES.TemplateResponse(
+                request, "_check_answer.html", {"error": "Image not found"}
+            )
+
+        with PILImage.open(img_path) as img:
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            img.thumbnail(CONFIG.thumbnail_size)
+            buf = _io.BytesIO()
+            img.save(buf, format="JPEG", quality=CONFIG.jpeg_quality, optimize=True)
+        b64_image = _b64.b64encode(buf.getvalue()).decode()
+
+        # Step 1: ask minimax-m3 to answer
+        def _parse_answer(content: str, raw_text: str = "") -> dict | None:
+            text = content.strip()
+            if text.startswith("```"):
+                import re as _re
+                text = _re.sub(r"^```(?:json)?\s*\n?", "", text)
+                text = _re.sub(r"\n?```\s*$", "", text)
+            try:
+                data = _json.loads(text)
+                if "answer" in data and data["answer"]:
+                    return data
+            except _json.JSONDecodeError:
+                pass
+            start = text.find("{")
+            if start >= 0:
+                depth = 0
+                for end in range(start, len(text)):
+                    if text[end] == "{":
+                        depth += 1
+                    elif text[end] == "}":
+                        depth -= 1
+                        if depth == 0:
+                            try:
+                                data = _json.loads(text[start:end+1])
+                                if "answer" in data and data["answer"]:
+                                    return data
+                            except _json.JSONDecodeError:
+                                pass
+                            break
+            return None
+
+        vlm_result = _call(
+            api_key, check_prompt, b64_image,
+            model=CONFIG.default_model,
+            retries=1,
+            difficulty=task.difficulty or "challenging",
+            parser=_parse_answer,
+        )
+
+        if not vlm_result or not vlm_result.get("answer"):
+            return TEMPLATES.TemplateResponse(
+                request, "_check_answer.html", {"error": "VLM did not return a valid answer"}
+            )
+
+        vlm_answer = vlm_result["answer"].strip()
+        input_tokens = vlm_result.get("_usage", {}).get("input_tokens", 0)
+        output_tokens = vlm_result.get("_usage", {}).get("output_tokens", 0)
+        total_tokens = input_tokens + output_tokens
+
+        # Step 2: verify with deepseek-v4-flash (text-only)
+        verify_prompt = VERIFY_ANSWER_PROMPT.text.format(
+            question=task.question,
+            golden_answer=task.answer,
+            vlm_answer=vlm_answer,
+        )
+
+        def _parse_verification(content: str, raw_text: str = "") -> dict | None:
+            text = content.strip()
+            if text.startswith("```"):
+                import re as _re
+                text = _re.sub(r"^```(?:json)?\s*\n?", "", text)
+                text = _re.sub(r"\n?```\s*$", "", text)
+            try:
+                data = _json.loads(text)
+                if "match" in data:
+                    return data
+            except _json.JSONDecodeError:
+                pass
+            start = text.find("{")
+            if start >= 0:
+                depth = 0
+                for end in range(start, len(text)):
+                    if text[end] == "{":
+                        depth += 1
+                    elif text[end] == "}":
+                        depth -= 1
+                        if depth == 0:
+                            try:
+                                data = _json.loads(text[start:end+1])
+                                if "match" in data:
+                                    return data
+                            except _json.JSONDecodeError:
+                                pass
+                            break
+            return None
+
+        verify_result = _call(
+            api_key, verify_prompt, "",
+            model=CONFIG.text_model,
+            retries=1,
+            difficulty=task.difficulty or "challenging",
+            parser=_parse_verification,
+        )
+
+        match = False
+        explanation = ""
+        if verify_result:
+            match = bool(verify_result.get("match", False))
+            explanation = verify_result.get("explanation", "")
+
+        # Log to TaskEvent
+        log_task_event(
+            task_id,
+            "check_answer",
+            {
+                "model": CONFIG.default_model,
+                "verifier": CONFIG.text_model,
+                "golden_answer": task.answer,
+                "vlm_answer": vlm_answer,
+                "match": match,
+                "explanation": explanation,
+                "tokens": total_tokens,
+            },
+            quality_score=1.0 if match else 0.0,
+        )
+
+        return TEMPLATES.TemplateResponse(
+            request,
+            "_check_answer.html",
+            {
+                "golden_answer": task.answer,
+                "vlm_answer": vlm_answer,
+                "match": match,
+                "explanation": explanation,
+                "tokens": total_tokens,
+            },
+        )
     finally:
         session.close()
