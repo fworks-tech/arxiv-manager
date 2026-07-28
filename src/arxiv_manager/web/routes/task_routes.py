@@ -634,6 +634,17 @@ def api_report_issue(
         session.close()
 
 
+@router.post("/api/task/{task_id}/delete")
+def api_delete_task(task_id: int):
+    """Delete a task and redirect to tasks list."""
+    from ...authoring import delete_task as _delete_task
+
+    logger.info("task delete task_id=%d", task_id)
+    if not _delete_task(task_id):
+        return HTMLResponse("Task not found", status_code=404)
+    return RedirectResponse(url="/tasks", status_code=303)
+
+
 @router.get("/api/task/{task_id}/quality-trend", response_class=HTMLResponse)
 def api_quality_trend(request: Request, task_id: int):
     """Return quality scores across generation attempts for sparkline display."""
