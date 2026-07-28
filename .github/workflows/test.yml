@@ -38,4 +38,4 @@ jobs:
 
       - name: Verify health check imports
         run: |
-          python -c "from arxiv_manager.web.routes.health import health_check; print('health check module OK')"
+          PYTHONPATH=src python -c "from arxiv_manager.web.routes.health import health_check; print('health check module OK')"
