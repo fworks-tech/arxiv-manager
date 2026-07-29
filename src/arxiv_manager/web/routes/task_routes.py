@@ -421,6 +421,7 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
             task.answer_format,
             figure_type=figure_type,
             task_type=task.task_type,
+            difficulty=difficulty,
         )
         validation_context = ""
         if v.errors:
@@ -480,6 +481,7 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
             draft.get("answer_format", "number"),
             figure_type=figure_type,
             task_type=draft.get("task_type", "chart"),
+            difficulty=difficulty,
         )
         if final_v.errors:
             err_msg = "Validation errors: " + "; ".join(final_v.errors[:3])

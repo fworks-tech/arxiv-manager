@@ -41,7 +41,7 @@ Authoring principles (from QA handbook):
 - Do NOT ask for a specific y-axis value that requires tracing from a curve point to the axis (ambiguous answers)
 - Prefer comparison/ranking: "which is higher/larger/steeper?" over "what is the value at...?"
 
-Rules: English, 1 sentence (2 max for format spec), must need the image, no yes/no, no "how does" / "what trend" (explanation banned), no "none" / "cannot be determined" answer, answer is 1 word or 1 number. NO option restriction like "Out of the 3...".
+Rules: English, 1 sentence (2 absolute max for format spec), must need the image, no yes/no, no "how does" / "what trend" (explanation banned), no "none" / "cannot be determined" answer, answer is 1 word or 1 number. NO option restriction like "Out of the 3...".
 Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"chart|general_image|spatial"}}"""),
 )
 
@@ -156,7 +156,7 @@ Use these strategies (genuine visual REASONING, not mechanical tasks):
 🚫 DO NOT make counting the primary difficulty. The challenge MUST come from interpreting visual patterns and relationships — NOT from tallying items or reading specific axis values that require tracing. Do NOT ask for a specific numeric y-axis value — different readers get different answers.
 
 QA handbook rules:
-- English, 1 sentence (2 max for format spec), must need the image
+- English, 1 sentence (2 absolute max for format spec), must need the image. NEVER use 3+ sentences.
 - No yes/no, no "how does" / "what trend" / "explain"
 - No "none" / "cannot be determined" answers
 - No option restriction like "Out of the 3..."
@@ -223,8 +223,10 @@ How to match image features → best strategy:
 - Any question answerable from text alone without seeing the image
 - Asking for a specific y-axis value that requires tracing from a data point to the axis — this has multiple defensible answers
 - Questions requiring reading an interpolated value between axis ticks
+- Multi-sentence questions where the first sentence leaks information (e.g., "Panel (b) has a dark background while the others are light. Which panel has a light background AND red annotations?" — the first sentence already tells you all other panels are light, trivializing the comparison)
 
 The question MUST:
+- Be a SINGLE sentence (2 sentences ONLY if absolutely necessary for a format specification like naming panels and conditions — never use 3+)
 - Reference specific VALUES, data points, peaks, regions, or visual features
 - Require COMPARISON or RANKING — avoid asking for specific numeric values that require interpolating between axis labels
 - Be UNANSWERABLE from text alone — the image must be indispensable
@@ -241,7 +243,7 @@ The question MUST:
 Even if the image looks simple or has few elements, FORCE a multi-step question — compare across regions, read specific values, or interpret visual relationships. A simple counting question defeats the purpose. The author explicitly chose Challenging.
 
 QA handbook rules:
-- English, 1 sentence (2 max for format spec), must need the image
+- English, 1 sentence (2 absolute max for format spec), must need the image. NEVER use 3+ sentences — it creates ambiguity and often leaks hints in the first sentence.
 - No yes/no, no "how does" / "what trend" / "explain"
 - No "none" / "cannot be determined" answers
 - No option restriction like "Out of the 3..."
@@ -303,7 +305,7 @@ Use these PROVEN spatial strategies for Challenging (genuine visual REASONING, n
 5. Spatial comparison: "Which object is closer to the camera: the [A] on the left or the [B] on the right?"
 
 QA handbook rules:
-- English, 1 sentence (2 max for format spec), must need the image
+- English, 1 sentence (2 absolute max for format spec), must need the image. NEVER use 3+ sentences.
 - Objects must be clearly nameable ("red mug", "white chair")
 - Spatial ambiguity must be LOW — one correct answer only
 - No yes/no, no "how does" / "what trend" / "explain"
@@ -333,7 +335,7 @@ Strategies (genuine visual REASONING, not mechanical counting):
 3. Multi-step filtering: "Among objects on the top shelf, which is to the left of the blue vase and darker than the gray box?"
 4. Object relationship: "What object sits between the plant and the window, and is it above or below the counter?"
 
-Rules: English, 1 sentence (2 max for format spec), must need the image. No yes/no. Answer is 1 word or number.
+Rules: English, 1 sentence (2 absolute max for format spec), must need the image. No yes/no. Answer is 1 word or number.
 No trick answers.
 Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"general_image"}}"""),
 )
@@ -419,7 +421,7 @@ If score is 1-3, REWRITE the question to:
 - Make the image REQUIRED (no way to answer without seeing it)
 
 FORMATTING RULES for the rewritten question and answer:
-- Question: English only, 1 sentence (2 max for format spec). Must reference visual elements (axis labels, panel names, data series, regions). No yes/no, no "how does"/"what trend"/"explain". No option restrictions like "Out of the 3...". No domain jargon.
+- Question: English only, 1 sentence (2 absolute max for format spec). Must reference visual elements (axis labels, panel names, data series, regions). No yes/no, no "how does"/"what trend"/"explain". No option restrictions like "Out of the 3...". No domain jargon. NEVER use 3+ sentences — creates ambiguity.
 - Answer: EXACTLY the shortest possible response — 1 word or 1 number only. NEVER include explanations, parentheticals, units, full sentences, or reasoning. Examples: "6", "Panel A", "increases", "left".
 - answer_format: must match the answer type — "number" for digits, "word" for text labels, "phrase" only for spatial answers.
 - task_type: "chart" for chart figures, "general_image" for natural images, "spatial" for spatial-reasoning tasks.

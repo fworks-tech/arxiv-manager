@@ -87,7 +87,7 @@ def validate_task(
     a = answer.strip().lower()
 
     _run_format_checks(result, q, a, answer_format)
-    _run_content_checks(result, q, a, answer_format)
+    _run_content_checks(result, q, a, answer_format, difficulty)
     _run_complexity_checks(result, q, a, figure_type, task_type, difficulty)
     _run_handbook_basics(result, q, a, caption, difficulty)
     _run_visual_tests(result, q, a)

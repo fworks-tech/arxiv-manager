@@ -83,11 +83,17 @@ def _run_format_checks(result, q: str, a: str, answer_format: str) -> None:
         result.passed_checks.append(f"Ends with '{ending}'")
 
 
-def _run_content_checks(result, q: str, a: str, answer_format: str) -> None:
+def _run_content_checks(result, q: str, a: str, answer_format: str, difficulty: str = "") -> None:
     """Rules 6-11: Sentence count, option restriction, jargon, visual reference, format consistency, explanation."""
     sentences = _count_sentences(q)
-    if sentences > 2:
-        result.warnings.append(f"Question has {sentences} sentences — prefer 1-2")
+    is_challenging = difficulty in ("challenging", "hardest")
+    if sentences >= 3:
+        if is_challenging:
+            result.errors.append(f"Question has {sentences} sentences — max 2 for Challenging difficulty. Multi-sentence questions create ambiguity and often leak hints.")
+        else:
+            result.warnings.append(f"Question has {sentences} sentences — prefer 1-2")
+    elif sentences == 2 and is_challenging:
+        result.warnings.append(f"Question has 2 sentences — 1 sentence preferred for clarity. Two-sentence questions often leak hints in the first sentence that trivialize the comparison.")
     else:
         result.passed_checks.append("Question is concise")
 

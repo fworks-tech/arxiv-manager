@@ -381,6 +381,10 @@ def _is_single_matchmaking(q: str, a: str) -> bool:
         return False
     if len(a_lower.split()) > 3:
         return False
+    # Exclude legitimate comparisons: "which panel has the higher/larger/greater value"
+    # is strategy #2 (which-is-higher), not matchmaking
+    if re.search(r"\b(higher|lower|larger|greater|steeper|flatter|faster|slower|more|most|fewer|less)\b", q_lower):
+        return False
     return True
 
 
