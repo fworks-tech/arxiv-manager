@@ -71,14 +71,14 @@ Complexity score from `audit_figure()` (0-1 scale):
 
 ### CHALLENGING Patterns (Qwen-fail, Gemini-pass)
 
-PROVEN example (cross-panel comparison):
-> "In Figure X, which panel shows the steepest increase between x=0 and x=5: panel A or panel B?" → requires comparing slopes across two sub-plots [Challenging: Qwen 0/4, Gemini 4/4]
+PROVEN example (rank change across conditions):
+> "Determine [entity]'s rank among [list competitors] at [condition A] and at [condition B], then calculate how many positions it drops." → requires ranking bars by height at two x-values, then computing the ordinal delta. Answer is a small integer (e.g., 2). [Challenging: Qwen fails, Gemini passes]
 
 Proven strategies (genuine visual REASONING, not mechanical tasks):
 1. **Cross-panel comparison**: "Which panel has the largest value at x=[value]?"
 2. **Which-is-higher**: "At x=[value], which series has the greater y-value: [series A] or [series B]?"
 3. **Peak comparison**: "Which panel has the highest peak value?"
-4. **Rank-by-feature**: "Rank the panels from highest to lowest peak value."
+4. **Rank change across conditions**: "Determine [entity]'s rank among [list all competitors] at [condition A] and at [condition B], then calculate how many positions it drops or rises." — Answer is a small integer (rank delta).
 5. **Trend-based comparison**: "Between x=[a] and x=[b], which panel shows the steepest increase?"
 6. **Slope direction**: "In panel X, does the curve trend upward or downward between x=[a] and x=[b]?"
 7. **Visual flow tracing**: "Trace the path from [component A] to [component B]. Which intermediate component receives inputs from both?"
@@ -303,6 +303,23 @@ arXiv search → download PDF → extract figures → audit → filter → store
 | 5 | CNN Filter Grid Count | Subjective classification | 30 | HARDEST |
 | 6 | CNN Element Sum | Multi-type counting + sum | 69 | HARDEST |
 | — | Optical Computing Diagram | Multi-type + exclusion + sum | 18 | CHALLENGING |
+
+## What Works
+
+A successful Challenging chart question follows these principles:
+
+| Principle | Good (ordinal) | Bad (cardinal/tracing) |
+|---|---|---|
+| **Rank, don't read** | "Determine [X]'s rank among [A,B,C,D]" | "What is the y-value at x=5?" |
+| **Explicit scope** | Name all competitors in the question | "Which method is best?" (hidden scope) |
+| **Two-point delta** | Compare across two conditions / panels | Single-point reading |
+| **Discrete answer** | Rank delta, direction, which-one | Interpolated y-axis value |
+| **Simple final step** | "how many positions it drops" | Chain multiply/subtract of counts |
+
+The **Rank Change pattern** is currently the most reliable:
+> "Determine [entity]'s rank among [list all competitors] at [condition A] and at [condition B], then calculate how many positions it [drops/rises]."
+
+Why it works: rank is discrete and objective (tallest bar = 1st, shortest = 4th), the answer is unambiguous (a small integer), and the question forces multi-step reasoning (rank at A → rank at B → subtract) without counting or axis tracing.
 
 ## What Doesn't Work
 

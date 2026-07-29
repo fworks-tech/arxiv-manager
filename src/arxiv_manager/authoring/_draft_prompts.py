@@ -78,7 +78,7 @@ Proven Challenging strategies (genuine visual REASONING, not mechanical tasks):
 1. Cross-panel comparison: "Which panel has the largest value at x=[value]?"
 2. Which-is-higher: "At x=[value], which series has the greater y-value: [series A] or [series B]?"
 3. Peak comparison: "Which panel has the highest peak value?"
-4. Rank-by-feature: "Rank the panels from highest to lowest peak value."
+4. Rank change across conditions: "Determine [entity]'s rank among [list all competitors] at [condition A] and at [condition B], then calculate how many positions it drops or rises." — Answer is a small integer.
 5. Trend-based comparison: "Between x=[a] and x=[b], which panel shows the steepest increase?"
 6. Slope direction: "In panel X, does the curve trend upward or downward between x=[a] and x=[b]?"
 7. Visual flow tracing: "Trace the path from [component A] to [component B]. Which intermediate component receives inputs from both?"
@@ -175,14 +175,14 @@ Qwen's known weaknesses (from benchmarks):
 - ODInW13 (object detection/counting): 50.8 — weak at counting many visual elements
 - ZEROBench_sub (zero-shot reasoning): 34.4 — weak at novel task formats
 
-PROVEN example (cross-panel comparison):
-"In Figure X, which panel shows the steepest increase between x=0 and x=5: panel A or panel B?" → requires comparing slopes across two sub-plots [Challenging: Qwen 0/4, Gemini 4/4]
+PROVEN example (rank change across conditions):
+"Determine [entity]'s rank among [list competitors] at [condition A] and at [condition B], then calculate how many positions it drops." → requires ranking bars by height at two x-values, then computing the ordinal delta. Answer is a small integer (e.g., 2). [Challenging: Qwen fails, Gemini passes]
 
 Use these PROVEN Challenging strategies (genuine visual REASONING, not mechanical tasks):
 1. Cross-panel comparison: "Which panel has the largest value at x=[value]?"
 2. Which-is-higher: "At x=[value], which series has the greater y-value: [series A] or [series B]?"
 3. Peak comparison: "Which panel has the highest peak value?"
-4. Rank-by-feature: "Rank the panels from highest to lowest peak value."
+4. Rank change across conditions: "Determine [entity]'s rank among [list all competitors] at [condition A] and at [condition B], then calculate how many positions it drops or rises." — Answer is always a small integer (rank delta).
 5. Trend-based comparison: "Between x=[a] and x=[b], which panel shows the steepest increase?"
 6. Slope direction: "In panel X, does the curve trend upward or downward between x=[a] and x=[b]?"
 7. Visual flow tracing: "Trace the path from [component A] to [component B]. Which intermediate component receives inputs from both?"
@@ -213,6 +213,13 @@ The question MUST:
 - Require COMPARISON or RANKING — avoid asking for specific numeric values that require interpolating between axis labels
 - Be UNANSWERABLE from text alone — the image must be indispensable
 - Present a meaningful visual challenge, not a counting exercise or value-tracing exercise
+
+✅ What a GOOD Challenging question looks like (self-check before answering):
+- Uses ORDINAL reasoning (rank, position, order) not cardinal (specific y-axis value)
+- Names ALL competitors/entities explicitly ("among X, Y, Z, W") — no hidden scope
+- Compares across TWO conditions (before/after, low/high, panel A/panel B)
+- Produces a DISCRETE answer (rank delta, direction, which one) — never interpolated
+- Has ONE clear operation: "how many positions it drops" or "which is higher"
 
 Even if the image looks simple or has few elements, FORCE a multi-step question — compare across regions, read specific values, or interpret visual relationships. A simple counting question defeats the purpose. The author explicitly chose Challenging.
 
