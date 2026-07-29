@@ -72,31 +72,30 @@ Complexity score from `audit_figure()` (0-1 scale):
 ### CHALLENGING Patterns (Qwen-fail, Gemini-pass)
 
 PROVEN example (cross-panel comparison):
-> "What is the difference between the maximum value of series A in panel X and the maximum value of series B in panel Y?" → requires reading peaks from two charts
+> "In Figure X, which panel shows the steepest increase between x=0 and x=5: panel A or panel B?" → requires comparing slopes across two sub-plots [Challenging: Qwen 0/4, Gemini 4/4]
 
 Proven strategies (genuine visual REASONING, not mechanical tasks):
-1. **Cross-panel comparison**: "What is the difference between [value A] in panel X and [value B] in panel Y?"
-2. **Value-at-specific-location**: "At x=[value], what is the approximate y-value of [series] in panel X?"
-3. **Peak/trough reading**: "What is the maximum y-value on the axis of panel A, and which panel has the highest maximum?"
-4. **Ratio across panels**: "What is the ratio of the peak value in panel X to the peak value in panel Y?"
+1. **Cross-panel comparison**: "Which panel has the largest value at x=[value]?"
+2. **Which-is-higher**: "At x=[value], which series has the greater y-value: [series A] or [series B]?"
+3. **Peak comparison**: "Which panel has the highest peak value?"
+4. **Rank-by-feature**: "Rank the panels from highest to lowest peak value."
 5. **Trend-based comparison**: "Between x=[a] and x=[b], which panel shows the steepest increase?"
-6. **Cross-panel arithmetic**: "Sum the maximum y-axis values across all panels."
+6. **Slope direction**: "In panel X, does the curve trend upward or downward between x=[a] and x=[b]?"
 7. **Visual flow tracing**: "Trace the path from [component A] to [component B]. Which intermediate component receives inputs from both?"
 8. **Attribute comparison**: "Which component has the larger value: the one labeled [X] or the one labeled [Y]?"
 
 **Chart-specific strategies** (when `figure_type = chart_graph_text`):
-9. **Read-and-compare**: "What is the difference between the maximum [axis] value in panel A and the maximum in panel B?"
-10. **Value-at-intersection**: "At x=[value], what is the y-value of series [name]?"
-11. **Ratio across panels**: "What is the ratio of [quantity A] in panel X to [quantity A] in panel Y?"
-12. **Cross-panel arithmetic**: "Sum the peak z-values across all panels in the figure."
+9. **Which-is-higher-at-intersection**: "At x=[value], which series has the greater y-value: [A] or [B]?"
+10. **Peak-ranking**: "Which panel has the second-highest peak among all panels?"
+11. **Trend-direction**: "In panel X, does the blue curve go up or down as it crosses x=[value]?"
 
 ### HARDEST Patterns (both models fail)
 
 1. **Multi-panel reasoning**: "Compare [element A] in panel X with [element B] in panel Y — which is larger and by how much?"
-2. **Value-at-specific-location**: "At x=[value], what is the y-value of series [name] in panel X?"
+2. **Which-is-higher**: "At x=[value], which series has the greater y-value in panel X: [A] or [B]?"
 3. **Cross-attribute comparison**: "Which [category] has the highest [attribute] across all panels?"
-4. **Peak/trough reading**: "What is the y-value at the global maximum of the curve in panel A?"
-5. **Value comparison across charts**: "What is the ratio of [value A] in panel X to [value B] in panel Y?"
+4. **Peak ranking**: "Rank the panels from highest to lowest peak value."
+5. **Trend comparison across charts**: "Between x=[a] and x=[b], which panel's curve increases then decreases?"
 6. **Visual flow tracing**: "Trace the path from [component A] to [component B]. What component sits at the junction?"
 7. **Attribute comparison**: "Which connected component has the largest [attribute]: [X] or [Y]?"
 
@@ -134,7 +133,7 @@ These are mechanical OCR tasks Qwen handles perfectly:
 - "How many [elements] are visible in the image?" without a filter/comparison/arithmetic
 - Counting visual artifacts (labels, ticks, grids) rather than data values
 
-Instead, chart questions MUST: reference specific axis VALUES, data points, peaks, regions, or numerical features of the data.
+Instead, chart questions MUST: reference specific axis VALUES, data points, peaks, regions, or numerical features of the data. Questions MUST ask for COMPARISON or RANKING (which is higher/larger/steeper?), not for a specific numeric value that requires tracing from a curve point to the y-axis — different readers will get different answers.
 
 ## Validation Rules (from `_rule_groups.py`)
 

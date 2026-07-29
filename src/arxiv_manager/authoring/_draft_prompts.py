@@ -33,11 +33,13 @@ DRAFT_PROMPT = PromptTemplate(
 
 Authoring principles (from QA handbook):
 - Prefer REASONING over recognition: compose multiple series, filter by attribute, compare across panels
-- Add ONE intermediate reasoning step: combine two values and compute, or locate then compare
+- Add ONE intermediate reasoning step: locate then compare across panels, or filter then rank
 - Pin the answer down with constraints: specify which series, panel, axis, subset
 - Make the answer exact-matchable: smallest unit, no restating, no units unless required
 - Question must require the image — a smart person cannot answer from text alone
 - The answer must be objective — two reasonable people give the same answer
+- Do NOT ask for a specific y-axis value that requires tracing from a curve point to the axis (ambiguous answers)
+- Prefer comparison/ranking: "which is higher/larger/steeper?" over "what is the value at...?"
 
 Rules: English, 1 sentence (2 max for format spec), must need the image, no yes/no, no "how does" / "what trend" (explanation banned), no "none" / "cannot be determined" answer, answer is 1 word or 1 number. NO option restriction like "Out of the 3...".
 Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"chart|general_image|spatial"}}"""),
@@ -73,14 +75,16 @@ Qwen's known weaknesses (from benchmarks):
 - ZEROBench_sub (zero-shot reasoning): 34.4 — weak at novel task formats
 
 Proven Challenging strategies (genuine visual REASONING, not mechanical tasks):
-1. Cross-panel comparison: "What is the difference between the maximum [axis] value in panel A and the maximum in panel B?"
-2. Value-at-specific-location: "At x=[value], what is the approximate y-value of [series] in panel X?"
-3. Peak/trough reading: "What is the maximum y-value on the axis of panel A, and which panel has the highest maximum?"
-4. Ratio across panels: "What is the ratio of the peak value in panel X to the peak value in panel Y?"
+1. Cross-panel comparison: "Which panel has the largest value at x=[value]?"
+2. Which-is-higher: "At x=[value], which series has the greater y-value: [series A] or [series B]?"
+3. Peak comparison: "Which panel has the highest peak value?"
+4. Rank-by-feature: "Rank the panels from highest to lowest peak value."
 5. Trend-based comparison: "Between x=[a] and x=[b], which panel shows the steepest increase?"
-6. Cross-panel arithmetic: "Sum the peak values across all panels in the figure."
+6. Slope direction: "In panel X, does the curve trend upward or downward between x=[a] and x=[b]?"
 7. Visual flow tracing: "Trace the path from [component A] to [component B]. Which intermediate component receives inputs from both?"
 8. Attribute comparison: "Which component has the larger value: the one labeled [X] or the one labeled [Y]?"
+
+🚫 DO NOT ask for a specific numeric value that requires tracing from a curve point to the y-axis (e.g., "What is the y-value at x=5?" or "What is the peak value?"). Different readers will get different answers.
 
 🚫 ANTI-PATTERNS (DO NOT USE — these are mechanical, not reasoning):
 - "Count the number of X, Y, and Z" where the primary effort is tallying many items — not visual reasoning
@@ -90,6 +94,7 @@ Proven Challenging strategies (genuine visual REASONING, not mechanical tasks):
 - Chaining multiple independent counts with addition/multiplication — manufactured difficulty
 - Any question answerable from text alone (must require the image)
 - Providing all numerical data in the question text (the model must READ from the chart)
+- Asking for a specific y-axis value that requires tracing from a data point to the axis
 
 Authoring principles (from QA handbook):
 - Prefer REASONING over recognition: interpret visual patterns, compare values, read specific data points
@@ -141,14 +146,14 @@ Qwen's known weaknesses (from benchmarks):
 
 Use these strategies (genuine visual REASONING, not mechanical tasks):
 1. Multi-panel reasoning: "Compare [element A] in panel X with [element B] in panel Y — which is larger and by how much?"
-2. Value-at-specific-location: "At x=[value], what is the y-value of series [name] in panel X?"
+2. Which-is-higher: "At x=[value], which series has the greater y-value in panel X: [A] or [B]?"
 3. Cross-attribute comparison: "Which [category] has the highest [attribute] across all panels?"
-4. Peak/trough reading: "What is the y-value at the global maximum of the curve in panel A?"
-5. Value comparison across charts: "What is the ratio of [value A] in panel X to [value B] in panel Y?"
+4. Peak ranking: "Rank the panels from highest to lowest peak value."
+5. Trend comparison across charts: "Between x=[a] and x=[b], which panel's curve increases then decreases?"
 6. Visual flow tracing: "Trace the path from [component A] to [component B]. What component sits at the junction?"
 7. Attribute comparison: "Which connected component has the largest [attribute]: [X] or [Y]?"
 
-🚫 DO NOT make counting the primary difficulty. The challenge MUST come from interpreting visual patterns, relationships, or reading specific values — NOT from tallying items.
+🚫 DO NOT make counting the primary difficulty. The challenge MUST come from interpreting visual patterns and relationships — NOT from tallying items or reading specific axis values that require tracing. Do NOT ask for a specific numeric y-axis value — different readers get different answers.
 
 QA handbook rules:
 - English, 1 sentence (2 max for format spec), must need the image
@@ -171,25 +176,26 @@ Qwen's known weaknesses (from benchmarks):
 - ZEROBench_sub (zero-shot reasoning): 34.4 — weak at novel task formats
 
 PROVEN example (cross-panel comparison):
-"What is the difference between the maximum value of series A in panel X and the maximum value of series B in panel Y?" → requires reading peaks from two charts [Challenging: Qwen 0/4, Gemini 4/4]
+"In Figure X, which panel shows the steepest increase between x=0 and x=5: panel A or panel B?" → requires comparing slopes across two sub-plots [Challenging: Qwen 0/4, Gemini 4/4]
 
 Use these PROVEN Challenging strategies (genuine visual REASONING, not mechanical tasks):
-1. Cross-panel comparison: "What is the difference between [value A] in panel X and [value B] in panel Y?"
-2. Value-at-specific-location: "At x=[value], what is the approximate y-value of [series] in panel X?"
-3. Peak/trough reading: "What is the maximum y-value on the axis of panel A, and which panel has the highest maximum?"
-4. Ratio across panels: "What is the ratio of the peak value in panel X to the peak value in panel Y?"
+1. Cross-panel comparison: "Which panel has the largest value at x=[value]?"
+2. Which-is-higher: "At x=[value], which series has the greater y-value: [series A] or [series B]?"
+3. Peak comparison: "Which panel has the highest peak value?"
+4. Rank-by-feature: "Rank the panels from highest to lowest peak value."
 5. Trend-based comparison: "Between x=[a] and x=[b], which panel shows the steepest increase?"
-6. Cross-panel arithmetic: "Sum the maximum y-axis values across all panels."
+6. Slope direction: "In panel X, does the curve trend upward or downward between x=[a] and x=[b]?"
 7. Visual flow tracing: "Trace the path from [component A] to [component B]. Which intermediate component receives inputs from both?"
 8. Attribute comparison: "Which component has the larger value: the one labeled [X] or the one labeled [Y]?"
 
 CHART-SPECIFIC strategies (for chart_graph_text or chart figures):
-9. Read-and-compare: "What is the difference between the maximum [axis] value in panel A and the maximum in panel B?"
-10. Value-at-intersection: "At x=[value], what is the y-value of series [name]?"
-11. Ratio across panels: "What is the ratio of [quantity A] in panel X to [quantity A] in panel Y?"
-12. Cross-panel arithmetic: "Sum the peak z-values across all panels in the figure."
+9. Which-is-higher-at-intersection: "At x=[value], which series has the greater y-value: [A] or [B]?"
+10. Peak-ranking: "Which panel has the second-highest peak among all panels?"
+11. Trend-direction: "In panel X, does the blue curve go up or down as it crosses x=[value]?"
 
-🚫 DO NOT make counting the primary difficulty. The challenge MUST come from interpreting visual patterns, relationships, trends, or data values — NOT from how many items need counting. If you must count, it must be the final step AFTER genuine visual reasoning (classification, comparison, tracing, value reading), and the count itself must be small and obvious.
+🚫 DO NOT make counting the primary difficulty. The challenge MUST come from interpreting visual patterns, relationships, or trends — NOT from how many items need counting. If you must count, it must be the final step AFTER genuine visual reasoning (classification, comparison, tracing, value reading), and the count itself must be small and obvious.
+
+🚫 DO NOT ask for a specific numeric value that requires tracing from a curve point to the y-axis (e.g., "What is the y-value at x=5?" or "What is the peak value?"). Different readers will get different answers — this is ambiguous and defeats exact matching.
 
 🚫 ANTI-PATTERNS (DO NOT USE — these are mechanical, not reasoning):
 - "Count the number of X, Y, and Z" where the primary effort is tallying many items
@@ -199,12 +205,14 @@ CHART-SPECIFIC strategies (for chart_graph_text or chart figures):
 - Counting chart furniture: tick labels, axis labels, colorbar ticks, legends — OCR-able, useless
 - Chaining multiple independent counts with addition/multiplication — manufactured difficulty
 - Any question answerable from text alone without seeing the image
+- Asking for a specific y-axis value that requires tracing from a data point to the axis — this has multiple defensible answers
+- Questions requiring reading an interpolated value between axis ticks
 
 The question MUST:
 - Reference specific VALUES, data points, peaks, regions, or visual features
-- Require COMPARISON, READING a value, or TRACING a visual relationship
+- Require COMPARISON or RANKING — avoid asking for specific numeric values that require interpolating between axis labels
 - Be UNANSWERABLE from text alone — the image must be indispensable
-- Present a meaningful visual challenge, not a counting exercise
+- Present a meaningful visual challenge, not a counting exercise or value-tracing exercise
 
 Even if the image looks simple or has few elements, FORCE a multi-step question — compare across regions, read specific values, or interpret visual relationships. A simple counting question defeats the purpose. The author explicitly chose Challenging.
 
@@ -369,7 +377,7 @@ CRITICAL CHECK FIRST: Could a smart person answer this WITHOUT seeing the image?
 
 A question deserves a HIGH score (4-5) only if it:
 - References a visual element (peak, trough, color region, specific data point, position on chart)
-- Requires READING a value from the image (not extracting it from text)
+- Requires COMPARING values or ranking from the image (not extracting a specific numeric value by tracing to an axis)
 - Cannot be answered from text alone
 
 A question deserves a LOW score (1-2) if it is:
@@ -377,11 +385,12 @@ A question deserves a LOW score (1-2) if it is:
 - A simple COUNT of axis labels, tick marks, colorbar values
 - A generic "How many X are in the image?" with no filter
 - Mechanical counting of chart furniture
-- Answerable without the image (provide all needed data in text)
+- Answerable without the image (provides all needed data in text)
+- Asks for a specific y-axis value that requires tracing from a curve point to the axis (ambiguous answers)
 
 If score is 1-3, REWRITE the question to:
 - REMOVE any explicit data values from the text (no "X covers 0 to 5")
-- ASK about a SPECIFIC visual element (peak position, color, region, intersection)
+- ASK about a COMPARISON or ranking (which is higher/larger/steeper, what rank, which direction)
 - Make the image REQUIRED (no way to answer without seeing it)
 
 Keep the answer in sync. Return JSON only: {{"score": <1-5>, "rewrite_question": "...", "rewrite_answer": "..."}}"""),
