@@ -222,16 +222,53 @@ def api_task_history(request: Request, task_id: int):
         session.close()
 
 
+FORMAT_ONLY_ERROR_INDICATORS = [
+    "Binary/T-F question",
+    "Answer too long",
+    "Answer format is",
+    "Answer format not specified",
+    "Don't restrict options",
+    "Explanation questions",
+    "Multiple questions detected",
+    "Question must end with",
+    "Test 1 FAILED",
+    "Trick answer",
+    "Answer is an extreme value",
+]
+
+
+def _is_format_only_error(validation_context: str) -> bool:
+    """Check if all errors in validation_context are format-only (not difficulty-related)."""
+    if not validation_context:
+        return False
+    errors_part = validation_context.split(" | ")[0].split("Warnings:")[0].replace("Errors: ", "")
+    if not errors_part.strip():
+        return False
+    individual_errors = [e.strip() for e in errors_part.split(";")]
+    return all(
+        any(indicator in error for indicator in FORMAT_ONLY_ERROR_INDICATORS)
+        for error in individual_errors
+    )
+
+
 def _do_regenerate(
     image_path, api_key, difficulty, figure_type, complexity, prev_question, figure_id,
     validation_context="", task_id=None,
 ):
-    """Generate a single draft, with self-critique fallback for challenging/hardest."""
+    """Generate a single draft, with self-critique fallback for challenging/hardest.
+    
+    Skips self-critique for format-only failures (binary, too long, option restriction,
+    explanation, formatting) since those don't benefit from iterative difficulty analysis.
+    """
     try:
-        if difficulty in ("challenging", "hardest"):
+        use_self_critique = (
+            difficulty in ("challenging", "hardest")
+            and not _is_format_only_error(validation_context)
+        )
+        if use_self_critique:
             draft = draft_with_self_critique(
                 image_path=image_path,
-                max_rounds=2,
+                max_rounds=1,
                 api_key=api_key,
                 difficulty=difficulty,
                 figure_type=figure_type,
@@ -328,8 +365,8 @@ def _dedup_retry(
     task_question,
     validation_context="",
 ):
-    """If the draft matches the existing answer, retry up to 2 times."""
-    for dedup_attempt in range(1, 3):
+    """If the draft matches the existing answer, retry up to 1 time."""
+    for dedup_attempt in range(1, 2):
         draft2 = _do_regenerate(
             img_path, api_key, difficulty, figure_type, complexity,
             prev_question, figure_id, validation_context, task_id=task_id,
