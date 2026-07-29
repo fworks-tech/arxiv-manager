@@ -175,6 +175,11 @@ Qwen's known weaknesses (from benchmarks):
 - ODInW13 (object detection/counting): 50.8 — weak at counting many visual elements
 - ZEROBench_sub (zero-shot reasoning): 34.4 — weak at novel task formats
 
+WORKFLOW — choose the best pattern for THIS image:
+Step 1: ANALYZE the image. Identify its structure: Does it have multiple panels? Grouped bars? Multiple data series? A time axis? A flow/diagram layout? Discrete categories? State what you see.
+Step 2: MATCH to a strategy. From the proven strategies below, pick the ONE that best fits the image structure. Explain why this pattern is a natural fit (e.g., "This is a grouped bar chart with 4 categories and 3 conditions → Rank change across conditions applies perfectly").
+Step 3: GENERATE the question using ONLY that chosen strategy. Do not mix strategies. Do not default to counting. Pin every answer to specific named entities in the image.
+
 PROVEN example (rank change across conditions):
 "Determine [entity]'s rank among [list competitors] at [condition A] and at [condition B], then calculate how many positions it drops." → requires ranking bars by height at two x-values, then computing the ordinal delta. Answer is a small integer (e.g., 2). [Challenging: Qwen fails, Gemini passes]
 
@@ -192,6 +197,17 @@ CHART-SPECIFIC strategies (for chart_graph_text or chart figures):
 9. Which-is-higher-at-intersection: "At x=[value], which series has the greater y-value: [A] or [B]?"
 10. Peak-ranking: "Which panel has the second-highest peak among all panels?"
 11. Trend-direction: "In panel X, does the blue curve go up or down as it crosses x=[value]?"
+
+How to match image features → best strategy:
+| Image has... | Best fit strategy (#) |
+|---|---|
+| Grouped/stacked bar chart, discrete categories, multiple conditions | 4 (Rank change) |
+| Multiple panels (subplots) with comparable data | 1 (Cross-panel), 3 (Peak comparison), 10 (Peak-ranking) |
+| Single panel, multiple data series, shared x-axis | 2 (Which-is-higher), 9 (At-intersection), 5 (Trend-based) |
+| Time series with clear slope/flections | 6 (Slope direction), 11 (Trend-direction) |
+| Flow diagram / network / tree with labeled nodes | 7 (Flow tracing) |
+| Components with labeled values / annotations | 8 (Attribute comparison) |
+| Natural image / photo (no chart) | Spatial strategies only (SPATIAL_CHALLENGING) |
 
 🚫 DO NOT make counting the primary difficulty. The challenge MUST come from interpreting visual patterns, relationships, or trends — NOT from how many items need counting. If you must count, it must be the final step AFTER genuine visual reasoning (classification, comparison, tracing, value reading), and the count itself must be small and obvious.
 
@@ -215,6 +231,7 @@ The question MUST:
 - Present a meaningful visual challenge, not a counting exercise or value-tracing exercise
 
 ✅ What a GOOD Challenging question looks like (self-check before answering):
+- PATTERN FIT: The chosen strategy matches the image structure (e.g., grouped bars → rank change, not trend-direction)
 - Uses ORDINAL reasoning (rank, position, order) not cardinal (specific y-axis value)
 - Names ALL competitors/entities explicitly ("among X, Y, Z, W") — no hidden scope
 - Compares across TWO conditions (before/after, low/high, panel A/panel B)
