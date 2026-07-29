@@ -256,7 +256,7 @@ def _do_regenerate(
     validation_context="", task_id=None,
 ):
     """Generate a single draft, with self-critique fallback for challenging/hardest.
-    
+
     Skips self-critique for format-only failures (binary, too long, option restriction,
     explanation, formatting) since those don't benefit from iterative difficulty analysis.
     """

@@ -31,6 +31,7 @@ from ._validation_helpers import (
     _is_generic_count_question,
     _is_int,
     _is_number,
+    _is_single_matchmaking,
     _matches_chart_anti_pattern,
     _passes_one_answer_test,
     _passes_visual_dependence_test,
@@ -39,7 +40,6 @@ from ._validation_helpers import (
     _references_visual_content,
     _requires_arithmetic,
     _restricts_options,
-    _is_single_matchmaking,
 )
 from ._validation_helpers import (
     _is_manufactured_difficulty as _check_manufactured,
@@ -93,7 +93,7 @@ def _run_content_checks(result, q: str, a: str, answer_format: str, difficulty: 
         else:
             result.warnings.append(f"Question has {sentences} sentences — prefer 1-2")
     elif sentences == 2 and is_challenging:
-        result.warnings.append(f"Question has 2 sentences — 1 sentence preferred for clarity. Two-sentence questions often leak hints in the first sentence that trivialize the comparison.")
+        result.warnings.append("Question has 2 sentences — 1 sentence preferred for clarity. Two-sentence questions often leak hints in the first sentence that trivialize the comparison.")
     else:
         result.passed_checks.append("Question is concise")
 
