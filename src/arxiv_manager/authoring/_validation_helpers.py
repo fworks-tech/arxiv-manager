@@ -317,6 +317,7 @@ MANUFACTURED_DIFFICULTY_PATTERNS = [
     r"^count\s+.*?\s+and\s+.*?\s+then\s+(?:count|add|sum|give)",
     r"^how\s+many\s+.*?\s+and\s+how\s+many\s+",
     r"^count\s+.*?\s+then\s+(?:add|sum|multiply|give)",
+    r"rank(?:ed)?\s+by\s+(?:the\s+)?number(?:\s+of)?",
 ]
 
 
@@ -332,6 +333,55 @@ def _is_manufactured_difficulty(q: str, difficulty: str) -> bool:
         return False
     q_stripped = q.strip().lower()
     return any(re.search(p, q_stripped) for p in MANUFACTURED_DIFFICULTY_PATTERNS)
+
+
+BINARY_ANSWER_PATTERNS = [
+    (r"\bhigher\s+or\s+lower\b", "higher/lower"),
+    (r"\blower\s+or\s+higher\b", "lower/higher"),
+    (r"\bgreater\s+or\s+(?:less|lesser)\b", "greater/less"),
+    (r"\b(?:lesser|less)\s+or\s+greater\b", "less/greater"),
+    (r"\bincreas(?:e|ing|es)\s+or\s+decreas(?:e|ing|es)\b", "increase/decrease"),
+    (r"\bdecreas(?:e|ing|es)\s+or\s+increas(?:e|ing|es)\b", "decrease/increase"),
+    (r"\bupward\s+or\s+downward\b", "upward/downward"),
+    (r"\bdownward\s+or\s+upward\b", "downward/upward"),
+    (r"\b(?:does|is)\s+.*?\s+(up|down)\s+or\s+(up|down)\b", "up/down"),
+]
+
+BINARY_ANSWER_VALUES = {
+    "higher", "lower", "greater", "less", "increases", "increasing",
+    "increase", "decreases", "decreasing", "decrease", "upward",
+    "downward", "up", "down", "before", "after", "left", "right",
+    "yes", "no", "true", "false",
+}
+
+
+def _is_binary_answer(q: str, a: str) -> bool:
+    a_lower = a.strip().lower().rstrip(".")
+    if a_lower not in BINARY_ANSWER_VALUES:
+        return False
+    q_lower = q.lower()
+    for pattern, _pair in BINARY_ANSWER_PATTERNS:
+        if re.search(pattern, q_lower):
+            return True
+    return False
+
+
+SINGLE_MATCHMAKING_PATTERNS = [
+    r"which\s+(?:single\s+)?panel\s+(?:meets|has|shows|satisfies|contains)",
+    r"which\s+(?:component|node|gate|element)\s+(?:has|meets|satisfies)",
+    r"identify\s+the\s+(?:panel|component|node|gate|element)\s+that",
+    r"which\s+(?:one|single)\s+(?:has|meets|shows|satisfies|contains)",
+]
+
+
+def _is_single_matchmaking(q: str, a: str) -> bool:
+    q_lower = q.lower()
+    a_lower = a.strip().lower().rstrip(".")
+    if not any(re.search(p, q_lower) for p in SINGLE_MATCHMAKING_PATTERNS):
+        return False
+    if len(a_lower.split()) > 3:
+        return False
+    return True
 
 
 def _is_generic_count_question(q: str) -> bool:

@@ -23,6 +23,7 @@ from ._validation_helpers import (
     _has_extreme_seeking,
     _has_reasoning_depth,
     _has_threshold_filter,
+    _is_binary_answer,
     _is_binary_question,
     _is_caption_solvable,
     _is_chart_math_only,
@@ -38,6 +39,7 @@ from ._validation_helpers import (
     _references_visual_content,
     _requires_arithmetic,
     _restricts_options,
+    _is_single_matchmaking,
 )
 from ._validation_helpers import (
     _is_manufactured_difficulty as _check_manufactured,
@@ -121,12 +123,15 @@ def _run_content_checks(result, q: str, a: str, answer_format: str) -> None:
         result.passed_checks.append("Not an explanation question")
 
 
-def _run_complexity_checks(result, q: str, figure_type: str, task_type: str, difficulty: str = "") -> None:
+def _run_complexity_checks(result, q: str, a: str, figure_type: str, task_type: str, difficulty: str = "") -> None:
     """Rules 12-12d: Reasoning depth, chart anti-patterns, generic count, chart math-only."""
     if _has_reasoning_depth(q):
         result.passed_checks.append("Question requires multi-step reasoning")
     else:
-        result.warnings.append("Question may be too simple — consider adding comparison or ranking")
+        if difficulty in ("challenging", "hardest"):
+            result.errors.append("Question too simple for Challenging difficulty — must require multi-step reasoning, comparison, or ranking")
+        else:
+            result.warnings.append("Question may be too simple — consider adding comparison or ranking")
 
     is_chart = figure_type in ("chart_graph_text", "chart") or task_type == "chart"
     if is_chart:
@@ -161,6 +166,18 @@ def _run_complexity_checks(result, q: str, figure_type: str, task_type: str, dif
             "should be the primary challenge. Counting can be the final step after meaningful visual analysis."
         )
 
+    if difficulty in ("challenging", "hardest") and _is_binary_answer(q, a):
+        result.errors.append(
+            "Binary/alternate-choice answer (higher/lower, increase/decrease, up/down) — "
+            "Qwen can guess correctly 50% of the time. Use ranking, ordinal delta, or a specific value instead."
+        )
+
+    if difficulty in ("challenging", "hardest") and _is_single_matchmaking(q, a):
+        result.errors.append(
+            "Single-criterion matchmaking ('which panel meets X') — scanning for one label is too easy. "
+            "Require comparison across panels, ranking, or ordinal reasoning instead."
+        )
+
     if is_chart and _is_chart_math_only(q):
         result.errors.append(
             "Chart question is pure math (ratio/difference of values stated in text) — the image is not required. "
@@ -174,7 +191,7 @@ def _run_complexity_checks(result, q: str, figure_type: str, task_type: str, dif
         )
 
 
-def _run_handbook_basics(result, q: str, a: str, caption: str) -> None:
+def _run_handbook_basics(result, q: str, a: str, caption: str, difficulty: str = "") -> None:
     """Rules 13-19: Derivability, grammar, extreme-seeking, threshold, multi-panel, caption, extreme answer."""
     if _answer_seems_derivable(q, a):
         result.passed_checks.append("Answer appears derivable from question")
@@ -189,9 +206,15 @@ def _run_handbook_basics(result, q: str, a: str, caption: str) -> None:
         result.passed_checks.append("Basic grammar checks passed")
 
     if _has_extreme_seeking(q):
-        result.warnings.append(
-            "Uses extreme-seeking words (highest/lowest/most) — Qwen checks these first; consider threshold filters instead"
-        )
+        if difficulty in ("challenging", "hardest"):
+            result.errors.append(
+                "Uses extreme-seeking words (highest/lowest/most) for Challenging difficulty — "
+                "Qwen checks these first; use thresholds or ordinal ranking instead"
+            )
+        else:
+            result.warnings.append(
+                "Uses extreme-seeking words (highest/lowest/most) — Qwen checks these first; consider threshold filters instead"
+            )
     else:
         result.passed_checks.append("No extreme-seeking bias detected")
 
