@@ -236,7 +236,7 @@ document.getElementById('regenerate-btn')?.addEventListener('click', function() 
             document.getElementById('answer').value = data.answer;
             document.getElementById('task_type').value = data.task_type;
             document.getElementById('validation-box').innerHTML = '';
-            htmx.trigger('#generation-history-content', 'load');
+            htmx.trigger('#task-history-content', 'load');
             var info = 'Regeneration complete';
             if (data.model) info += ' | ' + data.model;
             if (data.total_tokens) info += ' | ' + data.total_tokens + ' tokens';

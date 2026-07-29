@@ -843,6 +843,7 @@ def api_report_issue(
                 <span class="text-xs text-green-600 ml-auto">Your feedback helps improve future generations</span>
             </div>
         </div>
+        <script>htmx.trigger('#task-history-content', 'load');</script>
         """)
     finally:
         session.close()
