@@ -405,6 +405,30 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
         if not task:
             return {"error": "Task not found", "ok": False}
 
+        # Cap consecutive regenerate failures at 2 — block 3rd attempt
+        recent_failures = session.exec(
+            select(GenerationAttempt)
+            .where(GenerationAttempt.task_id == task_id)
+            .where(GenerationAttempt.generation_type == "regenerate_initial")
+            .order_by(GenerationAttempt.created_at.desc())
+            .limit(2)
+        ).all()
+        if len(recent_failures) >= 2:
+            err_sets = []
+            for a in recent_failures:
+                errs = _json.loads(a.validation_errors) if a.validation_errors else []
+                err_sets.append(set(errs))
+            if len(err_sets) == 2 and err_sets[0] & err_sets[1]:
+                common = err_sets[0] & err_sets[1]
+                common_str = "; ".join(list(common)[:2])
+                return {
+                    "error": (
+                        f"This task has failed regeneration twice with the same issue: {common_str}. "
+                        "Try changing the difficulty to 'easy' or using a different image."
+                    ),
+                    "ok": False,
+                }
+
         img_path = STORAGE_DIR / task.image_path
         if not img_path.exists():
             return {"error": "Image not found", "ok": False}
