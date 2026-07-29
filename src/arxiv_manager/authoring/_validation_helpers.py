@@ -354,6 +354,13 @@ BINARY_ANSWER_VALUES = {
     "yes", "no", "true", "false",
 }
 
+INLINE_CHOICE_PATTERNS = [
+    r"\b(?:is|are|does|do|has|have|was|were|did|can|could|will|would|should)\s+.+?\s+or\s+.+?\?",
+    r"\b(?:choose|select|pick)\s+(?:between|from)\s+.+?\s+or\s+",
+    r"\b(?:is\s+it|are\s+they)\s+.+?\s+or\s+.+?\?",
+    r"\b(?:which|what)\s+.+?:\s*.+?\s+or\s+.+?",
+]
+
 
 def _is_binary_answer(q: str, a: str) -> bool:
     a_lower = a.strip().lower().rstrip(".")
@@ -361,6 +368,15 @@ def _is_binary_answer(q: str, a: str) -> bool:
         return False
     q_lower = q.lower()
     for pattern, _pair in BINARY_ANSWER_PATTERNS:
+        if re.search(pattern, q_lower):
+            return True
+    return False
+
+
+def _has_inline_choices(q: str) -> bool:
+    """Detect questions that provide predefined choices (binary guess)."""
+    q_lower = q.lower()
+    for pattern in INLINE_CHOICE_PATTERNS:
         if re.search(pattern, q_lower):
             return True
     return False

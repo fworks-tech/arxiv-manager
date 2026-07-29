@@ -21,6 +21,7 @@ from ._validation_helpers import (
     _has_answer_in_question,
     _has_domain_jargon,
     _has_extreme_seeking,
+    _has_inline_choices,
     _has_reasoning_depth,
     _has_threshold_filter,
     _is_binary_answer,
@@ -127,6 +128,14 @@ def _run_content_checks(result, q: str, a: str, answer_format: str, difficulty: 
         result.errors.append("Explanation questions ('Explain how...' / 'What trend...') are not allowed")
     else:
         result.passed_checks.append("Not an explanation question")
+
+    if _has_inline_choices(q):
+        result.errors.append(
+            "Question provides inline choices ('Is it X or Y?', 'Choose between X and Y') — "
+            "this creates a 50/50 binary guess. Short-answer questions must NOT provide predefined options."
+        )
+    else:
+        result.passed_checks.append("No inline choices in question")
 
 
 def _run_complexity_checks(result, q: str, a: str, figure_type: str, task_type: str, difficulty: str = "") -> None:

@@ -95,6 +95,7 @@ Proven Challenging strategies (genuine visual REASONING, not mechanical tasks):
 - Any question answerable from text alone (must require the image)
 - Providing all numerical data in the question text (the model must READ from the chart)
 - Asking for a specific y-axis value that requires tracing from a data point to the axis
+- Inline choices in SAQ: "Is the answer X or Y?" or "Choose between X and Y" — this creates a 50/50 binary guess. Short-answer questions must NOT provide predefined options.
 
 Authoring principles (from QA handbook):
 - Prefer REASONING over recognition: interpret visual patterns, compare values, read specific data points
@@ -224,6 +225,7 @@ How to match image features → best strategy:
 - Asking for a specific y-axis value that requires tracing from a data point to the axis — this has multiple defensible answers
 - Questions requiring reading an interpolated value between axis ticks
 - Multi-sentence questions where the first sentence leaks information (e.g., "Panel (b) has a dark background while the others are light. Which panel has a light background AND red annotations?" — the first sentence already tells you all other panels are light, trivializing the comparison)
+- Inline choices in SAQ: "Is the answer X or Y?" or "Choose between X and Y" — this creates a 50/50 binary guess. Short-answer questions must NOT provide predefined options. The model must derive the answer from the image, not select from given choices.
 
 The question MUST:
 - Be a SINGLE sentence (2 sentences ONLY if absolutely necessary for a format specification like naming panels and conditions — never use 3+)

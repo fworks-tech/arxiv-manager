@@ -154,6 +154,7 @@ Instead, chart questions MUST: reference specific axis VALUES, data points, peak
 - Must reference visual content (chart, graph, panel, color, left/right, etc.)
 - Answer must match declared format (mismatches are ERRORS for number/integer/percent)
 - No explanation questions: "Explain how...", "What trend...", "How does..."
+- **Inline choices in SAQ**: "Is the answer X or Y?", "Choose between X and Y" → ERROR (creates 50/50 binary guess)
 
 ### Complexity Checks (difficulty-aware for challenging/hardest)
 - **Requires multi-step reasoning** — ERROR if missing for challenging/hardest ("too simple")
@@ -200,7 +201,8 @@ All questions must:
 8. Not use option restriction ("Out of the 3...", "choose between X and Y")
 9. Not use single-criterion matchmaking ("which panel meets X?") without comparison
 10. Not use counting as the primary difficulty source (ranked by count of items)
-9. No domain jargon
+11. No inline choices in SAQ ("Is the answer X or Y?", "Choose between X and Y") — creates a 50/50 binary guess
+12. No domain jargon
 
 ## AI Drafting Pipeline
 
