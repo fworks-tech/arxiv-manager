@@ -406,7 +406,8 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
         if not task:
             return {"error": "Task not found", "ok": False}
 
-        # Cap consecutive regenerate failures at 2 — block 3rd attempt
+        # Cap consecutive regenerate failures at 2 — block all subsequent attempts
+        # unless the task Q&A has been manually edited since the last failure
         recent_failures = session.exec(
             select(GenerationAttempt)
             .where(GenerationAttempt.task_id == task_id)
@@ -420,15 +421,23 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
                 errs = _json.loads(a.validation_errors) if a.validation_errors else []
                 err_sets.append(set(errs))
             if len(err_sets) == 2 and err_sets[0] & err_sets[1]:
-                common = err_sets[0] & err_sets[1]
-                common_str = "; ".join(list(common)[:2])
-                return {
-                    "error": (
-                        f"This task has failed regeneration twice with the same issue: {common_str}. "
-                        "Try changing the difficulty to 'easy' or using a different image."
-                    ),
-                    "ok": False,
-                }
+                # Check if task was manually edited since last failure
+                newest = recent_failures[0]
+                task_unchanged = (
+                    task.question == (newest.generated_question or "")
+                    and task.answer == (newest.generated_answer or "")
+                )
+                if task_unchanged:
+                    common = err_sets[0] & err_sets[1]
+                    common_str = "; ".join(list(common)[:2])
+                    return {
+                        "error": (
+                            f"This task has failed regeneration twice with the same issue: {common_str}. "
+                            "Try changing the difficulty to 'easy', editing the Q&A manually, "
+                            "or using a different image."
+                        ),
+                        "ok": False,
+                    }
 
         img_path = STORAGE_DIR / task.image_path
         if not img_path.exists():
