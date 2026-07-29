@@ -277,7 +277,7 @@ class TestTaskRegenerate:
         import arxiv_manager.web.routes.task_routes as tr_mod
 
         def _fake_draft(**kw):
-            return {"question": "Mock Q?", "answer": "99", "answer_format": "number", "task_type": "chart"}
+            return {"question": "In the chart shown, what is the value of the blue bar at category X?", "answer": "99", "answer_format": "number", "task_type": "chart"}
 
         monkeypatch.setattr(tr_mod, "draft_with_self_critique", _fake_draft)
         monkeypatch.setattr(tr_mod, "draft_qa", _fake_draft)

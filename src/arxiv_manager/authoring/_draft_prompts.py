@@ -246,7 +246,8 @@ QA handbook rules:
 - No "none" / "cannot be determined" answers
 - No option restriction like "Out of the 3..."
 - No domain jargon (no sp3, p-value, EBITDA, etc.)
-- Answer is 1 word or 1 number (smallest possible unit)
+- HARD RULE: Answer is EXACTLY the shortest possible response. If format is "number", answer is ONLY the number (e.g., "6", "2.5"). If format is "word", answer is ONE word (e.g., "Panel A", "increases", "left"). NEVER include explanations, parentheticals, units (no "~36 GW"), or full sentences in the answer field. If the answer is "6 times greater", reduce it to "6" and make the question ask for the factor.
+- answer_format must match the answer type: "number" for numeric answers, "word" for text labels, "phrase" only for spatial answers like "red mug"
 - The question must be CLEAR enough that a careful Gemini pass can solve it
 - Add ONE intermediate reasoning step: combine two values, or locate then compare
 - Pin the answer down with constraints: specify which series, panel, axis, subset

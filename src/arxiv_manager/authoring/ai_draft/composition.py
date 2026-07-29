@@ -190,5 +190,18 @@ def draft_with_self_critique(
             "_prompt_text_hash": draft.get("_prompt_text_hash", ""),
         }
         logger.info("self_critique: applied rewrite round=%d", round_idx)
-
-    return draft
+        from ..validator import validate_task
+        v = validate_task(
+            draft.get("question", ""),
+            draft.get("answer", ""),
+            draft.get("answer_format", "word"),
+            figure_type=figure_type,
+            task_type=draft.get("task_type", "chart"),
+        )
+        draft["_validation_quality"] = v.quality_score
+        draft["_validation_is_valid"] = v.is_valid
+        draft["_validation_errors"] = v.errors
+        draft["_validation_warnings"] = v.warnings
+        if v.errors:
+            logger.warning("self_critique: rewritten draft failed validation round=%d errors=%s", round_idx, v.errors)
+            return None

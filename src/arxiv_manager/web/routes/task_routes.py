@@ -436,6 +436,19 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
                 draft = better
                 model_name = draft.get("_model", difficulty)
 
+        # Validate draft before saving (safety net for self-critique rewrites)
+        final_v = validate_task(
+            draft["question"],
+            draft["answer"],
+            draft.get("answer_format", "number"),
+            figure_type=figure_type,
+            task_type=draft.get("task_type", "chart"),
+        )
+        if final_v.errors:
+            err_msg = "Validation errors: " + "; ".join(final_v.errors[:3])
+            logger.warning("regenerate validation failed task_id=%d: %s", task_id, err_msg)
+            return {"error": err_msg, "ok": False}
+
         # Apply and commit
         task.question = draft["question"]
         task.answer = draft["answer"]
