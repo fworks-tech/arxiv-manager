@@ -181,6 +181,7 @@ def draft_qa(
                 result.get("answer_format", "word"),
                 figure_type=figure_type,
                 task_type=result.get("task_type", "chart"),
+                difficulty=difficulty or None,
             )
             guardrail_context = {
                 "validation_result": {
@@ -212,6 +213,7 @@ def draft_qa(
                 result.get("answer_format", "word"),
                 figure_type=figure_type,
                 task_type=result.get("task_type", "chart"),
+                difficulty=difficulty or None,
             )
             result["_validation_quality"] = v2.quality_score
             result["_validation_is_valid"] = v2.is_valid

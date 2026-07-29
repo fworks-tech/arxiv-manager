@@ -462,6 +462,13 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
         if not draft:
             return {"error": "Draft generation failed", "ok": False}
 
+        # Fail fast: if draft already failed difficulty-aware validation, return early
+        if not draft.get("_validation_is_valid", False):
+            errs = draft.get("_validation_errors", [])
+            err_msg = "; ".join(errs[:3]) if errs else "Validation failed"
+            logger.warning("task regenerate draft invalid task_id=%d: %s", task_id, err_msg)
+            return {"error": f"Draft failed validation: {err_msg}", "ok": False}
+
         model_name = draft.get("_model", difficulty)
         _log_attempt(
             task.figure_id,

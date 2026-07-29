@@ -143,6 +143,9 @@ def draft_with_self_critique(
         logger.warning("self_critique: initial draft failed")
         return None
 
+    # Save original draft in case self-critique makes it worse
+    original_draft = dict(draft)
+
     for round_idx in range(max_rounds):
         fx_context = f"Previous validation flagged: {validation_context}\n\n" if validation_context else ""
         prompt = SELF_CRITIQUE_PROMPT.text.format(
@@ -199,11 +202,12 @@ def draft_with_self_critique(
             draft.get("answer_format", "word"),
             figure_type=figure_type,
             task_type=draft.get("task_type", "chart"),
+            difficulty=difficulty or None,
         )
         draft["_validation_quality"] = v.quality_score
         draft["_validation_is_valid"] = v.is_valid
         draft["_validation_errors"] = v.errors
         draft["_validation_warnings"] = v.warnings
         if v.errors:
-            logger.warning("self_critique: rewritten draft failed validation round=%d errors=%s", round_idx, v.errors)
-            return None
+            logger.warning("self_critique: rewritten draft failed validation round=%d errors=%s - returning original draft", round_idx, v.errors)
+            return original_draft
