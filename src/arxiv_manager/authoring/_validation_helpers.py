@@ -250,6 +250,15 @@ def _is_number(s: str) -> bool:
         return False
 
 
+def _is_int(s: str) -> bool:
+    s = s.strip().replace(",", "")
+    try:
+        val = float(s)
+        return val == int(val)
+    except ValueError:
+        return False
+
+
 def _is_explanation_question(q: str) -> bool:
     q_lower = q.lower()
     for pattern in EXPLANATION_PATTERNS:

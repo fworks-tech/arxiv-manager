@@ -144,9 +144,11 @@ def draft_with_self_critique(
         return None
 
     for round_idx in range(max_rounds):
+        fx_context = f"Previous validation flagged: {validation_context}\n\n" if validation_context else ""
         prompt = SELF_CRITIQUE_PROMPT.text.format(
             question=draft["question"],
             answer=draft["answer"],
+            fx_context=fx_context,
         )
 
         try:

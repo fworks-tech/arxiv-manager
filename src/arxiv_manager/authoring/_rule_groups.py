@@ -28,6 +28,7 @@ from ._validation_helpers import (
     _is_chart_math_only,
     _is_explanation_question,
     _is_generic_count_question,
+    _is_int,
     _is_number,
     _matches_chart_anti_pattern,
     _passes_one_answer_test,
@@ -104,11 +105,15 @@ def _run_content_checks(result, q: str, a: str, answer_format: str) -> None:
         result.passed_checks.append("Question references visual content")
 
     if answer_format == "number" and not _is_number(a):
-        result.warnings.append(f"Answer format is 'number' but answer '{a}' doesn't look numeric")
+        result.errors.append(f"Answer format is 'number' but answer '{a}' doesn't look numeric")
     elif answer_format == "number":
         result.passed_checks.append("Answer matches declared format")
+    if (answer_format == "integer" or answer_format == "int") and not _is_int(a):
+        result.errors.append(f"Answer format is 'integer' but answer '{a}' doesn't look like an integer")
+    elif answer_format in ("integer", "int"):
+        result.passed_checks.append("Answer matches declared format")
     if answer_format == "percent" and "%" not in a:
-        result.warnings.append("Answer format is 'percent' but answer missing '%'")
+        result.errors.append("Answer format is 'percent' but answer missing '%'")
 
     if _is_explanation_question(q):
         result.errors.append("Explanation questions ('Explain how...' / 'What trend...') are not allowed")

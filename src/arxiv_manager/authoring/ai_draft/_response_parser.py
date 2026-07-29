@@ -109,6 +109,19 @@ def _parse_llm_response(text: str | None, raw_text: str = "") -> dict | None:
         found.setdefault("task_type", "chart")
         return found
 
+    # For very large responses (>10KB), the JSON answer is typically at the end
+    # after a long reasoning block. Try extracting from the last 16KB.
+    if len(text) > 10240:
+        tail = text[-16384:]
+        found_tail = _extract_json_from_text(tail, '"question"', "")
+        if found_tail and "question" in found_tail and "answer" in found_tail:
+            found_tail["_reasoning_trace"] = reasoning
+            found_tail["_raw_response"] = raw_text or text
+            found_tail.setdefault("answer_format", "number")
+            found_tail.setdefault("task_type", "chart")
+            logger.info("_parse_llm_response: recovered from tail (total=%d tail=%d)", len(text), len(tail))
+            return found_tail
+
     logger.warning("_parse_llm_response: could not parse (len=%d, preview=%.200s)", len(text), text[:200])
     return None
 

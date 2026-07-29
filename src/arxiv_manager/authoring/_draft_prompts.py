@@ -393,7 +393,7 @@ SELF_CRITIQUE_PROMPT = PromptTemplate(
 
 Q: {question}
 A: {answer}
-
+{fx_context}
 Rate 1-5: would Qwen 3.6-35B-A3B likely FAIL on this? A "5" means definitely fails, "1" means definitely solves.
 
 CRITICAL CHECK FIRST: Could a smart person answer this WITHOUT seeing the image?
@@ -418,7 +418,13 @@ If score is 1-3, REWRITE the question to:
 - ASK about a COMPARISON or ranking (which is higher/larger/steeper, what rank, which direction)
 - Make the image REQUIRED (no way to answer without seeing it)
 
-Keep the answer in sync. Return JSON only: {{"score": <1-5>, "rewrite_question": "...", "rewrite_answer": "..."}}"""),
+FORMATTING RULES for the rewritten question and answer:
+- Question: English only, 1 sentence (2 max for format spec). Must reference visual elements (axis labels, panel names, data series, regions). No yes/no, no "how does"/"what trend"/"explain". No option restrictions like "Out of the 3...". No domain jargon.
+- Answer: EXACTLY the shortest possible response — 1 word or 1 number only. NEVER include explanations, parentheticals, units, full sentences, or reasoning. Examples: "6", "Panel A", "increases", "left".
+- answer_format: must match the answer type — "number" for digits, "word" for text labels, "phrase" only for spatial answers.
+- task_type: "chart" for chart figures, "general_image" for natural images, "spatial" for spatial-reasoning tasks.
+
+Keep the answer in sync. Return JSON only: {{"score": <1-5>, "rewrite_question": "...", "rewrite_answer": "...", "answer_format": "...", "task_type": "..."}}"""),
 )
 
 

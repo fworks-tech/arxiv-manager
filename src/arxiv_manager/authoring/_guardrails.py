@@ -61,6 +61,9 @@ def check_answer_format_match(draft: dict, context: dict) -> tuple[bool, str]:
     elif fmt == "word":
         if len(answer.split()) > 4:
             return False, f"Answer '{answer}' is too long for format 'word' ({len(answer.split())} words)"
+    elif fmt == "phrase":
+        if len(answer.split()) > 6:
+            return False, f"Answer '{answer}' is too long for format 'phrase' ({len(answer.split())} words)"
     return True, ""
 
 
