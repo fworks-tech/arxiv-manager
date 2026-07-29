@@ -146,23 +146,28 @@ Instead, chart questions MUST: reference specific axis VALUES, data points, peak
 - Single question only (one ? mark)
 
 ### Content Checks
-- Max 2 sentences (prefer 1)
+- **Sentence count enforcement (difficulty-aware)**:
+  - Challenging/Hardest: 2 sentences = WARNING ("often leak hints"), 3+ = ERROR ("creates ambiguity")
+  - Easy: 3+ sentences = WARNING
 - No option restriction: "Out of the 3...", "From the following..."
 - No domain jargon: hybridization, sigma/pi bond, LUMO, HOMO, sp2/sp3, EBITDA, WACC, DCF, p-value, chi-square
 - Must reference visual content (chart, graph, panel, color, left/right, etc.)
-- Answer must match declared format
+- Answer must match declared format (mismatches are ERRORS for number/integer/percent)
 - No explanation questions: "Explain how...", "What trend...", "How does..."
 
-### Complexity Checks
-- Must require multi-step reasoning (comparison, ranking, sum, difference, ratio)
+### Complexity Checks (difficulty-aware for challenging/hardest)
+- **Requires multi-step reasoning** — ERROR if missing for challenging/hardest ("too simple")
+- **Binary answer detection**: "higher or lower?", "increase or decrease?", "up or down?" → ERROR (Qwen guesses 50%)
+- **Single-matchmaking detection**: "which panel meets X?" without comparison → ERROR (scanning for labels is too easy)
+- **Manufactured difficulty**: counting as primary challenge source → ERROR (extended patterns include "ranked by the number of")
 - Chart questions: must reference data values (peaks, axis values, cross-panel), not chart furniture
 - No generic count: "How many X are in the image?" without filter/comparison/arithmetic
 - No chart math-only: question must require seeing the image, not just computing from stated values
 
-### Handbook Basics
+### Handbook Basics (difficulty-aware for challenging/hardest)
 - Answer must be derivable from question
 - Capitalize first letter, no double spaces
-- Avoid extreme-seeking ("highest", "lowest", "most") — Qwen checks these first
+- **Extreme-seeking terms**: "highest", "lowest", "most" → ERROR for challenging/hardest (Qwen checks these first); warning only for easy
 - Prefer threshold filters ("fewer than 10", "greater than 5") over extreme-seeking
 - Cross-panel references are good
 - Caption must not give away the answer
@@ -185,14 +190,16 @@ Instead, chart questions MUST: reference specific axis VALUES, data points, peak
 ## Core Rules (All Difficulties)
 
 All questions must:
-1. Be a single sentence (2 max for format spec)
+1. Be a single sentence (2 absolute max for format spec; 3+ is an ERROR for challenging/hardest)
 2. Require the image to answer
 3. Have a single, unambiguous answer
 4. Be English
-5. Not be yes/no or binary
+5. Not be yes/no or binary ("higher or lower?", "up or down?") — Qwen guesses 50%
 6. Not be explanation questions ("how does", "what trend")
 7. Not use trick answers ("none", "cannot be determined")
-8. Not use option restriction ("Out of the 3...")
+8. Not use option restriction ("Out of the 3...", "choose between X and Y")
+9. Not use single-criterion matchmaking ("which panel meets X?") without comparison
+10. Not use counting as the primary difficulty source (ranked by count of items)
 9. No domain jargon
 
 ## AI Drafting Pipeline
