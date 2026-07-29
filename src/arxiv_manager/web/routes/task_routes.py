@@ -157,6 +157,7 @@ def api_task_history(request: Request, task_id: int):
             )
             merged.append(
                 {
+                    "id": r.id,
                     "event_type": "regeneration",
                     "generation_type": r.generation_type,
                     "difficulty": r.difficulty or "",
@@ -217,7 +218,7 @@ def api_task_history(request: Request, task_id: int):
 
         merged.sort(key=lambda x: x.get("created_at", ""), reverse=True)
 
-        return TEMPLATES.TemplateResponse(request, "_task_history.html", {"events": merged})
+        return TEMPLATES.TemplateResponse(request, "_task_history.html", {"events": merged, "task_id": task_id})
     finally:
         session.close()
 
@@ -722,6 +723,76 @@ def api_apply_fix(
         {"old_question": old_q, "old_answer": old_a, "new_question": question, "new_answer": answer},
     )
     return RedirectResponse(url=f"/task/{task_id}", status_code=303)
+
+
+@router.post("/api/task/{task_id}/restore/{attempt_id}")
+def api_restore_task(request: Request, task_id: int, attempt_id: int):
+    """Restore a task's Q&A from a historical generation attempt."""
+    logger.info("task restore task_id=%d attempt_id=%d", task_id, attempt_id)
+    session = get_session()
+    try:
+        task = session.get(Task, task_id)
+        if not task:
+            return HTMLResponse("Task not found", status_code=404)
+
+        attempt = session.get(GenerationAttempt, attempt_id)
+        if not attempt:
+            return HTMLResponse("Attempt not found", status_code=404)
+        if attempt.task_id != task_id:
+            return HTMLResponse("Attempt does not belong to this task", status_code=400)
+
+        restored_q = (attempt.generated_question or "").strip()
+        restored_a = (attempt.generated_answer or "").strip()
+        if not restored_q or not restored_a:
+            return HTMLResponse(
+                "<div class='text-red-500 p-3 text-sm'>Cannot restore — attempt has empty Q&A</div>"
+            )
+
+        old_q = task.question
+        old_a = task.answer
+        old_fmt = task.answer_format
+        old_type = task.task_type
+
+        task.question = restored_q
+        task.answer = restored_a
+        task.answer_format = attempt.generated_answer_format or "word"
+        task.task_type = attempt.generated_task_type or "chart"
+        session.add(task)
+
+        log_task_event(
+            task_id,
+            "restore",
+            {
+                "attempt_id": attempt_id,
+                "attempt_quality": attempt.validation_quality,
+                "attempt_valid": attempt.validation_is_valid,
+                "old_question": old_q,
+                "old_answer": old_a,
+                "old_format": old_fmt,
+                "old_type": old_type,
+                "new_question": restored_q,
+                "new_answer": restored_a,
+                "new_format": task.answer_format,
+                "new_type": task.task_type,
+            },
+        )
+
+        session.commit()
+
+        return HTMLResponse(
+            f"""<div class="text-green-600 text-sm p-2" id="restore-{attempt_id}">
+            ✅ Restored attempt #{attempt_id} — <a href="/task/{task_id}" class="underline">refresh page</a>
+            </div>
+            <script>
+            document.getElementById('question').value = {_json.dumps(restored_q)};
+            document.getElementById('answer').value = {_json.dumps(restored_a)};
+            document.getElementById('task_type').value = {_json.dumps(task.task_type)};
+            document.getElementById('validation-box').innerHTML = '';
+            htmx.trigger('#task-history-content', 'load');
+            </script>"""
+        )
+    finally:
+        session.close()
 
 
 @router.get("/api/task/{task_id}/report-form", response_class=HTMLResponse)

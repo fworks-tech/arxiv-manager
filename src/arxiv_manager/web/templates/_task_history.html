@@ -53,6 +53,19 @@
       {% endif %}
     </div>
     {% endif %}
+    {% if e.generated_question and e.generated_answer %}
+    <div class="mt-2 pt-2 border-t border-gray-200/60 flex gap-2">
+      <button type="button"
+              hx-post="/api/task/{{ task_id }}/restore/{{ e.id }}"
+              hx-target="#restore-feedback-{{ e.id }}"
+              hx-swap="innerHTML"
+              hx-confirm="Restore this version as the active Q&A? The current question/answer will be replaced."
+              class="text-xs px-2 py-1 rounded bg-gray-700 text-white hover:bg-gray-800 transition-colors">
+        ↩ Restore
+      </button>
+      <span id="restore-feedback-{{ e.id }}" class="text-xs self-center"></span>
+    </div>
+    {% endif %}
   </div>
   {% elif e.event_type == "update" %}
   <div class="border rounded-lg p-3 border-blue-200 bg-blue-50">
@@ -110,6 +123,20 @@
     <div class="text-xs text-gray-600 space-y-0.5">
       <div><span class="font-medium">Question:</span> "{{ e.old_question[:120] }}" → "{{ e.new_question[:120] }}"</div>
       <div><span class="font-medium">Answer:</span> "{{ e.old_answer }}" → "{{ e.new_answer }}"</div>
+    </div>
+  </div>
+  {% elif e.event_type == "restore" %}
+  <div class="border rounded-lg p-3 border-amber-200 bg-amber-50">
+    <div class="flex items-center gap-2 text-xs text-gray-500 mb-1">
+      <span class="font-medium text-amber-700 px-1.5 py-0.5 rounded bg-white/60 text-xs">↩️ Restored #{{ e.attempt_id }}</span>
+      <span class="ml-auto">{{ e.created_at }}</span>
+    </div>
+    <div class="text-xs text-gray-600 space-y-0.5">
+      <div><span class="font-medium">Question:</span> "{{ e.old_question[:120] }}" → "{{ e.new_question[:120] }}"</div>
+      <div><span class="font-medium">Answer:</span> "{{ e.old_answer }}" → "{{ e.new_answer }}"</div>
+      {% if e.attempt_quality is defined %}
+      <div class="mt-1 text-amber-700">Attempt quality: {{ "%.0f"|format(e.attempt_quality) }}/100</div>
+      {% endif %}
     </div>
   </div>
   {% elif e.event_type == "submit" %}
