@@ -181,6 +181,15 @@ Calculation templates (prefer these when the image has quantitative data):
 - Rank delta: "How many positions does [entity] drop or rise from [condition A] to [condition B]?"
 - Threshold crossing: "In which year does [entity] first exceed [threshold]?"
 
+🚫 DO NOT make counting the primary difficulty. The challenge MUST come from interpreting visual patterns, relationships, or trends — NOT from how many items need counting. If you must count, it must be the final step AFTER genuine visual reasoning (classification, comparison, tracing, value reading), and the count itself must be small and obvious.
+
+✅ Counting IS acceptable as the final step AFTER genuine visual reasoning. Examples of reasoning-first counting:
+- Tracing connections: "How many arrows connect node A to group B?"
+- Resolving spatial relationships: "How many objects on the top shelf are to the left of the vase?"
+- Distinguishing overlapping elements: "How many circles overlap with the shaded region?"
+- Applying a visually meaningful condition: "How many bars exceed the threshold line?"
+The count itself must be small and obvious — the hard part must be the visual reasoning, not the tallying.
+
 🚫 ANTI-PATTERNS (DO NOT USE — these are mechanical, not reasoning):
 - "Count the number of X, Y, and Z" where the primary effort is tallying many items
 - "Classify [A], [B], [C], then sum all counts" — counting with labels, not reasoning
@@ -267,6 +276,13 @@ How to match image features → best strategy:
 | Natural image / photo (no chart) | Spatial strategies only (SPATIAL_CHALLENGING) |
 
 🚫 DO NOT make counting the primary difficulty. The challenge MUST come from interpreting visual patterns, relationships, or trends — NOT from how many items need counting. If you must count, it must be the final step AFTER genuine visual reasoning (classification, comparison, tracing, value reading), and the count itself must be small and obvious.
+
+✅ Counting IS acceptable as the final step AFTER genuine visual reasoning. Examples of reasoning-first counting:
+- Tracing connections: "How many arrows connect node A to group B?"
+- Resolving spatial relationships: "How many objects on the top shelf are to the left of the vase?"
+- Distinguishing overlapping elements: "How many circles overlap with the shaded region?"
+- Applying a visually meaningful condition: "How many bars exceed the threshold line?"
+The count itself must be small and obvious — the hard part must be the visual reasoning, not the tallying.
 
 🚫 DO NOT ask for a specific numeric value that requires tracing from a curve point to the y-axis (e.g., "What is the y-value at x=5?" or "What is the peak value?"). Different readers will get different answers — this is ambiguous and defeats exact matching.
 
