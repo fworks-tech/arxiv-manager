@@ -545,4 +545,38 @@ def _requires_arithmetic(q: str) -> bool:
     return bool(ARITHMETIC_KEYWORDS.search(q))
 
 
+CALCULATION_KEYWORDS = [
+    "change", "increase", "decrease", "difference", "ratio", "percentage",
+    "rank", "sum", "total", "average", "how many more", "how many less",
+    "percentage point", "drop", "rise", "exceed", "cross",
+]
+
+
+def _requires_calculation(q: str) -> bool:
+    """Check if question contains arithmetic/calculation language."""
+    q_lower = q.lower()
+    return any(w in q_lower for w in CALCULATION_KEYWORDS)
+
+
+def _is_two_answer_question(q: str) -> bool:
+    """Detect questions that ask for two separate answers.
+
+    Examples of two-answer questions:
+    - "Which index has the largest decline and what is the percentage?"
+    - "What is the highest value and which country has it?"
+    - "How many X are there and how many Y?"
+    """
+    q_lower = q.lower().rstrip(".")
+    # Pattern: two question words (which/what/how) connected by " and "
+    question_words = r"(?:which|what|how|where|when)"
+    pattern = rf"{question_words}\b.*?\band\b.*?{question_words}\b"
+    if re.search(pattern, q_lower):
+        return True
+    # Pattern: "X and what Y" or "which X and how Y"
+    pattern2 = r"\b(?:which|what|how|where|when)\b.*?\band\b.*?\b(?:which|what|how|where|when)\b"
+    if re.search(pattern2, q_lower):
+        return True
+    return False
+
+
 # _calculate_score is kept in validator.py to avoid circular import with ValidationResult

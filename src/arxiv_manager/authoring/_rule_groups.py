@@ -33,6 +33,7 @@ from ._validation_helpers import (
     _is_int,
     _is_number,
     _is_single_matchmaking,
+    _is_two_answer_question,
     _matches_chart_anti_pattern,
     _passes_one_answer_test,
     _passes_visual_dependence_test,
@@ -40,6 +41,7 @@ from ._validation_helpers import (
     _references_multi_panel,
     _references_visual_content,
     _requires_arithmetic,
+    _requires_calculation,
     _restricts_options,
 )
 from ._validation_helpers import (
@@ -136,6 +138,17 @@ def _run_content_checks(result, q: str, a: str, answer_format: str, difficulty: 
         )
     else:
         result.passed_checks.append("No inline choices in question")
+
+    if difficulty == "hardest" and _is_two_answer_question(q):
+        result.errors.append(
+            "Hardest questions must have a single answer. Split into two questions or combine into one operation."
+        )
+
+    if difficulty == "hardest" and not _requires_calculation(q):
+        result.warnings.append(
+            "Hardest questions should require calculation or multi-step reasoning. "
+            "Consider adding arithmetic (percentage change, difference, rank delta)."
+        )
 
 
 def _run_complexity_checks(result, q: str, a: str, figure_type: str, task_type: str, difficulty: str = "") -> None:

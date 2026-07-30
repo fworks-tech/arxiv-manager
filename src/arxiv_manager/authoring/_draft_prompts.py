@@ -146,17 +146,70 @@ HARDEST_PROMPT = PromptTemplate(
 Qwen's known weaknesses (from benchmarks):
 - ODInW13 (object detection/counting): 50.8 — weak at counting many visual elements
 - ZEROBench_sub (zero-shot reasoning): 34.4 — weak at novel task formats
+Why Qwen fails on Hardest: it tends to answer the FIRST comparison it finds, cannot hold multiple data points in memory for arithmetic, and defaults to "cannot determine" when the reasoning chain is too long.
 
-Use these strategies (genuine visual REASONING, not mechanical tasks):
-1. Multi-panel reasoning: "Compare [element A] in panel X with [element B] in panel Y — which is larger and by how much?"
-2. Which-is-higher: "At x=[value], which series has the greater y-value in panel X: [A] or [B]?"
-3. Cross-attribute comparison: "Which [category] has the highest [attribute] across all panels?"
-4. Peak ranking: "Rank the panels from highest to lowest peak value."
-5. Trend comparison across charts: "Between x=[a] and x=[b], which panel's curve increases then decreases?"
-6. Visual flow tracing: "Trace the path from [component A] to [component B]. What component sits at the junction?"
-7. Attribute comparison: "Which connected component has the largest [attribute]: [X] or [Y]?"
+WORKFLOW — choose the best pattern for THIS image:
+Step 1: ANALYZE the image. Identify its structure: chart type, number of panels, data series, axes, labels. State what you see.
+Step 2: CHOOSE a reasoning task. From the strategies below, pick ONE that requires 2+ distinct visual operations (e.g., "read value at condition A, read value at condition B, compute difference"). Explain why this task requires the image.
+Step 3: GENERATE the question. Ensure the answer is a single atomic value (one number or one word). Do NOT ask for two things.
 
-🚫 DO NOT make counting the primary difficulty. The challenge MUST come from interpreting visual patterns and relationships — NOT from tallying items or reading specific axis values that require tracing. Do NOT ask for a specific numeric y-axis value — different readers get different answers.
+PROVEN example (percentage change):
+"Windpower's share of electricity in the EU was [X]% in 2006 and [Y]% in 2015. What is the percentage point increase?"
+→ requires locating two data points on a stacked area chart, reading values, computing difference. Answer is a small number (e.g., 10). [Hardest: Qwen fails because it cannot hold two values and compute]
+
+PROVEN example (rank delta):
+"Determine [entity]'s rank among [list all entities] at [year A] and at [year B], then calculate how many positions it drops."
+→ requires ranking bars by height at two time points, then computing ordinal delta. Answer is a small integer. [Hardest: Qwen cannot rank and compute simultaneously]
+
+Use these PROVEN Hardest strategies (genuine visual REASONING with calculation, not mechanical tasks):
+1. Percentage change: "[Entity]'s [metric] changed from [A] to [B]. What is the percentage point increase or decrease?"
+2. Rank delta: "Determine [entity]'s rank among [list] at [condition A] and at [condition B]. How many positions does it drop or rise?"
+3. Cross-panel calculation: "Calculate the difference between [panel A value] and [panel B value] for [category X]."
+4. Threshold crossing: "Between [year A] and [year B], does [entity] cross the [threshold] line? In which year?"
+5. Multi-panel identification: "Which panel's [entity] has the [property]: [A] or [B]?" (property = larger peak, steeper slope, earlier crossing)
+6. Arithmetic + comparison: "For [category X], compute [operation] of [values]. Is this greater or less than [threshold]?"
+7. Trace + identify: "Follow [path/flow] from [start] to [end]. What [intermediate element] has [property]?"
+8. Temporal comparison: "Between [year A] and [year B], which [category] shows the largest [metric] change?"
+9. Relative ranking: "Among [entities], rank by [metric] and identify the [nth] highest."
+10. Multi-step filtering: "Among [subset filtered by condition], which has the [property]?"
+
+Calculation templates (prefer these when the image has quantitative data):
+- Percentage change: "[Entity]'s [metric] changed from [A] to [B]. What is the percentage point change?"
+- Difference: "How many [units] more does [X] have compared to [Y]?"
+- Ratio: "What is the ratio of [X] to [Y]?"
+- Rank position: "Among [list], rank by [metric]. What is [entity]'s rank?"
+- Rank delta: "How many positions does [entity] drop or rise from [condition A] to [condition B]?"
+- Threshold crossing: "In which year does [entity] first exceed [threshold]?"
+
+🚫 ANTI-PATTERNS (DO NOT USE — these are mechanical, not reasoning):
+- "Count the number of X, Y, and Z" where the primary effort is tallying many items
+- "Classify [A], [B], [C], then sum all counts" — counting with labels, not reasoning
+- "How many arrows/connections touch [component]?" without requiring classification or comparison
+- Counting chart furniture: tick labels, axis labels, colorbar ticks, legends — OCR-able, useless
+- Chaining multiple independent counts with addition/multiplication — manufactured difficulty
+- Any question answerable from text alone without seeing the image
+- Asking for a specific y-axis value that requires tracing from a data point to the axis — multiple defensible answers
+- Multi-sentence questions where the first sentence leaks information
+- Inline choices: "Is it X or Y?" or "Choose between X and Y" — 50/50 binary guess
+- Single-criterion matchmaking: "Which panel has X?" where X is a single label — require comparison or ranking instead
+- Extreme-seeking: "What is the highest/lowest/most?" — Qwen checks these first
+- Two-answer questions: "Which X and what Y?" — must be single answer
+- Calculation without visual input: "What is 10% of 50?" — must require reading from the image
+
+The question MUST:
+- Be a SINGLE sentence (2 sentences ONLY if absolutely necessary for format spec — never use 3+)
+- Require 2+ distinct visual operations (read + calculate, compare + rank, trace + identify)
+- Reference specific VALUES, data points, peaks, regions, or visual features
+- Be UNANSWERABLE from text alone — the image must be indispensable
+- Produce a SINGLE atomic answer (one number or one word — never compound)
+
+✅ What a GOOD Hardest question looks like (self-check before answering):
+- REQUIRES CALCULATION: answer requires arithmetic (percentage, difference, ratio) or multi-panel reasoning
+- MULTI-STEP: cannot be answered by scanning one panel — multiple data sources must be consulted
+- SINGLE ANSWER: one number or one word, never "X and Y"
+- SPECIFIC: names all entities explicitly ("among X, Y, Z")
+- NO LEAKAGE: no information in the question text that gives away the answer
+- DETERMINISTIC: two readers would give the same answer
 
 QA handbook rules:
 - English, 1 sentence (2 absolute max for format spec), must need the image. NEVER use 3+ sentences.
@@ -335,11 +388,36 @@ Qwen's known weaknesses:
 - ODInW13: 50.8 — weak at detecting many objects
 - ZEROBench_sub: 34.4 — weak at novel spatial tasks
 
-Strategies (genuine visual REASONING, not mechanical counting):
-1. Depth-plane comparison: "Which object appears closer to the camera: the red chair or the blue table?"
-2. Spatial paths: "Starting from the doorway and moving toward the sink, which object would you pass third?"
-3. Multi-step filtering: "Among objects on the top shelf, which is to the left of the blue vase and darker than the gray box?"
-4. Object relationship: "What object sits between the plant and the window, and is it above or below the counter?"
+WORKFLOW:
+Step 1: ANALYZE the image. Identify objects, their positions, colors, sizes, and spatial relationships. State what you see.
+Step 2: CHOOSE a reasoning task that requires 2+ spatial operations (e.g., locate + compare, count + filter, trace + identify).
+Step 3: GENERATE the question. Answer must be a single atomic value.
+
+PROVEN example (spatial calculation):
+"Count the objects on the left shelf that are red and the objects on the right shelf that are blue. What is the difference?"
+→ requires filtering by color AND position, counting each group, computing difference. Answer is a small integer. [Hardest: Qwen cannot filter and count simultaneously]
+
+Strategies (genuine visual REASONING with calculation, not mechanical counting):
+1. Spatial calculation: "How many [objects satisfying condition A] are there compared to [objects satisfying condition B]?"
+2. Filtered counting: "Among [objects filtered by attribute], how many are to the left of [reference object]?"
+3. Depth + count: "How many objects appear between the [foreground object] and the [background object]?"
+4. Relative position ranking: "Rank the [objects] by distance from the camera. What is [object X]'s rank?"
+5. Spatial comparison: "Which is closer to the [reference]: the [object A] or the [object B]?"
+6. Multi-step containment: "What object sits on the surface that is between [object A] and [object B]?"
+7. Occlusion reasoning: "Which object is partially hidden behind [object X]?"
+
+🚫 ANTI-PATTERNS (DO NOT USE):
+- Simple counting without filtering: "How many chairs are in the room?"
+- Single-criterion matchmaking: "Which object is red?" — require comparison or ranking instead
+- Extreme-seeking: "What is the largest object?" — Qwen checks these first
+- Two-answer questions: "Which X and what Y?" — must be single answer
+- Anything answerable without seeing the image
+
+✅ What a GOOD Hardest spatial question looks like:
+- Requires 2+ spatial operations (locate + count, filter + compare, trace + rank)
+- Answer is a single number or word
+- Cannot be answered by scanning one region — must consult multiple areas
+- Names objects clearly so two readers would agree
 
 Rules: English, 1 sentence (2 absolute max for format spec), must need the image. No yes/no. Answer is 1 word or number.
 No trick answers.
