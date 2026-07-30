@@ -161,6 +161,10 @@ PROVEN example (rank delta):
 "Determine [entity]'s rank among [list all entities] at [year A] and at [year B], then calculate how many positions it drops."
 → requires ranking bars by height at two time points, then computing ordinal delta. Answer is a small integer. [Hardest: Qwen cannot rank and compute simultaneously]
 
+PROVEN example (diagram — connection matrix):
+"Which [component] in [section A] sends arrows to the most [component type] in [section B]?"
+→ requires counting outgoing arrows per component by target type, comparing counts. Answer is a component name. [Hardest: Qwen cannot count connections across multiple groups simultaneously]
+
 Use these PROVEN Hardest strategies (genuine visual REASONING with calculation, not mechanical tasks):
 1. Percentage change: "[Entity]'s [metric] changed from [A] to [B]. What is the percentage point increase or decrease?"
 2. Rank delta: "Determine [entity]'s rank among [list] at [condition A] and at [condition B]. How many positions does it drop or rise?"
@@ -172,6 +176,13 @@ Use these PROVEN Hardest strategies (genuine visual REASONING with calculation, 
 8. Temporal comparison: "Between [year A] and [year B], which [category] shows the largest [metric] change?"
 9. Relative ranking: "Among [entities], rank by [metric] and identify the [nth] highest."
 10. Multi-step filtering: "Among [subset filtered by condition], which has the [property]?"
+
+DIAGRAM-SPECIFIC strategies (for flow diagrams, architecture diagrams, UI mockups, pipelines):
+11. Connection matrix: "Which [component] connects to the most [component type] across both [section A] and [section B]?" — requires counting connections across multiple groups.
+12. Multi-attribute path tracing: "Tracing from [start] following [arrows], which [component] is the [position] one with [property]?" — requires path tracing + attribute filtering.
+13. Relationship chain: "Which [component] is connected to [A] AND [B] but NOT [C]? How many connections does it have?" — requires multi-condition filtering + counting.
+14. Cross-component arithmetic: "How many more [arrow type] connections does [component X] have compared to [component Y]?" — requires comparing connection counts.
+15. Nested path comparison: "Starting from [start], go to [middle] following [arrows]. From [middle], which path leads to [end]?" — requires multi-step path following.
 
 Calculation templates (prefer these when the image has quantitative data):
 - Percentage change: "[Entity]'s [metric] changed from [A] to [B]. What is the percentage point change?"
@@ -249,6 +260,9 @@ Step 3: GENERATE the question using ONLY that chosen strategy. Do not mix strate
 PROVEN example (rank change across conditions):
 "Determine [entity]'s rank among [list competitors] at [condition A] and at [condition B], then calculate how many positions it drops." → requires ranking bars by height at two x-values, then computing the ordinal delta. Answer is a small integer (e.g., 2). [Challenging: Qwen fails, Gemini passes]
 
+PROVEN example (diagram — connection counting):
+"How many [color/type] arrows from [section A] point to [component type] in [section B]?" → requires counting arrows by color AND distinguishing target component type. Answer is a small integer (e.g., 3). [Challenging: Qwen fails because it cannot filter and count simultaneously]
+
 Use these PROVEN Challenging strategies (genuine visual REASONING, not mechanical tasks):
 1. Cross-panel comparison: "Which panel has the largest value at x=[value]?"
 2. Which-is-higher: "At x=[value], which series has the greater y-value: [series A] or [series B]?"
@@ -264,6 +278,13 @@ CHART-SPECIFIC strategies (for chart_graph_text or chart figures):
 10. Peak-ranking: "Which panel has the second-highest peak among all panels?"
 11. Trend-direction: "In panel X, does the blue curve go up or down as it crosses x=[value]?"
 
+DIAGRAM-SPECIFIC strategies (for flow diagrams, architecture diagrams, UI mockups, pipeline diagrams):
+12. Connection counting with filter: "How many [arrow type] connect [group A] to [group B]?" — requires distinguishing arrow types AND counting.
+13. Multi-condition path tracing: "Following the [arrow type], which [component] is the [position] one after [start] that has [property]?" — requires following paths AND checking conditions.
+14. Cross-section comparison: "How many more [element type] does [section A] have compared to [section B]?" — requires comparing counts across sections.
+15. Spatial ordering with attribute: "Among [elements with property X], what is the [position] when ordered by [spatial axis]?" — requires filtering + ordering.
+16. Multi-condition filtering: "Which [component] is connected to both [X] and [Y] but not to [Z]?" — requires filtering by multiple connection conditions.
+
 How to match image features → best strategy:
 | Image has... | Best fit strategy (#) |
 |---|---|
@@ -271,7 +292,9 @@ How to match image features → best strategy:
 | Multiple panels (subplots) with comparable data | 1 (Cross-panel), 3 (Peak comparison), 10 (Peak-ranking) |
 | Single panel, multiple data series, shared x-axis | 2 (Which-is-higher), 9 (At-intersection), 5 (Trend-based) |
 | Time series with clear slope/flections | 6 (Slope direction), 11 (Trend-direction) |
-| Flow diagram / network / tree with labeled nodes | 7 (Flow tracing) |
+| Flow diagram / network / tree with labeled nodes | 7 (Flow tracing), 12 (Connection counting), 16 (Multi-condition filtering) |
+| Architecture diagram / pipeline with blocks | 12 (Connection counting), 13 (Multi-condition path), 15 (Spatial ordering) |
+| UI screens / mockups / settings panels | 7 (Flow tracing), 14 (Cross-section comparison), 16 (Multi-condition filtering) |
 | Components with labeled values / annotations | 8 (Attribute comparison) |
 | Natural image / photo (no chart) | Spatial strategies only (SPATIAL_CHALLENGING) |
 
