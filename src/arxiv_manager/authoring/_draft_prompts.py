@@ -149,9 +149,9 @@ Qwen's known weaknesses (from benchmarks):
 Why Qwen fails on Hardest: it tends to answer the FIRST comparison it finds, cannot hold multiple data points in memory for arithmetic, and defaults to "cannot determine" when the reasoning chain is too long.
 
 WORKFLOW — choose the best pattern for THIS image:
-Step 1: ANALYZE the image. Identify its structure: chart type, number of panels, data series, axes, labels. State what you see.
-Step 2: CHOOSE a reasoning task. From the strategies below, pick ONE that requires 2+ distinct visual operations (e.g., "read value at condition A, read value at condition B, compute difference"). Explain why this task requires the image.
-Step 3: GENERATE the question. Ensure the answer is a single atomic value (one number or one word). Do NOT ask for two things.
+Step 1: ANALYZE the image briefly (chart type, panels, data series). Keep to 2-3 sentences max.
+Step 2: CHOOSE a reasoning task that requires 2+ visual operations.
+Step 3: GENERATE the question and output ONLY valid JSON. Do not explain your reasoning in detail — just output the JSON.
 
 PROVEN example (percentage change):
 "Windpower's share of electricity in the EU was [X]% in 2006 and [Y]% in 2015. What is the percentage point increase?"
@@ -218,6 +218,7 @@ QA handbook rules:
 - No option restriction like "Out of the 3..."
 - No domain jargon (no sp3, p-value, EBITDA, etc.)
 - Answer is 1 word or 1 number (smallest possible unit)
+- IMPORTANT: Keep your thinking under 500 words. Output the JSON immediately after a brief analysis. Do NOT write lengthy explanations.
 
 Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"chart|general_image|spatial"}}"""),
 )
