@@ -209,7 +209,11 @@ def draft_with_self_critique(
         draft["_validation_errors"] = v.errors
         draft["_validation_warnings"] = v.warnings
         if v.errors:
-            logger.warning("self_critique: rewritten draft failed validation round=%d errors=%s - returning original draft", round_idx, v.errors)
+            logger.warning(
+                "self_critique: rewritten draft failed validation round=%d errors=%s - returning original draft",
+                round_idx,
+                v.errors,
+            )
             return original_draft
 
     return draft

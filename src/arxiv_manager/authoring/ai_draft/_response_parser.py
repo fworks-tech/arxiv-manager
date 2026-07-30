@@ -17,7 +17,7 @@ def _extract_reasoning(text: str) -> tuple[str, str]:
     reasoning_parts = re.findall(r"<think>(.*?)</think>", text, flags=re.DOTALL)
     reasoning = "\n".join(part.strip() for part in reasoning_parts).strip()
     cleaned = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
-    
+
     # Handle incomplete <think> blocks (missing closing tag or truncated response)
     if not reasoning and cleaned.startswith("<think>"):
         # No complete think block found, but text starts with <think>
@@ -31,7 +31,7 @@ def _extract_reasoning(text: str) -> tuple[str, str]:
             # Found closing tag
             reasoning = cleaned[7:think_end].strip()
             cleaned = cleaned[think_end + 8:].strip()
-    
+
     return cleaned, reasoning
 
 
