@@ -18,7 +18,7 @@ class ModelConfig:
 @dataclass
 class DraftConfig:
     default_model: str = "minimax-m3"
-    text_model: str = "deepseek-v4-flash"
+    text_model: str = "mimo-v2.5"
     vision_models: set[str] = field(default_factory=lambda: {"minimax-m3"})
     api_url: str = "https://opencode.ai/zen/go/v1/chat/completions"
     retries: int = 3
@@ -40,6 +40,12 @@ class DraftConfig:
                 timeout_hard=240,
             ),
             "deepseek": ModelConfig(
+                max_tokens_easy=4000,
+                max_tokens_hard=8000,
+                timeout_easy=60,
+                timeout_hard=120,
+            ),
+            "mimo": ModelConfig(
                 max_tokens_easy=4000,
                 max_tokens_hard=8000,
                 timeout_easy=60,

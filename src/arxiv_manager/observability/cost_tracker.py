@@ -20,6 +20,7 @@ _COST_TABLE: dict[str, tuple[float, float]] = {
     "gemini-2.5-pro": (1.25, 5.00),
     "gemini-2.5-flash": (0.075, 0.30),
     "deepseek-v3": (0.27, 1.10),
+    "mimo-v2.5": (0.15, 0.60),
 }
 
 
