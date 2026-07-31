@@ -989,7 +989,7 @@ def api_check_answer(request: Request, task_id: int):
         output_tokens = vlm_result.get("_usage", {}).get("output_tokens", 0)
         total_tokens = input_tokens + output_tokens
 
-        # Step 2: verify with deepseek-v4-flash (text-only)
+        # Step 2: verify with mimo-v2.5 (text-only)
         verify_prompt = VERIFY_ANSWER_PROMPT.text.format(
             question=task.question,
             golden_answer=task.answer,

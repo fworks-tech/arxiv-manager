@@ -567,14 +567,16 @@ def _is_two_answer_question(q: str) -> bool:
     - "How many X are there and how many Y?"
     """
     q_lower = q.lower().rstrip(".")
+    # Normalise conjunctive "when Xed" so it doesn't match as a question word
+    q_clean = re.sub(r"\bwhen\s+(?:ranked|sorted|compared|assigned|given|viewed|ordered|measured|numbered|evaluated|listed|arranged|placed|grouped|labeled|set)\b", " while ", q_lower)
     # Pattern: two question words (which/what/how) connected by " and "
     question_words = r"(?:which|what|how|where|when)"
     pattern = rf"{question_words}\b.*?\band\b.*?{question_words}\b"
-    if re.search(pattern, q_lower):
+    if re.search(pattern, q_clean):
         return True
     # Pattern: "X and what Y" or "which X and how Y"
     pattern2 = r"\b(?:which|what|how|where|when)\b.*?\band\b.*?\b(?:which|what|how|where|when)\b"
-    if re.search(pattern2, q_lower):
+    if re.search(pattern2, q_clean):
         return True
     return False
 
