@@ -53,6 +53,17 @@
       {% endif %}
     </div>
     {% endif %}
+    {% if e.fact_check_errors %}
+    <div class="mt-1.5 text-xs text-orange-600 dark:text-orange-400 space-y-0.5">
+      <div>🚩 Fact check failed — premise not supported by the image:</div>
+      {% for err in e.fact_check_errors[:2] %}
+      <div class="pl-2">- {{ err[:150] }}</div>
+      {% endfor %}
+      {% if e.fact_check_errors|length > 2 %}
+      <div class="text-gray-400 dark:text-gray-500">+ {{ e.fact_check_errors|length - 2 }} more claims</div>
+      {% endif %}
+    </div>
+    {% endif %}
     {% if e.generated_question and e.generated_answer %}
     <div class="mt-2 pt-2 border-t border-gray-200/60 dark:border-gray-700/60 flex gap-2">
       <button type="button"

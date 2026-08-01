@@ -155,6 +155,11 @@ def api_task_history(request: Request, task_id: int):
                 if r.validation_errors and r.validation_errors.strip() not in ("", "[]")
                 else []
             )
+            fact_errors_list = (
+                _json.loads(r.fact_check_errors)
+                if r.fact_check_errors and r.fact_check_errors.strip() not in ("", "[]")
+                else []
+            )
             merged.append(
                 {
                     "id": r.id,
@@ -167,6 +172,7 @@ def api_task_history(request: Request, task_id: int):
                     "generated_answer_format": r.generated_answer_format or "",
                     "quality": r.validation_quality,
                     "errors": errors_list,
+                    "fact_check_errors": fact_errors_list,
                     "total_tokens": r.total_tokens or 0,
                     "input_tokens": r.input_tokens or 0,
                     "output_tokens": r.output_tokens or 0,
@@ -196,6 +202,7 @@ def api_task_history(request: Request, task_id: int):
                 "generated_answer": "",
                 "generated_answer_format": "",
                 "errors": [],
+                "fact_check_errors": [],
                 "changed_fields": [],
                 "old_values": {},
                 "new_values": {},
@@ -254,7 +261,7 @@ def _is_format_only_error(validation_context: str) -> bool:
 
 def _do_regenerate(
     image_path, api_key, difficulty, figure_type, complexity, prev_question, figure_id,
-    validation_context="", task_id=None, max_validation_retries=2,
+    validation_context="", task_id=None, max_validation_retries=2, use_fact_check=True,
 ):
     """Generate a single draft, with self-critique and validation-feedback retries.
 
@@ -262,6 +269,11 @@ def _do_regenerate(
     explanation, formatting) since those don't benefit from iterative difficulty analysis.
     Retries up to max_validation_retries times with the draft's own validation errors
     as feedback before giving up.
+
+    When use_fact_check is set, drafts that pass text validation are additionally
+    checked against the image for factual premises (adversarial VLM fact-check).
+    Fact-check failures feed back into the retry loop; if all retries fail, the best
+    draft is returned with _fact_check_failed=True so the caller can decide.
     """
     try:
         use_self_critique = (
@@ -297,8 +309,13 @@ def _do_regenerate(
                     )
             else:
                 feedback = ""
-                if draft and (draft.get("_validation_errors") or []):
-                    feedback = "Errors to fix: " + "; ".join(draft["_validation_errors"][:3])
+                if draft:
+                    fb_parts = []
+                    if draft.get("_validation_errors"):
+                        fb_parts.append("Errors to fix: " + "; ".join(draft["_validation_errors"][:3]))
+                    if draft.get("_fact_check_errors"):
+                        fb_parts.append("Fact check failed: " + "; ".join(draft["_fact_check_errors"][:3]))
+                    feedback = " | ".join(fb_parts)
                 draft = draft_qa(
                     image_path=image_path,
                     api_key=api_key,
@@ -327,6 +344,31 @@ def _do_regenerate(
             draft["_validation_errors"] = v.errors
             draft["_validation_warnings"] = v.warnings
             if not v.errors:
+                if not use_fact_check or difficulty == "easy":
+                    return draft
+                from ...authoring.ai_draft._fact_checker import fact_check_draft
+
+                fc = fact_check_draft(
+                    draft["question"],
+                    image_path,
+                    api_key,
+                    difficulty=difficulty,
+                )
+                draft["_fact_check_checked"] = fc["checked"]
+                if fc["checked"] and fc["verdict"] == "fail":
+                    draft["_fact_check_failed"] = True
+                    draft["_fact_check_errors"] = fc["unsupported"]
+                    draft["_fact_check_claims"] = fc["claims"]
+                    logger.warning(
+                        "regenerate attempt %d/%d fact check failed task_id=%s claims=%s",
+                        attempt + 1,
+                        max_validation_retries + 1,
+                        task_id,
+                        "; ".join(fc["unsupported"][:3]),
+                    )
+                    continue
+                draft["_fact_check_failed"] = False
+                draft["_fact_check_errors"] = []
                 return draft
             logger.warning(
                 "regenerate attempt %d/%d draft invalid task_id=%s errors=%s",
@@ -336,6 +378,10 @@ def _do_regenerate(
                 "; ".join(v.errors[:3]),
             )
 
+        if draft is None:
+            return None
+        draft.setdefault("_fact_check_failed", False)
+        draft.setdefault("_fact_check_errors", [])
         return draft
     except ValueError:
         return None
@@ -382,6 +428,7 @@ def _log_attempt(
         validation_is_valid=draft.get("_validation_is_valid", False),
         validation_errors=_json.dumps(draft.get("_validation_errors", [])),
         validation_warnings=_json.dumps(draft.get("_validation_warnings", [])),
+        fact_check_errors=_json.dumps(draft.get("_fact_check_errors", [])),
         success=True,
     )
 
@@ -452,10 +499,15 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
         ).all()
         if len(recent_failures) >= 2:
             err_sets = []
+            fact_sets = []
             for a in recent_failures:
                 errs = _json.loads(a.validation_errors) if a.validation_errors else []
                 err_sets.append(set(errs))
-            if len(err_sets) == 2 and err_sets[0] & err_sets[1]:
+                fcts = _json.loads(a.fact_check_errors) if a.fact_check_errors else []
+                fact_sets.append(set(fcts))
+            common = err_sets[0] & err_sets[1]
+            common_facts = fact_sets[0] & fact_sets[1]
+            if common or common_facts:
                 # Check if task was manually edited since last failure
                 newest = recent_failures[0]
                 task_unchanged = (
@@ -463,8 +515,7 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
                     and task.answer == (newest.generated_answer or "")
                 )
                 if task_unchanged:
-                    common = err_sets[0] & err_sets[1]
-                    common_str = "; ".join(list(common)[:2])
+                    common_str = "; ".join(list(common | common_facts)[:2])
                     return {
                         "error": (
                             f"This task has failed regeneration twice with the same issue: {common_str}. "
@@ -528,6 +579,15 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
             err_msg = "; ".join(errs[:3]) if errs else "Validation failed"
             logger.warning("task regenerate draft invalid task_id=%d: %s", task_id, err_msg)
             return {"error": f"Draft failed validation: {err_msg}", "ok": False}
+
+        # Fact-check gate: the draft's premise contradicts (or can't be verified
+        # against) the image. The attempt stays in Task History for restore, but
+        # we never overwrite the task Q&A with a visually-false premise.
+        fact_errors = draft.get("_fact_check_errors", []) or []
+        if draft.get("_fact_check_failed", False) or fact_errors:
+            fact_msg = "; ".join(fact_errors[:3]) if fact_errors else "Premise not verifiable against the image"
+            logger.warning("task regenerate fact check failed task_id=%d: %s", task_id, fact_msg)
+            return {"error": f"Fact check failed: {fact_msg}", "ok": False, "fact_check": fact_errors}
 
         # Dedup retries if answer unchanged
         if (

@@ -263,3 +263,36 @@ def test_draft_qa_feedback_path_validates_without_crash(sample_image_chart_path,
     assert result["answer"] == "5"
     assert "_validation_is_valid" in result
     assert "_validation_errors" in result
+
+
+def test_draft_qa_feedback_reaches_prompt_for_challenging(sample_image_chart_path, mock_api_key, monkeypatch):
+    """feedback text must reach the model even when difficulty is set.
+
+    Regression: the REGEN_PROMPT branch only fired when difficulty was empty,
+    so regenerate retries (which always pass a difficulty) silently dropped
+    the feedback and just re-rolled the same template.
+    """
+    from arxiv_manager.authoring.ai_draft import draft_qa
+
+    captured = {}
+
+    def fake_call(*a, **kw):
+        captured["prompt"] = a[1]
+        return {"question": "Q?", "answer": "5", "answer_format": "number", "task_type": "chart"}
+
+    import arxiv_manager.authoring.ai_draft._api_client as api_mod
+    import arxiv_manager.authoring.ai_draft.core as core_mod
+
+    monkeypatch.setattr(api_mod, "_call_opencode", fake_call)
+    monkeypatch.setattr(core_mod, "_call_opencode", fake_call)
+
+    result = draft_qa(
+        image_path=sample_image_chart_path,
+        api_key="test-key",
+        difficulty="challenging",
+        feedback="Errors to fix: question too simple | Fact check failed: two text overlap panels",
+    )
+    assert result is not None
+    assert "Errors to fix: question too simple" in captured["prompt"]
+    assert "Fact check failed: two text overlap panels" in captured["prompt"]
+    assert "REGENERATE WITH THESE FIXES" in captured["prompt"]

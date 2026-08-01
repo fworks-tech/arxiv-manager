@@ -247,6 +247,7 @@ class GenerationAttempt(SQLModel, table=True):
     validation_is_valid: bool = False
     validation_errors: str = ""  # JSON list
     validation_warnings: str = ""  # JSON list
+    fact_check_errors: str = ""  # JSON list of unsupported premise claims
 
     # Rhea feedback (captured on submit)
     rhea_passed: bool = False

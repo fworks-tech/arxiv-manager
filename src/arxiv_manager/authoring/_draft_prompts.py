@@ -240,6 +240,13 @@ QA handbook rules:
 - Answer is 1 word or 1 number (smallest possible unit)
 - IMPORTANT: Keep your thinking under 500 words. Output the JSON immediately after a brief analysis. Do NOT write lengthy explanations.
 
+FACT SAFETY — CRITICAL:
+- Every fact in your question must be DIRECTLY AND CLEARLY visible in the image: every value, every label, every panel/group reference.
+- NEVER assert group counts like "the two panels showing X" or "both Y panels" unless you can count the elements yourself with certainty.
+- If an annotation label or value is too small or blurry to read confidently, do NOT use it in the question.
+- When labels are unreadable, prefer structure-based questions: count rows/boxes/items, compare positions, trace layout order.
+- A question built on an invented or unreadable premise is useless — it will be rejected.
+
 Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"chart|general_image|spatial"}}"""),
 )
 
@@ -353,6 +360,13 @@ QA handbook rules:
 - Add ONE intermediate reasoning step: combine two values, or locate then compare
 - Pin the answer down with constraints: specify which series, panel, axis, subset
 
+FACT SAFETY — CRITICAL:
+- Every fact in your question must be DIRECTLY AND CLEARLY visible in the image: every value, every label, every panel/group reference.
+- NEVER assert group counts like "the two panels showing X" or "both Y panels" unless you can count the elements yourself with certainty.
+- If an annotation label or value is too small or blurry to read confidently, do NOT use it in the question.
+- When labels are unreadable, prefer structure-based questions: count rows/boxes/items, compare positions, trace layout order.
+- A question built on an invented or unreadable premise is useless — it will be rejected.
+
 Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"chart|general_image|spatial"}}"""),
 )
 
@@ -414,6 +428,13 @@ QA handbook rules:
 - Add ONE intermediate step: locate then compare, or filter then name
 - Pin the answer down with constraints
 
+FACT SAFETY — CRITICAL:
+- Every fact in your question must be DIRECTLY AND CLEARLY visible in the image: every value, every label, every panel/group reference.
+- NEVER assert group counts like "the two panels showing X" or "both Y panels" unless you can count the elements yourself with certainty.
+- If an annotation label or value is too small or blurry to read confidently, do NOT use it in the question.
+- When labels are unreadable, prefer structure-based questions: count rows/boxes/items, compare positions, trace layout order.
+- A question built on an invented or unreadable premise is useless — it will be rejected.
+
 Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"general_image"}}"""),
 )
 
@@ -461,6 +482,12 @@ Strategies (genuine visual REASONING with calculation, not mechanical counting):
 
 Rules: English, 1 sentence (2 absolute max for format spec), must need the image. No yes/no. Answer is 1 word or number.
 No trick answers.
+FACT SAFETY — CRITICAL:
+- Every fact in your question must be DIRECTLY AND CLEARLY visible in the image: every value, every label, every panel/group reference.
+- NEVER assert group counts like "the two panels showing X" or "both Y panels" unless you can count the elements yourself with certainty.
+- If an annotation label or value is too small or blurry to read confidently, do NOT use it in the question.
+- When labels are unreadable, prefer structure-based questions: count rows/boxes/items, compare positions, trace layout order.
+- A question built on an invented or unreadable premise is useless — it will be rejected.
 Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number|phrase","task_type":"general_image"}}"""),
 )
 
@@ -579,6 +606,34 @@ Output ONLY valid JSON with these keys:
 )
 
 
+FACT_CHECK_PROMPT = PromptTemplate(
+    "FACT_CHECK_PROMPT",
+    _with_strict("""You are an adversarial fact-checker for a visual-reasoning question about this image.
+
+A question's premise is only valid if EVERY factual claim it makes about the image is directly and clearly visible in the image.
+
+Carefully examine the image, then examine this question:
+{question}
+
+Break the question down into its factual claims about the image. Typical claims:
+- Counts of items/groups: "the two panels showing X", "three red boxes"
+- Labels/value reads: "panel 2 shows a 'text overlap' issue with confidence 80%"
+- Presence/absence: "panel 1 contains a blue box", "no legend is present"
+- Positions/order: "panel (b) is above panel (a)", "the leftmost column"
+
+For EACH claim, decide:
+- SUPPORTED — the image clearly shows it; you can point at exactly what you see.
+- NOT SUPPORTED — the image contradicts it or does not contain what the claim asserts.
+- UNVERIFIABLE — you cannot read/verify it confidently (e.g. label text is too small or blurry, values illegible).
+
+CONSERVATISM RULE: if a claim depends on text you cannot read with full confidence, mark it UNVERIFIABLE. A question is NOT usable if ANY claim is NOT SUPPORTED or UNVERIFIABLE.
+
+Return ONLY valid JSON:
+{{"claims": [{{"claim": "<claim text>", "verdict": "SUPPORTED|NOT_SUPPORTED|UNVERIFIABLE", "evidence": "<one line: what you actually see, or why unverifiable>"}}], "verdict": "pass|fail"}}
+Set "verdict" to "pass" only if EVERY claim is SUPPORTED. If any claim is NOT_SUPPORTED or UNVERIFIABLE, set it to "fail".""")
+)
+
+
 PROMPT_TEMPLATES: dict[str, PromptTemplate] = {
     p.name: p
     for p in [
@@ -596,5 +651,6 @@ PROMPT_TEMPLATES: dict[str, PromptTemplate] = {
         VERIFY_PROMPT,
         SELF_CRITIQUE_PROMPT,
         FIX_PROMPT,
+        FACT_CHECK_PROMPT,
     ]
 }

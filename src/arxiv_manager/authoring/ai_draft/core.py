@@ -64,6 +64,7 @@ def draft_qa(
     )
 
     is_spatial = figure_type == "general_image"
+    feedback_embedded = False
     if difficulty == "hardest":
         raw_template = SPATIAL_HARDEST_PROMPT if is_spatial else HARDEST_PROMPT
         prompt = raw_template.text
@@ -76,9 +77,16 @@ def draft_qa(
     elif feedback:
         raw_template = SPATIAL_REGEN_PROMPT if is_spatial else REGEN_PROMPT
         prompt = raw_template.text.format(feedback=feedback)
+        feedback_embedded = True
     else:
         raw_template = SPATIAL_DRAFT_PROMPT if is_spatial else DRAFT_PROMPT
         prompt = raw_template.text
+    if feedback and not feedback_embedded:
+        # Regenerate calls always carry a difficulty, so the REGEN_PROMPT
+        # branch above never fires for them — without this, retry feedback
+        # ("Errors to fix: ...") never reached the model and retries were
+        # just re-rolls of the same template.
+        prompt += "\n\nREGENERATE WITH THESE FIXES:\n" + feedback
     if caption:
         prompt += f"\nCaption: {caption}"
     if figure_type:
