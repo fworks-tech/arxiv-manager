@@ -32,6 +32,7 @@ from ._validation_helpers import (
     _is_generic_count_question,
     _is_int,
     _is_number,
+    _is_single_lookup,
     _is_single_matchmaking,
     _is_two_answer_question,
     _matches_chart_anti_pattern,
@@ -42,6 +43,7 @@ from ._validation_helpers import (
     _references_visual_content,
     _requires_arithmetic,
     _requires_calculation,
+    _requires_complex_visual_reasoning,
     _restricts_options,
 )
 from ._validation_helpers import (
@@ -153,13 +155,27 @@ def _run_content_checks(result, q: str, a: str, answer_format: str, difficulty: 
 
 def _run_complexity_checks(result, q: str, a: str, figure_type: str, task_type: str, difficulty: str = "") -> None:
     """Rules 12-12d: Reasoning depth, chart anti-patterns, generic count, chart math-only."""
-    if _has_reasoning_depth(q):
+    if _has_reasoning_depth(q, difficulty):
         result.passed_checks.append("Question requires multi-step reasoning")
     else:
         if difficulty in ("challenging", "hardest"):
             result.errors.append("Question too simple for Challenging difficulty — must require multi-step reasoning, comparison, or ranking")
         else:
             result.warnings.append("Question may be too simple — consider adding comparison or ranking")
+
+    # Lookup-question warning for Challenging/Hardest
+    if difficulty in ("challenging", "hardest") and _is_single_lookup(q):
+        result.warnings.append(
+            "Question appears to be a simple lookup ('what is the X of Y?') — "
+            "consider adding comparison, ranking, or multi-step reasoning for Challenging difficulty"
+        )
+
+    # Visual-reasoning depth warning for Challenging/Hardest
+    if difficulty in ("challenging", "hardest") and not _requires_complex_visual_reasoning(q):
+        result.warnings.append(
+            "Question may not require complex visual reasoning — "
+            "consider adding multi-panel comparison, spatial relationships, or calculation"
+        )
 
     is_chart = figure_type in ("chart_graph_text", "chart") or task_type == "chart"
     if is_chart:

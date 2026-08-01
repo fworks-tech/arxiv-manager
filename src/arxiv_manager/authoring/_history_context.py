@@ -378,6 +378,54 @@ def select_best_model(
         session.close()
 
 
+def build_combined_history(
+    figure_id: int | None,
+    task_id: int | None,
+    max_attempts: int = 5,
+    max_events: int = 20,
+) -> tuple[list[Any], list[Any], Any | None]:
+    """Build history in single DB session to avoid multiple round-trips.
+
+    Returns:
+        Tuple of (attempts, events, task).
+    """
+    from ..db import get_session
+    from ..models import GenerationAttempt, Task, TaskEvent
+
+    session = get_session()
+    try:
+        attempts = []
+        if figure_id:
+            attempts = list(
+                session.exec(
+                    select(GenerationAttempt)
+                    .where(GenerationAttempt.figure_id == figure_id)
+                    .order_by(desc(GenerationAttempt.created_at))
+                    .limit(max_attempts)
+                ).all()
+            )
+
+        events = []
+        if task_id:
+            events = list(
+                session.exec(
+                    select(TaskEvent)
+                    .where(TaskEvent.task_id == task_id)
+                    .order_by(desc(TaskEvent.created_at))
+                    .limit(max_events)
+                ).all()
+            )
+
+        task = session.get(Task, task_id) if task_id else None
+
+        return attempts, events, task
+    except Exception:
+        logger.debug("build_combined_history: no data yet (table may not exist)")
+        return [], [], None
+    finally:
+        session.close()
+
+
 def inject_history_into_prompt(
     base_prompt: str,
     figure_id: int | None = None,
@@ -404,14 +452,97 @@ def inject_history_into_prompt(
     parts: list[str] = []
 
     # 1. Task history (combines generation attempts + task events)
-    if figure_id is not None and task_id is not None:
-        history = build_task_history(task_id, figure_id)
-        if history:
+    # Use combined history to avoid multiple DB sessions
+    attempts, events, task_from_history = build_combined_history(figure_id, task_id)
+
+    if attempts or events:
+        # Build history string from combined data
+        history_parts: list[str] = []
+
+        # Collect issue reports first
+        issues: list[str] = []
+        for e in sorted(events, key=lambda x: x.created_at, reverse=True):
+            if e.event_type != "issue_report":
+                continue
+            try:
+                details = json.loads(e.details) if e.details else {}
+            except (json.JSONDecodeError, TypeError):
+                details = {}
+            reason = details.get("reason", "?")
+            issue_desc = details.get("description", "")
+            corr = details.get("corrected_answer", "")
+            line = f"Issue: {reason}"
+            if issue_desc:
+                line += f" — {issue_desc[:200]}"
+            if corr:
+                line += f" (corrected answer: {corr})"
+            if line not in issues:
+                issues.append(line)
+
+        # User feedback FIRST
+        if issues:
+            history_parts.append("USER FEEDBACK — APPLY THIS: Do NOT repeat these errors. Do NOT create the same kind of question.")
+            for issue_line in issues:
+                history_parts.append(f"  ❌ {issue_line}")
+
+        # Then generation attempts
+        for i, r in enumerate(attempts, 1):
+            parts_attempt = [f"Attempt {i}: {r.generation_type}"]
+            if r.difficulty:
+                parts_attempt.append(f"difficulty={r.difficulty}")
+            if r.generated_question:
+                parts_attempt.append(f"question={r.generated_question}")
+            if r.generated_answer:
+                parts_attempt.append(f"answer={r.generated_answer}")
+            if r.validation_quality > 0:
+                parts_attempt.append(f"quality={r.validation_quality:.0f}")
+            if r.validation_errors and r.validation_errors != "[]":
+                try:
+                    errs = json.loads(r.validation_errors)
+                    if errs:
+                        parts_attempt.append(f"errors={'; '.join(errs[:3])}")
+                except json.JSONDecodeError:
+                    pass
+            if r.qwen_passes > 0 or r.gemini_passes > 0:
+                parts_attempt.append(
+                    f"model_runs: Qwen={r.qwen_passes}/{r.qwen_passes + r.gemini_passes} Gemini={r.gemini_passes}/{r.qwen_passes + r.gemini_passes}"
+                )
+            history_parts.append(" | ".join(parts_attempt))
+
+        # Other task events
+        for e in events:
+            try:
+                details = json.loads(e.details) if e.details else {}
+            except (json.JSONDecodeError, TypeError):
+                details = {}
+            if e.event_type == "issue_report":
+                continue  # already collected above
+            if e.event_type == "update" and "changed_fields" in details:
+                fields = ", ".join(details["changed_fields"])
+                history_parts.append(f"   [Updated: {fields}]")
+            elif e.event_type == "difficulty_change":
+                history_parts.append(f"   [Difficulty: {details.get('old_difficulty','?')} -> {details.get('new_difficulty','?')}]")
+            elif e.event_type == "rhea_review":
+                passed = details.get("passed", False)
+                history_parts.append(f"   [Rhea review: {'PASSED' if passed else 'FAILED'}]")
+            elif e.event_type == "ai_fix":
+                history_parts.append("   [AI fix applied]")
+            elif e.event_type == "submit":
+                history_parts.append("   [Submitted to Realm]")
+            elif e.event_type == "check_answer":
+                match = details.get("match", False)
+                history_parts.append(f"   [Check answer: {'MATCH' if match else 'MISMATCH'}]")
+
+        history = "\n".join(history_parts)
+
+        if task_id is not None:
             parts.append("TASK HISTORY — contains user feedback you MUST follow:\n" + history)
-    elif figure_id is not None:
-        history = build_figure_history(figure_id)
-        if history:
+        else:
             parts.append("PREVIOUS ATTEMPTS FOR THIS FIGURE (DO NOT repeat failed patterns):\n" + history)
+
+    # Use task from combined history if available
+    if task is None and task_from_history is not None:
+        task = task_from_history
 
     # 2. Few-shot examples from similar successful generations
     examples = get_few_shot_examples(
@@ -444,20 +575,6 @@ def inject_history_into_prompt(
         parts.append("VALIDATION ISSUES TO FIX in the current task:\n" + validation_context)
 
     # 5. Current task state (new)
-    # Auto-fetch task from DB if only task_id is provided
-    if task is None and task_id is not None:
-        try:
-            from ..db import get_session as _get_session
-            from ..models import Task as _Task
-
-            s = _get_session()
-            try:
-                task = s.get(_Task, task_id)
-            finally:
-                s.close()
-        except Exception:
-            pass
-
     if task is not None:
         state_parts = [
             "CURRENT TASK STATE:",

@@ -530,6 +530,19 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
             logger.warning("regenerate validation failed task_id=%d: %s", task_id, err_msg)
             return {"error": err_msg, "ok": False}
 
+        # Auto-classify difficulty based on model rollout results (full override)
+        from ...tracking import classify_difficulty
+        auto_difficulty = classify_difficulty(
+            task.qwen_passes,
+            task.gemini_passes
+        )
+        if auto_difficulty != difficulty:
+            logger.info(
+                "task regenerate auto-classified task_id=%d: requested=%s actual=%s",
+                task_id, difficulty, auto_difficulty
+            )
+            difficulty = auto_difficulty
+
         # Apply and commit
         task.question = draft["question"]
         task.answer = draft["answer"]
@@ -637,21 +650,15 @@ def api_ai_fix(request: Request, task_id: int):
             validation_context=validation_context,
         )
 
-        import base64 as _b64
-        import io as _io
 
-        from PIL import Image as PILImage
 
         img_path = STORAGE_DIR / task.image_path
         b64_image = ""
         if img_path.exists():
-            with PILImage.open(img_path) as img:
-                if img.mode in ("RGBA", "P"):
-                    img = img.convert("RGB")
-                img.thumbnail(CONFIG.thumbnail_size)
-                buf = _io.BytesIO()
-                img.save(buf, format="JPEG", quality=CONFIG.jpeg_quality, optimize=True)
-            b64_image = _b64.b64encode(buf.getvalue()).decode()
+            from ....authoring.ai_draft._image_utils import encode_image_for_llm
+            b64_image, _ = encode_image_for_llm(
+                img_path, CONFIG.thumbnail_size, CONFIG.jpeg_quality
+            )
 
         model = CONFIG.select_model(needs_image=True)
         result = _call(
@@ -896,12 +903,8 @@ def api_quality_trend(request: Request, task_id: int):
 @router.post("/api/task/{task_id}/check-answer", response_class=HTMLResponse)
 def api_check_answer(request: Request, task_id: int):
     """Send task image + question to mimo-v2.5, then verify answer against golden answer."""
-    import base64 as _b64
-    import io as _io
     import json as _json
     import os as _os
-
-    from PIL import Image as PILImage
 
     from ...authoring._draft_config import CONFIG
     from ...authoring._draft_prompts import CHECK_ANSWER_PROMPT, VERIFY_ANSWER_PROMPT
@@ -925,19 +928,15 @@ def api_check_answer(request: Request, task_id: int):
         check_prompt = CHECK_ANSWER_PROMPT.text.format(question=task.question)
 
         img_path = STORAGE_DIR / task.image_path
-        b64_image = ""
         if not img_path.exists():
             return TEMPLATES.TemplateResponse(
                 request, "_check_answer.html", {"error": "Image not found"}
             )
 
-        with PILImage.open(img_path) as img:
-            if img.mode in ("RGBA", "P"):
-                img = img.convert("RGB")
-            img.thumbnail(CONFIG.thumbnail_size)
-            buf = _io.BytesIO()
-            img.save(buf, format="JPEG", quality=CONFIG.jpeg_quality, optimize=True)
-        b64_image = _b64.b64encode(buf.getvalue()).decode()
+        from ....authoring.ai_draft._image_utils import encode_image_for_llm
+        b64_image, _ = encode_image_for_llm(
+            img_path, CONFIG.thumbnail_size, CONFIG.jpeg_quality
+        )
 
         # Step 1: ask minimax-m3 to answer
         def _parse_answer(content: str, raw_text: str = "") -> dict | None:
