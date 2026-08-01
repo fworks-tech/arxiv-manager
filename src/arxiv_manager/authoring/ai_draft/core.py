@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import base64
 import hashlib
-import io
 import logging
 import time
 from pathlib import Path
@@ -59,16 +57,11 @@ def draft_qa(
         logger.warning("draft_qa: no api key set")
         return None
 
-    from PIL import Image
+    from ._image_utils import encode_image_for_llm
 
-    with Image.open(image_path) as img:
-        if img.mode in ("RGBA", "P"):
-            img = img.convert("RGB")
-        img.thumbnail(CONFIG.thumbnail_size)
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=CONFIG.jpeg_quality, optimize=True)
-    b64 = base64.b64encode(buf.getvalue()).decode()
-    image_media_type = "image/jpeg"
+    b64, image_media_type = encode_image_for_llm(
+        image_path, CONFIG.thumbnail_size, CONFIG.jpeg_quality
+    )
 
     is_spatial = figure_type == "general_image"
     if difficulty == "hardest":

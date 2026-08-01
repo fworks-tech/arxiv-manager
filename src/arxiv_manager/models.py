@@ -228,7 +228,7 @@ class GenerationAttempt(SQLModel, table=True):
     feedback_text: str = ""
 
     # Model parameters
-    model_name: str = ""
+    model_name: str = Field(default="", index=True)
     max_tokens: int = 0
     timeout_s: int = 0
 
@@ -243,7 +243,7 @@ class GenerationAttempt(SQLModel, table=True):
     generated_task_type: str = ""
 
     # Validation result
-    validation_quality: float = 0.0
+    validation_quality: float = Field(default=0.0, index=True)
     validation_is_valid: bool = False
     validation_errors: str = ""  # JSON list
     validation_warnings: str = ""  # JSON list

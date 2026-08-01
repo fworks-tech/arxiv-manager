@@ -267,8 +267,13 @@ def _is_explanation_question(q: str) -> bool:
     return False
 
 
-def _has_reasoning_depth(q: str) -> bool:
+def _has_reasoning_depth(q: str, difficulty: str = "challenging") -> bool:
     q_lower = q.lower()
+
+    # If difficulty is Challenging/Hardest and question is single lookup, return False
+    if difficulty in ("challenging", "hardest") and _is_single_lookup(q):
+        return False
+
     for pattern in REASONING_INDICATORS:
         if re.search(pattern, q_lower):
             return True
@@ -318,6 +323,9 @@ MANUFACTURED_DIFFICULTY_PATTERNS = [
     r"^how\s+many\s+.*?\s+and\s+how\s+many\s+",
     r"^count\s+.*?\s+then\s+(?:add|sum|multiply|give)",
     r"rank(?:ed)?\s+by\s+(?:the\s+)?number(?:\s+of)?",
+    r"^count\s+.*?\s+and\s+.*?\s+then\s+(?:multiply|product|times)",
+    r"^count\s+.*?\s+(?:multiply|product|times)\s+.*?\s+(?:by|with)",
+    r"^how\s+many\s+.*?\s+(?:multiply|product|times)\s+.*?\s+(?:by|with)",
 ]
 
 
@@ -387,6 +395,8 @@ SINGLE_MATCHMAKING_PATTERNS = [
     r"which\s+(?:component|node|gate|element)\s+(?:has|meets|satisfies)",
     r"identify\s+the\s+(?:panel|component|node|gate|element)\s+that",
     r"which\s+(?:one|single)\s+(?:has|meets|shows|satisfies|contains)",
+    r"what\s+is\s+the\s+name\s+of\s+",  # NEW: "what is the name of X?"
+    r"what\s+is\s+the\s+value\s+of\s+",  # NEW: "what is the value of X?"
 ]
 
 
@@ -402,6 +412,58 @@ def _is_single_matchmaking(q: str, a: str) -> bool:
     if re.search(r"\b(higher|lower|larger|greater|steeper|flatter|faster|slower|more|most|fewer|less)\b", q_lower):
         return False
     return True
+
+
+def _is_single_lookup(q: str) -> bool:
+    """Detect simple single-step lookup questions.
+
+    These are too easy for Challenging/Hardest difficulty but may be acceptable
+    for Easy difficulty. Returns True if question is a simple attribute lookup.
+    """
+    q_lower = q.lower().strip()
+    # Pattern: "what is the X of Y?" (single attribute lookup)
+    if re.match(r"^(what|which)\s+(is|are|was|were)\s+the?\s+\w+\s+of\s+", q_lower):
+        return True
+    # Pattern: "what is the name of X?"
+    if re.match(r"^(what|which)\s+(is|are)\s+the?\s+name\s+of\s+", q_lower):
+        return True
+    # Pattern: "what is the value of X?"
+    if re.match(r"^(what|which)\s+(is|are)\s+the?\s+value\s+of\s+", q_lower):
+        return True
+    return False
+
+
+def _requires_complex_visual_reasoning(q: str) -> bool:
+    """Check if question requires complex visual reasoning.
+
+    Returns True if question requires:
+    - Combining information from multiple visual elements
+    - Spatial reasoning (not just visual recognition)
+    - Comparison or calculation
+    """
+    q_lower = q.lower()
+
+    # Check for multi-panel/multi-element references
+    panel_refs = len(re.findall(r"panel\s*\([a-z]\)", q_lower))
+    if panel_refs >= 2:
+        return True
+
+    # Check for comparison keywords
+    comparison_keywords = ["compare", "difference", "ratio", "relative", "versus", "vs"]
+    if any(kw in q_lower for kw in comparison_keywords):
+        return True
+
+    # Check for calculation keywords
+    calculation_keywords = ["sum", "total", "average", "product", "multiply", "add"]
+    if any(kw in q_lower for kw in calculation_keywords):
+        return True
+
+    # Check for ranking/ordering keywords
+    ranking_keywords = ["rank", "order", "sort", "highest", "lowest", "most", "least"]
+    if any(kw in q_lower for kw in ranking_keywords):
+        return True
+
+    return False
 
 
 def _is_generic_count_question(q: str) -> bool:

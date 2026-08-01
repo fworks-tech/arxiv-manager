@@ -43,6 +43,21 @@ def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     init_db()
 
+    # Pre-warm RAG models in background to avoid cold-start delay on first request
+    import threading
+
+    def _prewarm_rag():
+        try:
+            from ..components.reranker import _get_reranker
+            from ..services.rag_pipeline import get_pipeline
+            get_pipeline()
+            _get_reranker()
+            logging.getLogger(__name__).info("RAG models pre-warmed successfully")
+        except Exception as exc:
+            logging.getLogger(__name__).warning("RAG pre-warm failed: %s", exc)
+
+    threading.Thread(target=_prewarm_rag, daemon=True).start()
+
     app = FastAPI(title="ArXiv Manager", version="0.2.0")
 
     # Rate limiting middleware (simple IP-based, 60 req/min)

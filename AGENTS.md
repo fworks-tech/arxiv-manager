@@ -71,7 +71,7 @@ src/arxiv_manager/
 - **Paper:** arXiv paper metadata
 - **Figure:** Extracted figure image with type, complexity, audit results
 - **Task:** Q&A task with question, answer, format, type, difficulty, status
-- **GenerationAttempt:** Full trace of every LLM call (38+ fields incl. token usage, Rhea feedback, model run results)
+- **GenerationAttempt:** Full trace of every LLM call (38+ fields incl. token usage, Rhea feedback, model run results). Indexed columns: `figure_id`, `task_id`, `model_name`, `validation_quality`
 - **IssueReport:** User-reported issues on generation attempts (reason, description, corrected_answer) — fed back into generation prompts
 - **PromptTemplateRecord:** DB-backed prompt templates with versioning, rollback support
 - **SubmissionLog:** Task submission tracking with review status
@@ -80,7 +80,8 @@ src/arxiv_manager/
 ## Key Patterns
 
 - **CRAG (CAG + RAG):** Semantic cache check first, then hybrid retrieve + rerank
-- **History injection:** Past attempts are injected as few-shot examples + "don't repeat" guidance
+- **RAG pre-warming:** Embedding model (`all-MiniLM-L6-v2`) and cross-encoder (`ms-marco-MiniLM-L-6-v2`) loaded in background thread at app startup to eliminate cold-start delay
+- **History injection:** Past attempts are injected as few-shot examples + "don't repeat" guidance. History injection now uses single DB session to avoid multiple round-trips.
 - **Self-critique loop:** LLM scores own draft (1-5) and rewrites, now with 2 rounds
 - **Consensus drafting:** Multiple drafts → validate → pick best
 - **Guardrails + auto-retry:** Quality checks trigger regeneration with feedback
@@ -89,7 +90,12 @@ src/arxiv_manager/
 - **Cost tracking:** Token usage captured from API responses, cost estimated per model
 - **IssueReport feedback loop:** User-reported issues (too_easy, wrong_answer) and corrected answers are injected into the generation prompt via `build_figure_history`. Model run results (Qwen/Gemini passes) are copied onto GenerationAttempt on submit and influence few-shot ordering.
 - **Arithmetic consistency check:** Validation warns when a question asks for product/sum but the answer may be a simple count.
-- **Manufactured difficulty detection:** Validation errors when counting is the primary difficulty source (counting-only chains like "count X and Y then sum" without visual reasoning). Challenge should come from visual reasoning — counting is acceptable only as a final step after meaningful analysis.
+- **Manufactured difficulty detection:** Validation errors when counting is the primary difficulty source (counting-only chains like "count X and Y then sum" without visual reasoning). Challenge should come from visual reasoning — counting is acceptable only as a final step after meaningful analysis. Now includes multiply/product patterns.
+- **Lookup-question detection:** Validation warns when Challenging/Hardest questions are simple lookups ("what is the X of Y?") that don't require multi-step reasoning. Helps prevent questions that are too easy for Qwen.
+- **Enhanced reasoning depth check:** `_has_reasoning_depth()` now considers difficulty level — single lookups fail for Challenging/Hardest even if they contain keyword matches.
+- **Expanded matchmaking detection:** `_is_single_matchmaking()` now catches "what is the name of X?" and "what is the value of X?" patterns in addition to existing panel/component patterns.
+- **Visual-reasoning depth test:** `_requires_complex_visual_reasoning()` checks if question requires multi-panel comparison, spatial relationships, or calculation. Warns for Challenging/Hardest questions that don't meet threshold.
+- **Auto-classification:** Regeneration now auto-classifies difficulty based on model rollout results (Qwen/Gemini pass rates). Overrides requested difficulty if significant mismatch detected.
 - **TaskEvent audit trail:** Every task action (regeneration, update, difficulty change, Rhea review, issue report, AI fix, submit, delete) is logged to `task_events` table with JSON details. Used by the Task History UI and injected as context during regeneration.
 - **Task state injection in regenerate:** Regeneration prompt now includes current task state (question, answer, difficulty, status), Rhea review results, and model performance metrics (Qwen/Gemini pass rates) as additional context.
 - **AI Fix with image context:** The AI Fix endpoint now sends the figure image, figure history, and validation context to the LLM for context-aware fixes.
@@ -110,6 +116,7 @@ src/arxiv_manager/
 | `src/arxiv_manager/web/app.py` | App factory, route registration, logging, rate limiting, MCP, auth middleware |
 | `src/arxiv_manager/authoring/ai_draft/core.py` | Core generation pipeline with RAG injection |
 | `src/arxiv_manager/authoring/ai_draft/_api_client.py` | LLM API client (OpenCode), token usage capture |
+| `src/arxiv_manager/authoring/ai_draft/_image_utils.py` | Shared image encoding for LLM consumption (base64 JPEG) |
 | `src/arxiv_manager/authoring/_history_context.py` | History injection (build_task_history + build_figure_history), few-shot, model selection, task state injection |
 | `src/arxiv_manager/authoring/_validation_helpers.py` | Validation patterns: generic count, manufactured difficulty, chart anti-patterns, reasoning indicators |
 | `src/arxiv_manager/authoring/validator.py` | Handbook validation rules (now includes manufactured difficulty check) |
