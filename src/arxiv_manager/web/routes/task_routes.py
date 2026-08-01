@@ -895,7 +895,7 @@ def api_quality_trend(request: Request, task_id: int):
 
 @router.post("/api/task/{task_id}/check-answer", response_class=HTMLResponse)
 def api_check_answer(request: Request, task_id: int):
-    """Send task image + question to minimax-m3, then verify answer against golden answer."""
+    """Send task image + question to mimo-v2.5, then verify answer against golden answer."""
     import base64 as _b64
     import io as _io
     import json as _json
@@ -972,7 +972,7 @@ def api_check_answer(request: Request, task_id: int):
 
         vlm_result = _call(
             api_key, check_prompt, b64_image,
-            model=CONFIG.default_model,
+            model=CONFIG.text_model,
             retries=1,
             difficulty=task.difficulty or "challenging",
             parser=_parse_answer,
@@ -989,7 +989,7 @@ def api_check_answer(request: Request, task_id: int):
         output_tokens = vlm_result.get("_usage", {}).get("output_tokens", 0)
         total_tokens = input_tokens + output_tokens
 
-        # Step 2: verify with mimo-v2.5 (text-only)
+        # Step 2: verify with mimo-v2.5 (vision + text comparison)
         verify_prompt = VERIFY_ANSWER_PROMPT.text.format(
             question=task.question,
             golden_answer=task.answer,
@@ -1028,7 +1028,7 @@ def api_check_answer(request: Request, task_id: int):
             return None
 
         verify_result = _call(
-            api_key, verify_prompt, "",
+            api_key, verify_prompt, b64_image,
             model=CONFIG.text_model,
             retries=1,
             difficulty=task.difficulty or "challenging",

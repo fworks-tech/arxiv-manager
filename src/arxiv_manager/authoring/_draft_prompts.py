@@ -482,23 +482,23 @@ Return ONLY valid JSON: {{"reasoning": "<your step-by-step reasoning>", "answer"
 
 VERIFY_ANSWER_PROMPT = PromptTemplate(
     "VERIFY_ANSWER_PROMPT",
-    """You are verifying whether a proposed answer means the same thing as the expected answer for a visual-reasoning question.
+    """You are verifying whether a proposed answer is correct for a visual-reasoning question by LOOKING AT THE IMAGE.
 
-Consider:
+Examine the image carefully, then compare the proposed answer to what you observe. Consider:
 - Synonyms and equivalent expressions ("more than half" ≈ "majority")
 - Numeric equivalence ("10" ≈ "ten", "0.5" ≈ "1/2")
 - Unit differences ("50%" ≈ "half", "100cm" ≈ "1m")
 - Different phrasings that convey the same meaning
 - The question context when interpreting answers
 
-When the answers DIFFER, analyze the VLM's reasoning to identify what it may have miscounted or misinterpreted, and suggest what the correct reasoning should be.
+When the answers DIFFER, analyze what the VLM may have miscounted or misinterpreted based on your own visual analysis, and explain the correct reasoning.
 
 Question: {question}
 Expected answer: {golden_answer}
 Proposed answer: {vlm_answer}
 VLM reasoning: {vlm_reasoning}
 
-Return ONLY valid JSON: {{"match": true/false, "explanation": "<brief reason why they match or differ>", "analysis": "<if match=false: based on the VLM's reasoning, identify what it miscounted or misinterpreted and what the correct approach should be. If match=true: return empty string>"}}""",
+Return ONLY valid JSON: {{"match": true/false, "explanation": "<brief reason why they match or differ>", "analysis": "<if match=false: based on your visual analysis, identify what the VLM miscounted or misinterpreted and what the correct reasoning should be. If match=true: return empty string>"}}""",
 )
 
 

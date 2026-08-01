@@ -19,7 +19,7 @@ class ModelConfig:
 class DraftConfig:
     default_model: str = "minimax-m3"
     text_model: str = "mimo-v2.5"
-    vision_models: set[str] = field(default_factory=lambda: {"minimax-m3"})
+    vision_models: set[str] = field(default_factory=lambda: {"minimax-m3", "mimo-v2.5"})
     api_url: str = "https://opencode.ai/zen/go/v1/chat/completions"
     retries: int = 3
     thumbnail_size: tuple[int, int] = (1024, 1024)
