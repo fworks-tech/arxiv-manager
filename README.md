@@ -80,6 +80,13 @@ pip install -r requirements.txt -r requirements-dev.txt
 python run.py
 ```
 
+Environment variables:
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `OPENCODE_API_KEY` | Yes | LLM API key for draft generation |
+| `HF_TOKEN` | No | Hugging Face token — set it to raise rate limits and speed up first-time model downloads (embedding model + cross-encoder) |
+
 Development mode:
 ```bash
 uvicorn src.arxiv_manager.web.app:create_app --reload --reload-exclude storage/ --host 0.0.0.0 --port 8000

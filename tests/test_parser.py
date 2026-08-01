@@ -220,3 +220,51 @@ def test_parse_llm_response_returns_reasoning_trace():
     assert r is not None
     assert r["_reasoning_trace"] == "Count the bars."
     assert r["answer"] == "3"
+
+
+# ─── Brace-scan regression tests (JSON after brace-containing prose) ──
+
+
+def test_parses_json_after_prose_with_braces():
+    """JSON appearing after prose containing braces is still found."""
+    text = (
+        "Let me think about the range {0..1} and the subset {a, b} here.\n"
+        '{"question": "What is the ratio?", "answer": "0.5", "answer_format": "number", "task_type": "chart"}'
+    )
+    r = _parse_llm_response(text)
+    assert r is not None
+    assert r["question"] == "What is the ratio?"
+    assert r["answer"] == "0.5"
+
+
+def test_parses_json_after_nonmatching_earlier_object():
+    """A balanced object without the key earlier in text doesn't block the scan."""
+    text = (
+        '{"confidence": 0.9, "labels": ["a", "b"]}\n'
+        '{"question": "Count them?", "answer": "2", "answer_format": "number", "task_type": "chart"}'
+    )
+    r = _parse_llm_response(text)
+    assert r is not None
+    assert r["question"] == "Count them?"
+    assert r["answer"] == "2"
+
+
+def test_parses_json_after_nested_braces_in_prose():
+    """Prose with nested brace pairs before the JSON is handled."""
+    text = (
+        "The mapping {{a: 1}, {b: 2}} was observed.\n"
+        '{"question": "Which is larger?", "answer": "b", "answer_format": "word", "task_type": "chart"}'
+    )
+    r = _parse_llm_response(text)
+    assert r is not None
+    assert r["answer"] == "b"
+
+
+def test_extract_json_after_braced_prose_without_think():
+    """_extract_json_from_text directly skips brace-containing prose."""
+    from arxiv_manager.authoring.ai_draft._response_parser import _extract_json_from_text
+
+    text = 'ranges {0..5} and sets {x, y} then {"question": "Q?", "answer": "9", "answer_format": "number", "task_type": "chart"}'
+    found = _extract_json_from_text(text, '"question"')
+    assert found is not None
+    assert found["answer"] == "9"

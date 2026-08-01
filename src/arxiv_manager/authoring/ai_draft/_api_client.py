@@ -33,6 +33,8 @@ def _call_api_with_retry(
     """
     import httpx
 
+    parse_failures = 0
+
     for attempt in range(retries):
         if attempt > 0:
             time.sleep(2**attempt)
@@ -82,6 +84,12 @@ def _call_api_with_retry(
                 logger.warning(
                     "_call_api_with_retry: parsing returned None (len=%d, preview=%.150s)", len(content), content[:150]
                 )
+                # A parse failure is output-format dependent, not transient —
+                # retrying the identical prompt rarely changes the model's format.
+                # Abort after one retry instead of burning the full retry budget.
+                if parse_failures >= 1:
+                    return None
+                parse_failures += 1
                 continue
             return data
         except ValueError:

@@ -43,26 +43,29 @@ def _extract_json_from_text(source: str, key_hint: str, reasoning: str = "") -> 
     for txt in (source, reasoning):
         if not txt:
             continue
-        start = txt.find("{")
-        if start < 0:
-            continue
-        depth = 0
-        for end in range(start, len(txt)):
-            if txt[end] == "{":
-                depth += 1
-            elif txt[end] == "}":
-                depth -= 1
-                if depth == 0:
-                    candidate = txt[start: end + 1]
-                    if key_hint in candidate:
-                        try:
-                            data = json.loads(candidate)
-                            key_name = key_hint.strip('"\'')
-                            if key_name in data:
-                                return data
-                        except json.JSONDecodeError:
-                            pass
-                    break
+        start = 0
+        while True:
+            start = txt.find("{", start)
+            if start < 0:
+                break
+            depth = 0
+            for end in range(start, len(txt)):
+                if txt[end] == "{":
+                    depth += 1
+                elif txt[end] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        candidate = txt[start: end + 1]
+                        if key_hint in candidate:
+                            try:
+                                data = json.loads(candidate)
+                                key_name = key_hint.strip('"\'')
+                                if key_name in data:
+                                    return data
+                            except json.JSONDecodeError:
+                                pass
+                        break
+            start = end + 1
     return None
 
 

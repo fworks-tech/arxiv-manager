@@ -96,6 +96,7 @@ def draft_qa_consensus(
 def draft_with_self_critique(
     image_path: str | Path,
     max_rounds: int = 2,
+    max_feedback_retries: int = 2,
     model: str | None = None,
     api_key: str | None = None,
     difficulty: str = "",
@@ -147,7 +148,13 @@ def draft_with_self_critique(
     original_draft = dict(draft)
 
     for round_idx in range(max_rounds):
-        fx_context = f"Previous validation flagged: {validation_context}\n\n" if validation_context else ""
+        fx_parts = []
+        if validation_context:
+            fx_parts.append(f"Previous validation flagged: {validation_context}")
+        current_errors = draft.get("_validation_errors") or []
+        if current_errors:
+            fx_parts.append("Current draft failed validation: " + "; ".join(current_errors[:3]))
+        fx_context = ("\n\n".join(fx_parts) + "\n\n") if fx_parts else ""
         prompt = SELF_CRITIQUE_PROMPT.text.format(
             question=draft["question"],
             answer=draft["answer"],
@@ -210,10 +217,48 @@ def draft_with_self_critique(
         draft["_validation_warnings"] = v.warnings
         if v.errors:
             logger.warning(
-                "self_critique: rewritten draft failed validation round=%d errors=%s - returning original draft",
+                "self_critique: rewritten draft failed validation round=%d errors=%s",
                 round_idx,
                 v.errors,
             )
-            return original_draft
+            if original_draft.get("_validation_is_valid", False):
+                logger.info("self_critique: rewrite invalid, keeping valid original draft")
+                return original_draft
+            # Both the rewrite and the original are invalid — retry with the
+            # actual validation errors as feedback so the model targets the
+            # failing rules instead of returning a guaranteed-rejected draft.
+            logger.warning(
+                "self_critique: rewrite and original both invalid — retrying with validation feedback"
+            )
+            candidates = [original_draft, draft]
+            for retry_idx in range(max_feedback_retries):
+                errs = draft.get("_validation_errors") or []
+                feedback = (
+                    "Errors to fix: " + "; ".join(errs[:3]) if errs else "Errors to fix: draft failed validation"
+                )
+                retried = draft_qa(
+                    image_path=image_path,
+                    model=model,
+                    api_key=api_key,
+                    difficulty=difficulty,
+                    figure_type=figure_type,
+                    complexity_score=complexity_score,
+                    caption=caption,
+                    previous_question=previous_question,
+                    validation_context=validation_context,
+                    feedback=feedback,
+                    figure_id=figure_id,
+                    task_id=task_id,
+                )
+                if retried is None:
+                    break
+                draft = retried
+                candidates.append(retried)
+                if retried.get("_validation_is_valid", False):
+                    logger.info("self_critique: feedback retry %d produced valid draft", retry_idx)
+                    return retried
+            best = max(candidates, key=lambda c: c.get("_validation_quality", 0.0))
+            logger.warning("self_critique: all feedback retries invalid — returning best candidate")
+            return best
 
     return draft

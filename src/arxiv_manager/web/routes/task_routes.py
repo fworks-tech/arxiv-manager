@@ -254,34 +254,26 @@ def _is_format_only_error(validation_context: str) -> bool:
 
 def _do_regenerate(
     image_path, api_key, difficulty, figure_type, complexity, prev_question, figure_id,
-    validation_context="", task_id=None,
+    validation_context="", task_id=None, max_validation_retries=2,
 ):
-    """Generate a single draft, with self-critique fallback for challenging/hardest.
+    """Generate a single draft, with self-critique and validation-feedback retries.
 
     Skips self-critique for format-only failures (binary, too long, option restriction,
     explanation, formatting) since those don't benefit from iterative difficulty analysis.
+    Retries up to max_validation_retries times with the draft's own validation errors
+    as feedback before giving up.
     """
     try:
         use_self_critique = (
             difficulty in ("challenging", "hardest")
             and not _is_format_only_error(validation_context)
         )
-        if use_self_critique:
-            draft = draft_with_self_critique(
-                image_path=image_path,
-                max_rounds=1,
-                api_key=api_key,
-                difficulty=difficulty,
-                figure_type=figure_type,
-                complexity_score=complexity,
-                previous_question=prev_question,
-                validation_context=validation_context,
-                figure_id=figure_id,
-                task_id=task_id,
-            )
-            if draft is None:
-                draft = draft_qa(
+        draft: dict | None = None
+        for attempt in range(max_validation_retries + 1):
+            if attempt == 0 and use_self_critique:
+                draft = draft_with_self_critique(
                     image_path=image_path,
+                    max_rounds=1,
                     api_key=api_key,
                     difficulty=difficulty,
                     figure_type=figure_type,
@@ -291,18 +283,59 @@ def _do_regenerate(
                     figure_id=figure_id,
                     task_id=task_id,
                 )
-        else:
-            draft = draft_qa(
-                image_path=image_path,
-                api_key=api_key,
-                difficulty=difficulty,
+                if draft is None:
+                    draft = draft_qa(
+                        image_path=image_path,
+                        api_key=api_key,
+                        difficulty=difficulty,
+                        figure_type=figure_type,
+                        complexity_score=complexity,
+                        previous_question=prev_question,
+                        validation_context=validation_context,
+                        figure_id=figure_id,
+                        task_id=task_id,
+                    )
+            else:
+                feedback = ""
+                if draft and (draft.get("_validation_errors") or []):
+                    feedback = "Errors to fix: " + "; ".join(draft["_validation_errors"][:3])
+                draft = draft_qa(
+                    image_path=image_path,
+                    api_key=api_key,
+                    difficulty=difficulty,
+                    figure_type=figure_type,
+                    complexity_score=complexity,
+                    previous_question=prev_question,
+                    validation_context=validation_context,
+                    feedback=feedback,
+                    figure_id=figure_id,
+                    task_id=task_id,
+                )
+            if draft is None:
+                return None
+
+            v = validate_task(
+                draft["question"],
+                draft["answer"],
+                draft.get("answer_format", "number"),
                 figure_type=figure_type,
-                complexity_score=complexity,
-                previous_question=prev_question,
-                validation_context=validation_context,
-                figure_id=figure_id,
-                task_id=task_id,
+                task_type=draft.get("task_type", "chart"),
+                difficulty=difficulty,
             )
+            draft["_validation_quality"] = v.quality_score
+            draft["_validation_is_valid"] = v.is_valid
+            draft["_validation_errors"] = v.errors
+            draft["_validation_warnings"] = v.warnings
+            if not v.errors:
+                return draft
+            logger.warning(
+                "regenerate attempt %d/%d draft invalid task_id=%s errors=%s",
+                attempt + 1,
+                max_validation_retries + 1,
+                task_id,
+                "; ".join(v.errors[:3]),
+            )
+
         return draft
     except ValueError:
         return None
@@ -407,7 +440,9 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
             return {"error": "Task not found", "ok": False}
 
         # Cap consecutive regenerate failures at 2 — block all subsequent attempts
-        # unless the task Q&A has been manually edited since the last failure
+        # unless the task Q&A has been manually edited since the last failure.
+        # Each logged record represents a failure AFTER internal feedback retries
+        # were exhausted, so this only fires when regeneration is truly stuck.
         recent_failures = session.exec(
             select(GenerationAttempt)
             .where(GenerationAttempt.task_id == task_id)
