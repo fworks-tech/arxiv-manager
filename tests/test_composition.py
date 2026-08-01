@@ -143,3 +143,30 @@ def test_all_retries_invalid_returns_best_candidate():
     assert result is not None
     assert result["question"] == "Retry1?"
     assert result["_validation_is_valid"] is False
+
+
+def test_numeric_rewrite_answer_does_not_crash():
+    """Critique returning a JSON-number rewrite_answer must not raise AttributeError.
+
+    Regression for the regenerate 500: (critique.get("rewrite_answer") or "").strip()
+    on an int previously crashed the whole endpoint.
+    """
+    from arxiv_manager.authoring import validator
+    from arxiv_manager.authoring.ai_draft import composition
+
+    with (
+        patch.object(composition, "draft_qa", return_value=_draft("Feedback?", "99", valid=True)),
+        patch.object(
+            composition,
+            "_call_opencode",
+            return_value=_critique_response(rewrite_a=15),
+        ),
+        patch.object(validator, "validate_task", return_value=_validation_result()),
+    ):
+        result = composition.draft_with_self_critique(
+            "img.jpg", max_rounds=1, api_key="key", difficulty="challenging"
+        )
+
+    assert result is not None
+    assert isinstance(result["answer"], str)
+    assert result["answer"] == "99"

@@ -114,4 +114,25 @@ def create_app() -> FastAPI:
 
     app.add_middleware(AuthMiddleware)
 
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request: Request, exc: Exception):
+        """Log unhandled exceptions to the structured log and return a JSON 500.
+
+        Without this, tracebacks only reach uvicorn stderr and are invisible
+        in storage/_structured_log.jsonl.
+        """
+        import traceback
+
+        logger = logging.getLogger("arxiv_manager.web.app")
+        logger.error(
+            "unhandled exception %s %s: %s",
+            request.method,
+            request.url.path,
+            "".join(traceback.format_exception(exc)),
+        )
+        return JSONResponse(
+            status_code=500,
+            content={"ok": False, "error": "Internal server error"},
+        )
+
     return app

@@ -234,3 +234,32 @@ def test_parse_critique_response_none_for_empty():
     from arxiv_manager.authoring.ai_draft import _parse_critique_response
 
     assert _parse_critique_response("") is None
+
+
+def test_draft_qa_feedback_path_validates_without_crash(sample_image_chart_path, mock_api_key, monkeypatch):
+    """draft_qa(feedback=...) runs the final validation without UnboundLocalError.
+
+    Regression for the regenerate 500: _validate was only imported when
+    feedback was empty but used unconditionally after the guardrail block.
+    """
+    from arxiv_manager.authoring.ai_draft import draft_qa
+
+    def fake_call(*a, **kw):
+        return {"question": "Q?", "answer": "5", "answer_format": "number", "task_type": "chart"}
+
+    import arxiv_manager.authoring.ai_draft._api_client as api_mod
+    import arxiv_manager.authoring.ai_draft.core as core_mod
+
+    monkeypatch.setattr(api_mod, "_call_opencode", fake_call)
+    monkeypatch.setattr(core_mod, "_call_opencode", fake_call)
+
+    result = draft_qa(
+        image_path=sample_image_chart_path,
+        api_key="test-key",
+        difficulty="easy",
+        feedback="Errors to fix: question too simple",
+    )
+    assert result is not None
+    assert result["answer"] == "5"
+    assert "_validation_is_valid" in result
+    assert "_validation_errors" in result

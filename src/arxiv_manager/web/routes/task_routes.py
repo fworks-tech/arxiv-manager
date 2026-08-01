@@ -531,8 +531,8 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
 
         # Dedup retries if answer unchanged
         if (
-            draft["answer"].strip().lower() == task.answer.strip().lower()
-            or draft["question"].strip().lower() == task.question.strip().lower()
+            str(draft["answer"]).strip().lower() == task.answer.strip().lower()
+            or str(draft["question"]).strip().lower() == task.question.strip().lower()
         ):
             better = _dedup_retry(
                 img_path,

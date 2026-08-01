@@ -69,6 +69,14 @@ def _extract_json_from_text(source: str, key_hint: str, reasoning: str = "") -> 
     return None
 
 
+def _coerce_answer_fields(data: dict) -> dict:
+    """Ensure question/answer fields are strings (LLMs emit numeric answers)."""
+    for key in ("question", "answer"):
+        if key in data and data[key] is not None:
+            data[key] = str(data[key])
+    return data
+
+
 def _parse_llm_response(text: str | None, raw_text: str = "") -> dict | None:
     """Parse JSON from LLM response, handling markdown code blocks and <think> tags.
 
@@ -125,7 +133,7 @@ def _parse_llm_response(text: str | None, raw_text: str = "") -> dict | None:
         found["_raw_response"] = raw_text or text
         found.setdefault("answer_format", "number")
         found.setdefault("task_type", "chart")
-        return found
+        return _coerce_answer_fields(found)
 
     # For very large responses (>10KB), the JSON answer is typically at the end
     # after a long reasoning block. Try extracting from the last 16KB.
@@ -138,10 +146,27 @@ def _parse_llm_response(text: str | None, raw_text: str = "") -> dict | None:
             found_tail.setdefault("answer_format", "number")
             found_tail.setdefault("task_type", "chart")
             logger.info("_parse_llm_response: recovered from tail (total=%d tail=%d)", len(text), len(tail))
-            return found_tail
+            return _coerce_answer_fields(found_tail)
 
     logger.warning("_parse_llm_response: could not parse (len=%d, preview=%.200s)", len(text), text[:200])
     return None
+
+
+def _coerce_critique_fields(data: dict) -> dict:
+    """Ensure rewrite fields are strings and score is an int.
+
+    LLMs frequently emit numeric rewrite_answer/rewrite_question values,
+    which would crash consumers calling .strip() on them.
+    """
+    for key in ("rewrite_question", "rewrite_answer"):
+        if key in data and data[key] is not None:
+            data[key] = str(data[key])
+    score = data.get("score")
+    try:
+        data["score"] = int(score)
+    except (TypeError, ValueError):
+        data["score"] = 0
+    return data
 
 
 def _parse_critique_response(text: str | None, raw_text: str = "") -> dict | None:
@@ -168,7 +193,7 @@ def _parse_critique_response(text: str | None, raw_text: str = "") -> dict | Non
                 return None
             data["_reasoning_trace"] = reasoning
             data["_raw_response"] = raw_text or cleaned
-            return data
+            return _coerce_critique_fields(data)
         except json.JSONDecodeError:
             return None
 
@@ -181,7 +206,7 @@ def _parse_critique_response(text: str | None, raw_text: str = "") -> dict | Non
     if found and "score" in found:
         found["_reasoning_trace"] = reasoning
         found["_raw_response"] = raw_text or cleaned
-        return found
+        return _coerce_critique_fields(found)
 
     logger.warning("_parse_critique_response: could not parse (len=%d, preview=%.200s)", len(text), text[:200])
     return None

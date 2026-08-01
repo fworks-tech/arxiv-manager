@@ -162,11 +162,12 @@ def draft_qa(
         result["_prompt_text_hash"] = prompt_text_hash
         result["_model"] = model_id
 
+        from ..validator import validate_task as _validate
+
         # Skip guardrail checks on retry (feedback set) to prevent
         # unbounded mutual recursion: draft_qa -> run_guardrails -> _auto_retry -> draft_qa
         if not feedback:
             from .._guardrails import run_guardrails
-            from ..validator import validate_task as _validate
 
             v = _validate(
                 result.get("question", ""),

@@ -268,3 +268,56 @@ def test_extract_json_after_braced_prose_without_think():
     found = _extract_json_from_text(text, '"question"')
     assert found is not None
     assert found["answer"] == "9"
+
+
+# ─── Type coercion (numeric answers from LLM) ────────────────────────
+
+
+def test_parse_llm_response_coerces_numeric_answer():
+    """Numeric answer is coerced to str so .strip() consumers don't crash."""
+    text = '{"question": "Sum the rows?", "answer": 15, "answer_format": "number", "task_type": "chart"}'
+    r = _parse_llm_response(text)
+    assert r is not None
+    assert r["answer"] == "15"
+    assert isinstance(r["answer"], str)
+
+
+def test_parse_llm_response_braced_prose_numeric_answer():
+    """Fallback brace-scan path also coerces numeric answer to str."""
+    text = (
+        "First count {a, b} panels.\n"
+        '{"question": "Total rows?", "answer": 14, "answer_format": "number", "task_type": "chart"}'
+    )
+    r = _parse_llm_response(text)
+    assert r is not None
+    assert r["answer"] == "14"
+    assert isinstance(r["answer"], str)
+
+
+def test_parse_critique_coerces_numeric_rewrite():
+    """Critique rewrite_answer as JSON number is coerced to str."""
+    text = '{"score": 2, "rewrite_question": "Harder Q?", "rewrite_answer": 15}'
+    r = _parse_critique_response(text)
+    assert r is not None
+    assert r["score"] == 2
+    assert r["rewrite_answer"] == "15"
+    assert isinstance(r["rewrite_answer"], str)
+
+
+def test_parse_critique_coerces_numeric_rewrite_in_scan_path():
+    """Brace-scan fallback path in critique parsing coerces types too."""
+    text = 'Notes {prior: 3} then {"score": 3, "rewrite_question": "Q?", "rewrite_answer": 14}'
+    r = _parse_critique_response(text)
+    assert r is not None
+    assert r["score"] == 3
+    assert r["rewrite_answer"] == "14"
+    assert isinstance(r["rewrite_answer"], str)
+
+
+def test_parse_critique_coerces_float_score():
+    """Float score 3.0 coerces to int 3."""
+    text = '{"score": 3.0, "rewrite_question": "Q?", "rewrite_answer": "A"}'
+    r = _parse_critique_response(text)
+    assert r is not None
+    assert r["score"] == 3
+    assert isinstance(r["score"], int)

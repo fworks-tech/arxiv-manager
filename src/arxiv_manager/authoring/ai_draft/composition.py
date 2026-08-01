@@ -180,8 +180,8 @@ def draft_with_self_critique(
             break
 
         score = critique.get("score", 0)
-        rewrite_q = (critique.get("rewrite_question") or "").strip()
-        rewrite_a = (critique.get("rewrite_answer") or "").strip()
+        rewrite_q = str(critique.get("rewrite_question") or "").strip()
+        rewrite_a = str(critique.get("rewrite_answer") or "").strip()
         logger.info("self_critique round=%d score=%d", round_idx, score)
 
         if score >= 4 or not rewrite_q or not rewrite_a:
