@@ -52,6 +52,7 @@ def _is_public(path: str) -> bool:
         or path.startswith("/stats")
         or path.startswith("/metrics")
         or path.startswith("/task/")
+        or path.startswith("/analytics/")
     ):
         return True
     # Internal API routes (protected by per-handler API key checks)
