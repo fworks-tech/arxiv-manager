@@ -1,0 +1,50 @@
+<div class="border rounded-xl p-4 mt-4
+  {% if error %}border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/30
+  {% elif deterministic %}border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/30
+  {% else %}border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/30{% endif %}">
+  {% if error %}
+  <div class="flex items-center gap-2 text-sm">
+    <span>⚠️</span>
+    <span class="font-semibold text-red-700 dark:text-red-300">Determinism check failed</span>
+    <span class="text-xs text-red-600 dark:text-red-400 ml-auto">{{ error }}</span>
+  </div>
+  {% else %}
+  <div class="flex items-center gap-2 text-sm mb-2">
+    {% if deterministic %}
+    <span>✅</span>
+    <span class="font-semibold text-green-800 dark:text-green-300">Deterministic — all sampled reads match the golden answer</span>
+    {% else %}
+    <span>🎲</span>
+    <span class="font-semibold text-yellow-800 dark:text-yellow-300">Not deterministic — reads disagree with the golden answer</span>
+    {% endif %}
+    <span class="text-xs text-gray-500 dark:text-gray-400 ml-auto">minimax-m3 × {{ runs|length }}</span>
+  </div>
+  <div class="text-sm space-y-1">
+    <div><span class="text-gray-500 dark:text-gray-400">Golden answer:</span> <strong class="text-gray-900 dark:text-gray-100">{{ golden_answer }}</strong> <span class="text-xs text-gray-400">({{ answer_format }})</span></div>
+    {% for r in runs %}
+    <div class="flex items-start gap-2">
+      {% if r.match %}<span class="text-green-600">✓</span>{% else %}<span class="text-red-500">✗</span>{% endif %}
+      <div>
+        <span class="text-gray-700 dark:text-gray-300">Read {{ loop.index }}:</span>
+        <strong class="text-gray-900 dark:text-gray-100">{{ r.answer or "(no answer)" }}</strong>
+        {% if r.reasoning %}
+        <details class="group">
+          <summary class="text-xs font-medium text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-900 dark:hover:text-gray-100 select-none">reasoning <span class="text-gray-400 dark:text-gray-500 group-open:hidden">▶</span><span class="text-gray-400 dark:text-gray-500 hidden group-open:inline">▼</span></summary>
+          <div class="mt-1 text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded p-2 whitespace-pre-wrap font-mono">{{ r.reasoning }}</div>
+        </details>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    {% if not checked %}
+    <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">No sampled read produced an answer — the question may be unanswerable.</div>
+    {% elif not deterministic %}
+    <div class="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-100 dark:border-yellow-800 rounded-lg">
+      <div class="text-xs font-medium text-yellow-700 dark:text-yellow-300 mb-1">Diverging answers</div>
+      <div class="text-xs text-yellow-600 dark:text-yellow-400 whitespace-pre-wrap">{{ diverging|join(" | ") }}</div>
+    </div>
+    {% endif %}
+    <div class="text-xs text-gray-400 dark:text-gray-500 mt-1">Logged to Task History</div>
+  </div>
+  {% endif %}
+</div>

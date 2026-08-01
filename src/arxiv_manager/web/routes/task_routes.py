@@ -160,6 +160,11 @@ def api_task_history(request: Request, task_id: int):
                 if r.fact_check_errors and r.fact_check_errors.strip() not in ("", "[]")
                 else []
             )
+            determinism_errors_list = (
+                _json.loads(r.determinism_errors)
+                if r.determinism_errors and r.determinism_errors.strip() not in ("", "[]")
+                else []
+            )
             merged.append(
                 {
                     "id": r.id,
@@ -173,6 +178,7 @@ def api_task_history(request: Request, task_id: int):
                     "quality": r.validation_quality,
                     "errors": errors_list,
                     "fact_check_errors": fact_errors_list,
+                    "determinism_errors": determinism_errors_list,
                     "total_tokens": r.total_tokens or 0,
                     "input_tokens": r.input_tokens or 0,
                     "output_tokens": r.output_tokens or 0,
@@ -203,6 +209,7 @@ def api_task_history(request: Request, task_id: int):
                 "generated_answer_format": "",
                 "errors": [],
                 "fact_check_errors": [],
+                "determinism_errors": [],
                 "changed_fields": [],
                 "old_values": {},
                 "new_values": {},
@@ -262,6 +269,7 @@ def _is_format_only_error(validation_context: str) -> bool:
 def _do_regenerate(
     image_path, api_key, difficulty, figure_type, complexity, prev_question, figure_id,
     validation_context="", task_id=None, max_validation_retries=2, use_fact_check=True,
+    use_determinism=True, determinism_runs=3,
 ):
     """Generate a single draft, with self-critique and validation-feedback retries.
 
@@ -272,8 +280,11 @@ def _do_regenerate(
 
     When use_fact_check is set, drafts that pass text validation are additionally
     checked against the image for factual premises (adversarial VLM fact-check).
-    Fact-check failures feed back into the retry loop; if all retries fail, the best
-    draft is returned with _fact_check_failed=True so the caller can decide.
+    When use_determinism is set, drafts are further run through the vision model
+    determinism_runs times — every sampled read must match the golden answer.
+    Failures feed back into the retry loop; if all retries fail, the best draft is
+    returned with _fact_check_failed / _determinism_failed flags so the caller
+    can decide.
     """
     try:
         use_self_critique = (
@@ -315,6 +326,12 @@ def _do_regenerate(
                         fb_parts.append("Errors to fix: " + "; ".join(draft["_validation_errors"][:3]))
                     if draft.get("_fact_check_errors"):
                         fb_parts.append("Fact check failed: " + "; ".join(draft["_fact_check_errors"][:3]))
+                    if draft.get("_determinism_diverging"):
+                        fb_parts.append(
+                            "Answer determinism failed: sampled model reads returned "
+                            + "; ".join(str(a) for a in draft["_determinism_diverging"][:3])
+                            + " — the question must have ONE unambiguous answer matching the golden answer."
+                        )
                     feedback = " | ".join(fb_parts)
                 draft = draft_qa(
                     image_path=image_path,
@@ -369,6 +386,34 @@ def _do_regenerate(
                     continue
                 draft["_fact_check_failed"] = False
                 draft["_fact_check_errors"] = []
+
+                if use_determinism and difficulty in ("challenging", "hardest"):
+                    from ...authoring.ai_draft._determinism import check_determinism_for_qa
+
+                    det = check_determinism_for_qa(
+                        draft["question"],
+                        draft["answer"],
+                        draft.get("answer_format", "number"),
+                        image_path,
+                        api_key,
+                        runs=determinism_runs,
+                        difficulty=difficulty,
+                    )
+                    draft["_determinism_checked"] = det["checked"]
+                    if det["checked"] and not det["deterministic"]:
+                        draft["_determinism_failed"] = True
+                        draft["_determinism_diverging"] = det["diverging"]
+                        logger.warning(
+                            "regenerate attempt %d/%d determinism failed task_id=%s answers=%s",
+                            attempt + 1,
+                            max_validation_retries + 1,
+                            task_id,
+                            det["diverging"][:3],
+                        )
+                        continue
+                    draft["_determinism_failed"] = False
+                    draft["_determinism_errors"] = []
+                    return draft
                 return draft
             logger.warning(
                 "regenerate attempt %d/%d draft invalid task_id=%s errors=%s",
@@ -382,6 +427,8 @@ def _do_regenerate(
             return None
         draft.setdefault("_fact_check_failed", False)
         draft.setdefault("_fact_check_errors", [])
+        draft.setdefault("_determinism_failed", False)
+        draft.setdefault("_determinism_errors", [])
         return draft
     except ValueError:
         return None
@@ -429,6 +476,7 @@ def _log_attempt(
         validation_errors=_json.dumps(draft.get("_validation_errors", [])),
         validation_warnings=_json.dumps(draft.get("_validation_warnings", [])),
         fact_check_errors=_json.dumps(draft.get("_fact_check_errors", [])),
+        determinism_errors=_json.dumps(draft.get("_determinism_errors", []) or draft.get("_determinism_diverging", [])),
         success=True,
     )
 
@@ -588,6 +636,22 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
             fact_msg = "; ".join(fact_errors[:3]) if fact_errors else "Premise not verifiable against the image"
             logger.warning("task regenerate fact check failed task_id=%d: %s", task_id, fact_msg)
             return {"error": f"Fact check failed: {fact_msg}", "ok": False, "fact_check": fact_errors}
+
+        # Determinism gate: sampled reads disagreed with the golden answer —
+        # the answer is not objectively derivable. Stored in history, not saved.
+        determinism_diverging = draft.get("_determinism_diverging", []) or []
+        if draft.get("_determinism_failed", False) or determinism_diverging:
+            det_msg = (
+                "; ".join(str(a) for a in determinism_diverging[:3])
+                if determinism_diverging
+                else "No sampled read produced an answer"
+            )
+            logger.warning("task regenerate determinism failed task_id=%d: %s", task_id, det_msg)
+            return {
+                "error": f"Determinism check failed — sampled reads disagree with the golden answer: {det_msg}",
+                "ok": False,
+                "diverging": determinism_diverging,
+            }
 
         # Dedup retries if answer unchanged
         if (
@@ -1166,6 +1230,73 @@ def api_check_answer(request: Request, task_id: int):
                 "explanation": explanation,
                 "analysis": analysis,
                 "tokens": total_tokens,
+            },
+        )
+    finally:
+        session.close()
+
+
+@router.post("/api/task/{task_id}/determinism-check", response_class=HTMLResponse)
+def api_determinism_check(request: Request, task_id: int, runs: int = Form(3)):
+    """Run the question through the vision model `runs` times and check all reads match the golden answer.
+
+    Proves the answer is objectively derivable from the image — the strongest
+    available signal that two independent readers give the same answer.
+    """
+    import os as _os
+
+    api_key = _os.environ.get("OPENCODE_API_KEY")
+    if not api_key:
+        return TEMPLATES.TemplateResponse(request, "_determinism.html", {"error": "No OPENCODE_API_KEY set"})
+
+    session = get_session()
+    try:
+        task = session.get(Task, task_id)
+        if not task:
+            return TEMPLATES.TemplateResponse(request, "_determinism.html", {"error": "Task not found"})
+
+        img_path = STORAGE_DIR / task.image_path
+        if not img_path.exists():
+            return TEMPLATES.TemplateResponse(request, "_determinism.html", {"error": "Image not found"})
+
+        from ...authoring.ai_draft._determinism import check_determinism_for_qa
+
+        result = check_determinism_for_qa(
+            task.question,
+            task.answer,
+            task.answer_format,
+            img_path,
+            api_key,
+            runs=max(1, min(int(runs), 5)),
+            difficulty=task.difficulty or "challenging",
+        )
+
+        log_task_event(
+            task_id,
+            "determinism_check",
+            {
+                "runs": len(result["runs"]),
+                "golden_answer": task.answer,
+                "model_answers": [r["answer"] for r in result["runs"]],
+                "matches": [r["match"] for r in result["runs"]],
+                "deterministic": result["deterministic"],
+                "diverging": result["diverging"],
+                "checked": result["checked"],
+            },
+            quality_score=1.0 if result["deterministic"] else 0.0,
+        )
+
+        return TEMPLATES.TemplateResponse(
+            request,
+            "_determinism.html",
+            {
+                "golden_answer": task.answer,
+                "answer_format": task.answer_format,
+                "runs": result["runs"],
+                "deterministic": result["deterministic"],
+                "diverging": result["diverging"],
+                "checked": result["checked"],
+                "error": "",
             },
         )
     finally:

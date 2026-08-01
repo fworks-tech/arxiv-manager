@@ -74,6 +74,13 @@ def _migrate() -> None:
             logger.info("migration: added generation_attempts.fact_check_errors")
 
     with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(text("PRAGMA table_info(generation_attempts)")).fetchall()]
+        if "determinism_errors" not in cols:
+            conn.execute(text("ALTER TABLE generation_attempts ADD COLUMN determinism_errors TEXT NOT NULL DEFAULT ''"))
+            conn.commit()
+            logger.info("migration: added generation_attempts.determinism_errors")
+
+    with engine.connect() as conn:
         tables = [row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()]
         if "prompt_templates" not in tables:
             from . import models  # noqa: F401

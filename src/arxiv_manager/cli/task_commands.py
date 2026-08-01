@@ -364,3 +364,57 @@ def create_task_batch(
 
     session.commit()
     console.print(f"[bold green]Done. {submitted}/{len(candidates)} tasks created.[/]")
+
+
+@task_app.command("determinism")
+def determinism_check_cmd(
+    task_id: int = typer.Argument(..., help="Task ID to check"),
+    runs: int = typer.Option(3, "--runs", "-r", help="Number of sampled reads (max 5)"),
+):
+    """Run the question through the vision model N times and verify every read matches the golden answer.
+
+    Proves the answer is objectively derivable from the image — the strongest
+    available signal that independent readers give the same answer.
+    """
+    import os
+
+    from ..authoring.ai_draft._determinism import check_determinism_for_qa
+    from ..storage import STORAGE_DIR
+
+    api_key = os.environ.get("OPENCODE_API_KEY")
+    if not api_key:
+        console.print("[red]No OPENCODE_API_KEY set.[/]")
+        raise typer.Exit(1)
+
+    session = get_session()
+    try:
+        task = session.get(Task, task_id)
+        if not task:
+            console.print(f"[red]Task {task_id} not found.[/]")
+            raise typer.Exit(1)
+
+        img_path = STORAGE_DIR / task.image_path
+        if not img_path.exists():
+            console.print("[red]Image not found.[/]")
+            raise typer.Exit(1)
+
+        result = check_determinism_for_qa(
+            task.question,
+            task.answer,
+            task.answer_format,
+            img_path,
+            api_key,
+            runs=max(1, min(int(runs), 5)),
+            difficulty=task.difficulty or "challenging",
+        )
+
+        console.print(f"\n[bold]Task #{task_id} Determinism Check[/] (golden: [green]{task.answer}[/])")
+        for i, r in enumerate(result["runs"], 1):
+            mark = "[green]✓ match[/]" if r["match"] else "[red]✗ diverge[/]"
+            console.print(f"  Read {i}: {r['answer'] or '(no answer)'} {mark}")
+        if result["deterministic"]:
+            console.print("\n[bold green]✅ Deterministic — all reads match the golden answer.[/]")
+        else:
+            console.print(f"\n[bold yellow]🎲 Not deterministic.[/] Diverging: {result['diverging'] or '(no answers)'}")
+    finally:
+        session.close()

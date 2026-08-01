@@ -64,6 +64,17 @@
       {% endif %}
     </div>
     {% endif %}
+    {% if e.determinism_errors %}
+    <div class="mt-1.5 text-xs text-rose-600 dark:text-rose-400 space-y-0.5">
+      <div>🎲 Determinism failed — sampled reads disagreed with the golden answer:</div>
+      {% for err in e.determinism_errors[:2] %}
+      <div class="pl-2">- {{ err[:150] }}</div>
+      {% endfor %}
+      {% if e.determinism_errors|length > 2 %}
+      <div class="text-gray-400 dark:text-gray-500">+ {{ e.determinism_errors|length - 2 }} more</div>
+      {% endif %}
+    </div>
+    {% endif %}
     {% if e.generated_question and e.generated_answer %}
     <div class="mt-2 pt-2 border-t border-gray-200/60 dark:border-gray-700/60 flex gap-2">
       <button type="button"

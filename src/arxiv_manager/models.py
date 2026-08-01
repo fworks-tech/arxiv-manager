@@ -248,6 +248,7 @@ class GenerationAttempt(SQLModel, table=True):
     validation_errors: str = ""  # JSON list
     validation_warnings: str = ""  # JSON list
     fact_check_errors: str = ""  # JSON list of unsupported premise claims
+    determinism_errors: str = ""  # JSON list of sampled answers that diverged from golden
 
     # Rhea feedback (captured on submit)
     rhea_passed: bool = False

@@ -62,6 +62,7 @@ def _run(monkeypatch, difficulty="hardest", fact_results=None, drafts=None):
         "prev?",
         figure_id=1,
         task_id=44,
+        use_determinism=False,
     ), draft_calls
 
 
@@ -127,7 +128,76 @@ def test_fact_check_fail_open_when_checker_unavailable(monkeypatch):
     monkeypatch.setattr(fc_mod, "fact_check_draft", lambda *a, **kw: {"claims": [], "unsupported": [], "verdict": "pass", "checked": False})
 
     result = tr._do_regenerate(
-        "img.jpg", "key", "hardest", "chart_graph_text", 0.5, "prev?", figure_id=1, task_id=44
+        "img.jpg", "key", "hardest", "chart_graph_text", 0.5, "prev?", figure_id=1, task_id=44,
+        use_determinism=False,
     )
     assert result is not None
     assert result["_fact_check_failed"] is False
+
+
+class TestDeterminismGate:
+    def _fact_pass(self):
+        return {"claims": [], "unsupported": [], "verdict": "pass", "checked": True}
+
+    def _det(self, deterministic, diverging=()):
+        return {
+            "deterministic": deterministic,
+            "runs": [],
+            "diverging": list(diverging),
+            "checked": True,
+        }
+
+    def _setup(self, monkeypatch, det_results, drafts):
+        import arxiv_manager.authoring.ai_draft._determinism as det_mod
+        import arxiv_manager.authoring.ai_draft._fact_checker as fc_mod
+        from arxiv_manager.web.routes import task_routes as tr
+
+        draft_calls = []
+
+        def fake_draft_qa(**kw):
+            draft_calls.append(kw)
+            return drafts.pop(0) if drafts else _draft("Q?", "1")
+
+        monkeypatch.setattr(tr, "draft_qa", fake_draft_qa)
+        monkeypatch.setattr(fc_mod, "fact_check_draft", lambda *a, **kw: self._fact_pass())
+        monkeypatch.setattr(det_mod, "check_determinism_for_qa", lambda *a, **kw: det_results.pop(0))
+        return tr, draft_calls
+
+    def test_determinism_failure_feeds_retry(self, monkeypatch):
+        tr, calls = self._setup(
+            monkeypatch,
+            det_results=[self._det(False, ["17"]), self._det(True)],
+            drafts=[_draft("Q1?", "15"), _draft("Q2?", "15")],
+        )
+        result = tr._do_regenerate(
+            "img.jpg", "key", "hardest", "chart_graph_text", 0.5, "prev?", figure_id=1, task_id=44
+        )
+        assert result is not None
+        assert result["question"] == "Q2?"
+        assert result["_determinism_failed"] is False
+        assert any("Answer determinism failed" in c.get("feedback", "") for c in calls)
+
+    def test_all_retries_determinism_failed_flag(self, monkeypatch):
+        tr, calls = self._setup(
+            monkeypatch,
+            det_results=[self._det(False, ["17"]), self._det(False, ["17"]), self._det(False, ["18"])],
+            drafts=[_draft("Q1?", "15"), _draft("Q2?", "15")],
+        )
+        result = tr._do_regenerate(
+            "img.jpg", "key", "hardest", "chart_graph_text", 0.5, "prev?", figure_id=1, task_id=44
+        )
+        assert result is not None
+        assert result["_determinism_failed"] is True
+        assert result["_determinism_errors"] == []
+
+    def test_determinism_skipped_for_easy(self, monkeypatch):
+        tr, calls = self._setup(
+            monkeypatch,
+            det_results=[self._det(False, ["17"])],
+            drafts=[_draft("Q?", "15")],
+        )
+        result = tr._do_regenerate(
+            "img.jpg", "key", "easy", "chart_graph_text", 0.5, "prev?", figure_id=1, task_id=44
+        )
+        assert result is not None
+        assert result.get("_determinism_failed", False) is False
