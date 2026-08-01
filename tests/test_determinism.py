@@ -124,3 +124,38 @@ class TestCheckDeterminismForQa:
         r = check_determinism_for_qa("Q?", "15", "number", sample_image_chart_path, "key", runs=2)
         assert r["checked"] is False
         assert r["deterministic"] is False
+
+
+class TestSemanticPrompt:
+    def test_prompt_formats_without_key_error(self):
+        """The semantic-equivalence prompt must format cleanly.
+
+        Regression: unescaped JSON braces in the template made .format()
+        raise KeyError('\"match\"') on the word-answer semantic fallback,
+        crashing determinism checks for word-format tasks.
+        """
+        from arxiv_manager.authoring.ai_draft._determinism import _VERIFY_SEMANTIC_PROMPT
+
+        prompt = _VERIFY_SEMANTIC_PROMPT.format(a="top left", b="top-left")
+        assert "top left" in prompt
+        assert "top-left" in prompt
+        assert '{"match": true or false' in prompt
+
+    def test_semantic_fallback_used_for_word_mismatch(self, monkeypatch, sample_image_chart_path):
+        from arxiv_manager.authoring.ai_draft import _determinism as det
+
+        calls = []
+        state = {"n": 0}
+
+        def fake_call(api_key, prompt, b64, **kw):
+            calls.append(prompt)
+            state["n"] += 1
+            if state["n"] == 1:  # the sampled run itself
+                return {"answer": "top left", "reasoning": "observed"}
+            return {"match": True}  # the semantic-equivalence call
+
+        monkeypatch.setattr(det, "_call_opencode", fake_call)
+        r = check_determinism_for_qa("Q?", "top-left", "word", sample_image_chart_path, "key", runs=1)
+        assert r["deterministic"] is True
+        assert len(calls) == 2
+        assert "Answer 1: top left" in calls[1]

@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 _VERIFY_SEMANTIC_PROMPT = (
     'Compare these two short answers to the same visual question. '
-    'Return ONLY valid JSON: {"match": true or false, "explanation": "one line"}\n'
+    'Return ONLY valid JSON: {{"match": true or false, "explanation": "one line"}}\n'
     "Answer 1: {a}\nAnswer 2: {b}"
 )
 
