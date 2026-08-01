@@ -655,7 +655,7 @@ def api_ai_fix(request: Request, task_id: int):
         img_path = STORAGE_DIR / task.image_path
         b64_image = ""
         if img_path.exists():
-            from ....authoring.ai_draft._image_utils import encode_image_for_llm
+            from ...authoring.ai_draft._image_utils import encode_image_for_llm
             b64_image, _ = encode_image_for_llm(
                 img_path, CONFIG.thumbnail_size, CONFIG.jpeg_quality
             )
@@ -933,7 +933,7 @@ def api_check_answer(request: Request, task_id: int):
                 request, "_check_answer.html", {"error": "Image not found"}
             )
 
-        from ....authoring.ai_draft._image_utils import encode_image_for_llm
+        from ...authoring.ai_draft._image_utils import encode_image_for_llm
         b64_image, _ = encode_image_for_llm(
             img_path, CONFIG.thumbnail_size, CONFIG.jpeg_quality
         )
