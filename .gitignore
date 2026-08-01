@@ -57,3 +57,4 @@ storage/chroma_db/
 .space/
 temp/
 pr_diff.txt
+server.log
