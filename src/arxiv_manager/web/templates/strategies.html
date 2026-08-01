@@ -1,0 +1,56 @@
+{% extends "base_layout.html" %}
+{% block title %}Strategy Analytics — ArXiv Manager{% endblock %}
+{% block content %}
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Strategy Analytics</h1>
+        <p class="text-gray-500 dark:text-gray-400 mt-1">Question-strategy classes × every available model verdict signal (Realm verdicts, manual pass counts, check-answer, determinism)</p>
+    </div>
+    <span class="text-sm text-gray-400">{{ analytics.total_tasks }} tasks</span>
+</div>
+
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+        <thead class="bg-gray-50 dark:bg-gray-700/50">
+            <tr>
+                <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Strategy</th>
+                <th class="px-4 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Tasks</th>
+                <th class="px-4 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Hardest</th>
+                <th class="px-4 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Realm too_easy</th>
+                <th class="px-4 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Realm too_hard</th>
+                <th class="px-4 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Realm approved</th>
+                <th class="px-4 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Issue reports</th>
+                <th class="px-4 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Determinism pass</th>
+                <th class="px-4 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Check-answer pass</th>
+                <th class="px-4 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Qwen pass ≥1</th>
+                <th class="px-4 py-3 text-center font-semibold text-gray-700 dark:text-gray-300">Gemini pass ≥1</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for name in analytics.order %}
+            {% set s = analytics.strategies[name] %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                <td class="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{{ name }}</td>
+                <td class="px-4 py-3 text-center text-gray-700 dark:text-gray-300">{{ s.count }}</td>
+                <td class="px-4 py-3 text-center text-gray-700 dark:text-gray-300">{{ s.hardest }}</td>
+                <td class="px-4 py-3 text-center {% if s.realm_too_easy %}text-red-600 dark:text-red-400 font-semibold{% else %}text-gray-500{% endif %}">{{ s.realm_too_easy }}</td>
+                <td class="px-4 py-3 text-center {% if s.realm_too_hard %}text-amber-600 dark:text-amber-400 font-semibold{% else %}text-gray-500{% endif %}">{{ s.realm_too_hard }}</td>
+                <td class="px-4 py-3 text-center {% if s.realm_approved %}text-green-600 dark:text-green-400 font-semibold{% else %}text-gray-500{% endif %}">{{ s.realm_approved }}</td>
+                <td class="px-4 py-3 text-center text-gray-700 dark:text-gray-300">{{ s.issue_reports }}</td>
+                <td class="px-4 py-3 text-center text-gray-700 dark:text-gray-300">{{ s.determinism_pass }}/{{ s.determinism_checked }}</td>
+                <td class="px-4 py-3 text-center text-gray-700 dark:text-gray-300">{{ s.check_answer_pass }}/{{ s.check_answer_checked }}</td>
+                <td class="px-4 py-3 text-center {% if s.qwen_passes_any %}text-red-600 dark:text-red-400{% else %}text-gray-500{% endif %}">{{ s.qwen_passes_any }}</td>
+                <td class="px-4 py-3 text-center {% if s.gemini_passes_any %}text-red-600 dark:text-red-400{% else %}text-gray-500{% endif %}">{{ s.gemini_passes_any }}</td>
+            </tr>
+            {% endfor %}
+            {% if not analytics.order %}
+            <tr><td colspan="11" class="px-4 py-8 text-center text-gray-400">No tasks yet.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<div class="mt-4 text-xs text-gray-400">
+    Strategy classes are auto-derived from question wording (counting, comparison, rank, cross_panel_sum_diff, spatial, percentage_change, single_lookup, other). "Qwen pass ≥1" / "Gemini pass ≥1" count tasks with at least one recorded pass — for Hardest success these must stay at 0.
+</div>
+{% endblock %}

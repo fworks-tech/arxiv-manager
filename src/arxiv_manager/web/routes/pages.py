@@ -229,6 +229,15 @@ def stats_page(request: Request):
     return TEMPLATES.TemplateResponse(request, "stats.html", {"stats": stats})
 
 
+@router.get("/analytics/strategies", response_class=HTMLResponse)
+def strategies_page(request: Request):
+    """Question-strategy × model verdict analytics dashboard."""
+    from ...analytics.strategies import build_strategy_analytics
+
+    analytics = build_strategy_analytics()
+    return TEMPLATES.TemplateResponse(request, "strategies.html", {"analytics": analytics})
+
+
 @router.get("/author", response_class=HTMLResponse)
 def author_page(request: Request):
     """Main upload + Q&A authoring page."""
