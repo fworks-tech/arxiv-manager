@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Task #44 — ArXiv Manager</title>
+    <script>
+        (function() {
+            var t = localStorage.getItem('theme');
+            if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: { DEFAULT: '#1a1a2e', hover: '#16213e' },
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .htmx-indicator { opacity: 0; transition: opacity 200ms ease-in; }
+        .htmx-request .htmx-indicator { opacity: 1; }
+        .htmx-request.htmx-indicator { opacity: 1; }
+        .spinner { animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-[#0f0f1a] text-gray-800 dark:text-gray-200 font-sans antialiased min-h-screen transition-colors duration-200">
+    <nav class="bg-[#1a1a2e] text-white sticky top-0 z-50 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6">
+            <div class="flex items-center justify-between h-14 sm:h-16">
+                <a href="/" class="text-lg font-bold tracking-tight">ArXiv Manager</a>
+                <div class="flex items-center gap-2">
+                    <button id="theme-toggle" class="p-2 rounded-lg hover:bg-white/10 transition-colors" aria-label="Toggle dark mode">
+                        <svg id="theme-icon-light" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+                        </svg>
+                        <svg id="theme-icon-dark" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                        </svg>
+                    </button>
+                    <button id="nav-toggle" class="lg:hidden p-2 rounded-lg hover:bg-white/10" aria-label="Toggle navigation">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                    </button>
+                </div>
+                <div id="nav-links" class="hidden lg:flex items-center gap-1">
+                    <a href="/" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors">Dashboard</a>
+                    <a href="/author" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors">Author</a>
+                    <a href="/images" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors">Images</a>
+                    <a href="/tasks" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors">Tasks</a>
+                    <a href="/stats" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors">Stats</a>
+                    <a href="/metrics" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors">Metrics</a>
+                    <a href="/analytics/strategies" class="px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors">Strategies</a>
+                </div>
+            </div>
+            <div id="mobile-nav" class="hidden lg:hidden pb-3 space-y-1">
+                <a href="/" class="block px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors">Dashboard</a>
+                <a href="/author" class="block px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors">Author</a>
+                <a href="/images" class="block px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors">Images</a>
+                <a href="/tasks" class="block px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors">Tasks</a>
+                <a href="/stats" class="block px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors">Stats</a>
+                <a href="/metrics" class="block px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors">Metrics</a>
+                <a href="/analytics/strategies" class="block px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors">Strategies</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        
+<div class="mb-6">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Edit Task #44</h1>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    
+    <div class="lg:col-span-1">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-5 sticky top-20">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Source Image</h2>
+            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-2 mb-3 flex items-center justify-center">
+                <img src="/figures/user_upload_e126b464e90ae85d.jpg?v=a8cb4c91" alt="Figure 44" class="max-w-full max-h-64 object-contain rounded">
+            </div>
+            <dl class="space-y-2 text-sm">
+                <div class="flex justify-between"><dt class="text-gray-500 dark:text-gray-400">Figure ID</dt><dd class="font-medium text-gray-900 dark:text-gray-100">44</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500 dark:text-gray-400">Complexity</dt><dd class="font-medium text-gray-900 dark:text-gray-100">0.824</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500 dark:text-gray-400">Paper</dt><dd><a href="/papers/user_upload.pdf" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline font-medium">user_upload</a></dd></div>
+            </dl>
+            
+        </div>
+    </div>
+    
+
+    <div class="lg:col-span-2 space-y-6">
+        
+        <div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-xl p-4 sm:p-5">
+            <div class="flex items-center gap-2 mb-2">
+                <span class="text-lg">✅</span>
+                <span class="font-semibold text-sm text-gray-900 dark:text-gray-100">Validation Passed</span>
+                <span class="ml-auto text-xs text-gray-500 dark:text-gray-400">Score: <strong>100/100</strong></span>
+            </div>
+            
+            
+        </div>
+        
+
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Question & Answer</h2>
+            <form method="post" action="/api/task/44/update">
+                
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="title" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Task Title</label>
+                        <input type="text" name="title" id="title" value="" required
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">
+                    </div>
+
+                    <div>
+                        <label for="domain" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Domain</label>
+                        <select name="domain" id="domain" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">
+                            <option value="">Select domain</option>
+                            
+                            <option value="Abstract / patterns" >Abstract / patterns</option>
+                            
+                            <option value="Accounting" >Accounting</option>
+                            
+                            <option value="Actuarial Science" >Actuarial Science</option>
+                            
+                            <option value="Aerospace Manufacturing" >Aerospace Manufacturing</option>
+                            
+                            <option value="Archaeology" >Archaeology</option>
+                            
+                            <option value="Architecture" >Architecture</option>
+                            
+                            <option value="Art / design" >Art / design</option>
+                            
+                            <option value="Artificial Intelligence / Machine Learning" >Artificial Intelligence / Machine Learning</option>
+                            
+                            <option value="Asset Management" >Asset Management</option>
+                            
+                            <option value="Astronomy" >Astronomy</option>
+                            
+                            <option value="Audit" >Audit</option>
+                            
+                            <option value="Auto Insurance" >Auto Insurance</option>
+                            
+                            <option value="Automotive Manufacturing" >Automotive Manufacturing</option>
+                            
+                            <option value="Beaches / water" >Beaches / water</option>
+                            
+                            <option value="Biochemistry" >Biochemistry</option>
+                            
+                            <option value="Biology" >Biology</option>
+                            
+                            <option value="Books / learning materials" >Books / learning materials</option>
+                            
+                            <option value="Building Inspection" >Building Inspection</option>
+                            
+                            <option value="Buildings / architecture" >Buildings / architecture</option>
+                            
+                            <option value="Cars" >Cars</option>
+                            
+                            <option value="Charts / diagrams" >Charts / diagrams</option>
+                            
+                            <option value="Chemical Engineering" >Chemical Engineering</option>
+                            
+                            <option value="Chemistry" >Chemistry</option>
+                            
+                            <option value="City streets" >City streets</option>
+                            
+                            <option value="Civil Construction" >Civil Construction</option>
+                            
+                            <option value="Civil Engineering" >Civil Engineering</option>
+                            
+                            <option value="Claims Management" >Claims Management</option>
+                            
+                            <option value="Clinical Research" >Clinical Research</option>
+                            
+                            <option value="Clothing / fashion" >Clothing / fashion</option>
+                            
+                            <option value="Commercial Construction" >Commercial Construction</option>
+                            
+                            <option value="Commercial Insurance" >Commercial Insurance</option>
+                            
+                            <option value="Computer Science" selected>Computer Science</option>
+                            
+                            <option value="Construction" >Construction</option>
+                            
+                            <option value="Construction Management" >Construction Management</option>
+                            
+                            <option value="Contract Law" >Contract Law</option>
+                            
+                            <option value="Corporate Finance" >Corporate Finance</option>
+                            
+                            <option value="Corporate Law" >Corporate Law</option>
+                            
+                            <option value="Criminal Law" >Criminal Law</option>
+                            
+                            <option value="Curriculum Design" >Curriculum Design</option>
+                            
+                            <option value="Data Science" >Data Science</option>
+                            
+                            <option value="Demography" >Demography</option>
+                            
+                            <option value="Dentistry" >Dentistry</option>
+                            
+                            <option value="Documents / paperwork" >Documents / paperwork</option>
+                            
+                            <option value="Economics" >Economics</option>
+                            
+                            <option value="Education / classrooms" >Education / classrooms</option>
+                            
+                            <option value="Electrical Engineering" >Electrical Engineering</option>
+                            
+                            <option value="Electronics" >Electronics</option>
+                            
+                            <option value="Electronics Manufacturing" >Electronics Manufacturing</option>
+                            
+                            <option value="Employment Law" >Employment Law</option>
+                            
+                            <option value="Environmental Science" >Environmental Science</option>
+                            
+                            <option value="Equipment Maintenance" >Equipment Maintenance</option>
+                            
+                            <option value="Estimation" >Estimation</option>
+                            
+                            <option value="Events / celebrations" >Events / celebrations</option>
+                            
+                            <option value="Faces / portraits" >Faces / portraits</option>
+                            
+                            <option value="Family Law" >Family Law</option>
+                            
+                            <option value="Farming / agriculture" >Farming / agriculture</option>
+                            
+                            <option value="Financial Planning" >Financial Planning</option>
+                            
+                            <option value="FinTech" >FinTech</option>
+                            
+                            <option value="Fitness / recreation" >Fitness / recreation</option>
+                            
+                            <option value="Food &amp; Beverage Manufacturing" >Food &amp; Beverage Manufacturing</option>
+                            
+                            <option value="Food / drink" >Food / drink</option>
+                            
+                            <option value="Furniture / decor" >Furniture / decor</option>
+                            
+                            <option value="Geology" >Geology</option>
+                            
+                            <option value="Healthcare Administration" >Healthcare Administration</option>
+                            
+                            <option value="Healthcare Law" >Healthcare Law</option>
+                            
+                            <option value="Health Insurance" >Health Insurance</option>
+                            
+                            <option value="Higher Education" >Higher Education</option>
+                            
+                            <option value="Historical / cultural objects" >Historical / cultural objects</option>
+                            
+                            <option value="Home interiors" >Home interiors</option>
+                            
+                            <option value="Hotels / airports" >Hotels / airports</option>
+                            
+                            <option value="HVAC / MEP Systems" >HVAC / MEP Systems</option>
+                            
+                            <option value="Industrial / machinery" >Industrial / machinery</option>
+                            
+                            <option value="Industrial Manufacturing" >Industrial Manufacturing</option>
+                            
+                            <option value="Instructional Design" >Instructional Design</option>
+                            
+                            <option value="Insurance Compliance" >Insurance Compliance</option>
+                            
+                            <option value="Insurance Finance" >Insurance Finance</option>
+                            
+                            <option value="Insurance Law" >Insurance Law</option>
+                            
+                            <option value="Intellectual Property Law" >Intellectual Property Law</option>
+                            
+                            <option value="Investment Banking" >Investment Banking</option>
+                            
+                            <option value="K–12 Education" >K–12 Education</option>
+                            
+                            <option value="Kitchen / cooking" >Kitchen / cooking</option>
+                            
+                            <option value="Landscapes" >Landscapes</option>
+                            
+                            <option value="Lean Manufacturing" >Lean Manufacturing</option>
+                            
+                            <option value="Life Insurance" >Life Insurance</option>
+                            
+                            <option value="Litigation" >Litigation</option>
+                            
+                            <option value="Low-quality / unclear" >Low-quality / unclear</option>
+                            
+                            <option value="Maps / navigation" >Maps / navigation</option>
+                            
+                            <option value="Materials Science" >Materials Science</option>
+                            
+                            <option value="Mathematics" >Mathematics</option>
+                            
+                            <option value="Mechanical Engineering" >Mechanical Engineering</option>
+                            
+                            <option value="Medical Devices" >Medical Devices</option>
+                            
+                            <option value="Medical / health" >Medical / health</option>
+                            
+                            <option value="Medicine" >Medicine</option>
+                            
+                            <option value="Memes / internet media" >Memes / internet media</option>
+                            
+                            <option value="Mental Health" >Mental Health</option>
+                            
+                            <option value="Military studies" >Military studies</option>
+                            
+                            <option value="Money / finance objects" >Money / finance objects</option>
+                            
+                            <option value="Mountains / forests" >Mountains / forests</option>
+                            
+                            <option value="Music / performance" >Music / performance</option>
+                            
+                            <option value="Nursing" >Nursing</option>
+                            
+                            <option value="Other" >Other</option>
+                            
+                            <option value="Petroleum Engineering" >Petroleum Engineering</option>
+                            
+                            <option value="Pharmaceuticals" >Pharmaceuticals</option>
+                            
+                            <option value="Philosophy" >Philosophy</option>
+                            
+                            <option value="Photography" >Photography</option>
+                            
+                            <option value="Physics" >Physics</option>
+                            
+                            <option value="Political Science" >Political Science</option>
+                            
+                            <option value="Psychology" >Psychology</option>
+                            
+                            <option value="Public Policy" >Public Policy</option>
+                            
+                            <option value="Real Estate" >Real Estate</option>
+                            
+                            <option value="Renewable Energy" >Renewable Energy</option>
+                            
+                            <option value="Satellite / aerial" >Satellite / aerial</option>
+                            
+                            <option value="Science / lab" >Science / lab</option>
+                            
+                            <option value="Security / surveillance" >Security / surveillance</option>
+                            
+                            <option value="Social Media" >Social Media</option>
+                            
+                            <option value="Social Science" >Social Science</option>
+                            
+                            <option value="Software Engineering" >Software Engineering</option>
+                            
+                            <option value="Sports" >Sports</option>
+                            
+                            <option value="Telecommunications" >Telecommunications</option>
+                            
+                            <option value="Textiles / apparel" >Textiles / apparel</option>
+                            
+                            <option value="Transport / logistics" >Transport / logistics</option>
+                            
+                            <option value="Urban / cityscapes" >Urban / cityscapes</option>
+                            
+                            <option value="Veterinary Medicine" >Veterinary Medicine</option>
+                            
+                            <option value="Waste management" >Waste management</option>
+                            
+                            <option value="Water / coastal" >Water / coastal</option>
+                            
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="question" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Question</label>
+                        <textarea name="question" id="question" rows="3" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">Count every small red rectangular bounding box drawn around an individual text or number label in the figure, excluding any large red region rectangles. What is the total?</textarea>
+                    </div>
+
+                    <div>
+                        <label for="answer" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Answer (boxed, short)</label>
+                        <input type="text" name="answer" id="answer" value="9" required
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="task_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Task Type</label>
+                            <select name="task_type" id="task_type" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">
+                                
+                                <option value="chart" selected>chart</option>
+                                
+                                <option value="general_image" >general_image</option>
+                                
+                                <option value="spatial" >spatial</option>
+                                
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-3 pt-2">
+                        <button type="submit" class="px-4 py-2 bg-[#1a1a2e] text-white rounded-lg text-sm font-medium hover:bg-[#16213e] transition-colors">
+                            Update Task
+                        </button>
+                        
+                        <button type="button" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                                hx-post="/api/task/44/ai-fix" hx-target="#ai-fix-box" hx-swap="innerHTML"
+                                hx-indicator="#ai-fix-indicator">AI Fix</button>
+                        <span id="ai-fix-indicator" class="htmx-indicator"><svg class="spinner inline-block w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="4" stroke-linecap="round" class="opacity-75"/></svg></span>
+                        <button type="button" class="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 transition-colors"
+                                hx-get="/api/task/44/report-form" hx-target="#report-box" hx-swap="innerHTML">Report Issue</button>
+                        <select id="regenerate-difficulty" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                            <option value="easy" >Easy</option>
+                            <option value="challenging" >Challenging</option>
+                            <option value="hardest" selected>HARDEST</option>
+                        </select>
+                        <button type="button" id="regenerate-btn" class="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm font-medium hover:bg-yellow-700 transition-colors">Regenerate</button>
+                        
+                    </div>
+                </div>
+            </form>
+            <div id="ai-fix-box" class="mt-2"></div>
+            <div id="report-box" class="mt-2"></div>
+        </div>
+
+        
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Platform Info</h2>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2"><strong>Image Path:</strong> <code class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs text-gray-900 dark:text-gray-100">figures/user_upload_e126b464e90ae85d.jpg</code></p>
+            <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Export Format:</p>
+            <textarea readonly rows="5" class="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-xs font-mono bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">Title: 
+Domain: Computer Science
+Question: Count every small red rectangular bounding box drawn around an individual text or number label in the figure, excluding any large red region rectangles. What is the total?
+Answer: 9
+Format: number
+Type: chart</textarea>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Rhea Review</h2>
+            <form method="post" action="/api/task/44/rhea">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <input type="checkbox" name="rhea_reviewed" value="true"  class="rounded border-gray-300 dark:border-gray-600">
+                        Reviewed by Rhea
+                    </label>
+                    <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <input type="checkbox" name="rhea_passed" value="true"  class="rounded border-gray-300 dark:border-gray-600">
+                        Rhea Passed
+                    </label>
+                    <div class="sm:col-span-1">
+                        <input type="text" name="rhea_notes" value="" placeholder="Review feedback..." class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    </div>
+                </div>
+                <button type="submit" class="mt-3 px-4 py-2 bg-[#1a1a2e] text-white rounded-lg text-sm font-medium hover:bg-[#16213e] transition-colors">Update</button>
+            </form>
+            
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Model Runs</h2>
+            <form method="post" action="/api/task/44/difficulty">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Difficulty</label>
+                        <select name="difficulty" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                            
+                            <option value="easy" >easy</option>
+                            
+                            <option value="challenging" >challenging</option>
+                            
+                            <option value="hardest" selected>hardest</option>
+                            
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Qwen passes (0-4)</label>
+                        <input type="number" name="qwen" min="0" max="4" value="0" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Gemini passes (0-4)</label>
+                        <input type="number" name="gemini" min="0" max="4" value="0" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                    </div>
+                </div>
+                <button type="submit" class="mt-3 px-4 py-2 bg-[#1a1a2e] text-white rounded-lg text-sm font-medium hover:bg-[#16213e] transition-colors">Update</button>
+            </form>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Task History</h2>
+            <div id="task-history-content" hx-get="/api/task/44/task-history" hx-trigger="load" hx-swap="innerHTML">
+                <div class="text-center py-4 text-gray-400 dark:text-gray-500 text-sm">Loading history...</div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Actions</h2>
+            <div class="flex flex-wrap gap-3">
+                <form method="post" action="/api/task/44/submit">
+                    <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">Mark as Submitted</button>
+                </form>
+                <button type="button"
+                        hx-post="/api/task/44/check-answer"
+                        hx-target="#check-answer-box"
+                        hx-swap="innerHTML"
+                        hx-indicator="#check-answer-indicator"
+                        class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors">Check Answer</button>
+                <span id="check-answer-indicator" class="htmx-indicator"><svg class="spinner inline-block w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="4" stroke-linecap="round" class="opacity-75"/></svg></span>
+                <button type="button"
+                        hx-post="/api/task/44/determinism-check"
+                        hx-target="#determinism-box"
+                        hx-swap="innerHTML"
+                        hx-indicator="#determinism-indicator"
+                        class="px-4 py-2 bg-rose-600 text-white rounded-lg text-sm font-medium hover:bg-rose-700 transition-colors">Determinism Check</button>
+                <span id="determinism-indicator" class="htmx-indicator"><svg class="spinner inline-block w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="4" stroke-linecap="round" class="opacity-75"/></svg></span>
+                <button type="button"
+                        hx-post="/api/task/44/delete"
+                        hx-confirm="Delete task #44? This cannot be undone."
+                        hx-target="body"
+                        class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors">Delete Task</button>
+            </div>
+            <div id="check-answer-box" class="mt-2"></div>
+            <div id="determinism-box" class="mt-2"></div>
+        </div>
+        
+    </div>
+</div>
+
+<script>
+var _regenerating = false;
+document.getElementById('regenerate-btn')?.addEventListener('click', function() {
+    if (_regenerating) return;
+    _regenerating = true;
+    var btn = this;
+    var diff = document.getElementById('regenerate-difficulty').value;
+    btn.textContent = 'Regenerating (may take ~90s)...';
+    btn.disabled = true;
+    fetch('/api/task/44/regenerate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'difficulty=' + encodeURIComponent(diff),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.ok) {
+            document.getElementById('question').value = data.question;
+            document.getElementById('answer').value = data.answer;
+            document.getElementById('task_type').value = data.task_type;
+            document.getElementById('validation-box').innerHTML = '';
+            htmx.trigger('#task-history-content', 'load');
+            var info = 'Regeneration complete';
+            if (data.model) info += ' | ' + data.model;
+            if (data.total_tokens) info += ' | ' + data.total_tokens + ' tokens';
+            if (data.cost) info += ' | ' + data.cost;
+            showToast(info, 'success');
+        } else {
+            showToast('Regenerate failed: ' + (data.error || 'unknown error'), 'error');
+        }
+    })
+    .catch(function(e) { showToast('Regenerate error: ' + e.message, 'error'); })
+    .then(function() {
+        btn.textContent = 'Regenerate';
+        btn.disabled = false;
+        _regenerating = false;
+    });
+});
+</script>
+
+<div id="rhea-override-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Override Rhea feedback</h3>
+            <button onclick="document.getElementById('rhea-override-modal').classList.add('hidden')" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">If you disagree with Rhea's verdict, explain why. This will be recorded on the task and Rhea will be marked as overridden.</p>
+        <form method="post" action="/api/task/44/rhea-override" id="rhea-override-form">
+            <input type="hidden" name="rhea_passed" value="true">
+            <textarea name="rhea_override_notes" rows="6" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]" placeholder="Why do you disagree with Rhea's feedback?"></textarea>
+            <div class="flex justify-end gap-2 mt-4">
+                <button type="button" onclick="document.getElementById('rhea-override-modal').classList.add('hidden')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 transition-colors">Submit override</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+    </main>
+
+    <!-- Toast container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+
+    <script>
+        // Theme toggle
+        (function() {
+            var html = document.documentElement;
+            var lightIcon = document.getElementById('theme-icon-light');
+            var darkIcon = document.getElementById('theme-icon-dark');
+            function updateIcons() {
+                var isDark = html.classList.contains('dark');
+                lightIcon.classList.toggle('hidden', isDark);
+                darkIcon.classList.toggle('hidden', !isDark);
+            }
+            updateIcons();
+            document.getElementById('theme-toggle')?.addEventListener('click', function() {
+                html.classList.toggle('dark');
+                localStorage.setItem('theme', html.classList.contains('dark') ? 'dark' : 'light');
+                updateIcons();
+            });
+        })();
+
+        // Mobile nav toggle
+        document.getElementById('nav-toggle')?.addEventListener('click', function() {
+            var el = document.getElementById('mobile-nav');
+            el.classList.toggle('hidden');
+        });
+
+        // Toast helper
+        function showToast(msg, type) {
+            type = type || 'success';
+            var colors = {success: 'bg-green-600', error: 'bg-red-600', info: 'bg-blue-600'};
+            var t = document.createElement('div');
+            t.className = (colors[type] || 'bg-gray-700') + ' text-white px-4 py-3 rounded-lg shadow-lg text-sm font-medium animate-bounce-in';
+            t.textContent = msg;
+            var c = document.getElementById('toast-container');
+            c.appendChild(t);
+            setTimeout(function() { t.remove(); }, 3000);
+        }
+
+        // HTMX error handler
+        document.addEventListener('htmx:responseError', function(evt) {
+            showToast('Request failed: ' + (evt.detail.xhr.statusText || 'Unknown error'), 'error');
+        });
+        document.addEventListener('htmx:sendError', function(evt) {
+            showToast('Network error — check your connection', 'error');
+        });
+    </script>
+</body>
+</html>
