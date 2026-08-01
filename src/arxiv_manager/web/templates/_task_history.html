@@ -1,6 +1,6 @@
 {% if events %}
 <div class="space-y-3">
-  <div class="flex items-center justify-between text-xs text-gray-400 mb-1">
+  <div class="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500 mb-1">
     <span>{{ events|length }} event(s)</span>
     {% if total_cost_str and total_cost_str != "$0.00" %}
     <span>Total cost: <strong>{{ total_cost_str }}</strong></span>
@@ -10,22 +10,22 @@
   {% set q_score = e.quality %}
   {% if e.event_type == "regeneration" %}
   <div class="border rounded-lg p-3
-    {% if q_score >= 80 %}border-green-200 bg-green-50
-    {% elif q_score >= 50 %}border-yellow-200 bg-yellow-50
-    {% else %}border-red-200 bg-red-50{% endif %}">
-    <div class="flex items-center gap-2 text-xs text-gray-500 mb-1 flex-wrap">
-      <span class="font-medium text-gray-700 px-1.5 py-0.5 rounded bg-white/60 text-xs">🔄 {{ e.generation_type }}</span>
+    {% if q_score >= 80 %}border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20
+    {% elif q_score >= 50 %}border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20
+    {% else %}border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20{% endif %}">
+    <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1 flex-wrap">
+      <span class="font-medium text-gray-700 dark:text-gray-200 px-1.5 py-0.5 rounded bg-white/60 dark:bg-gray-700/60 text-xs">🔄 {{ e.generation_type }}</span>
       {% if e.difficulty %}
       <span class="px-1.5 py-0.5 rounded text-xs
-        {% if e.difficulty == 'hardest' %}bg-red-100 text-red-700
-        {% elif e.difficulty == 'challenging' %}bg-yellow-100 text-yellow-700
-        {% elif e.difficulty == 'easy' %}bg-green-100 text-green-700
-        {% else %}bg-gray-100 text-gray-600{% endif %}">{{ e.difficulty }}</span>
+        {% if e.difficulty == 'hardest' %}bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300
+        {% elif e.difficulty == 'challenging' %}bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300
+        {% elif e.difficulty == 'easy' %}bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300
+        {% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400{% endif %}">{{ e.difficulty }}</span>
       {% endif %}
       {% if e.model_name %}
-      <span class="text-gray-400">{{ e.model_name }}</span>
+      <span class="text-gray-400 dark:text-gray-500">{{ e.model_name }}</span>
       {% endif %}
-      <span class="ml-auto text-gray-400 flex items-center gap-2">
+      <span class="ml-auto text-gray-400 dark:text-gray-500 flex items-center gap-2">
         {% if e.total_tokens|default(0) > 0 %}
         <span title="{{ e.input_tokens|default(0) }} in + {{ e.output_tokens|default(0) }} out = {{ e.total_tokens }} tokens">🪙 {{ e.total_tokens }} tok</span>
         {% endif %}
@@ -35,32 +35,32 @@
         <span>{{ e.created_at }}</span>
       </span>
     </div>
-    <p class="text-sm font-medium text-gray-900">{{ e.generated_question[:200] }}{% if e.generated_question|length > 200 %}...{% endif %}</p>
+    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ e.generated_question[:200] }}{% if e.generated_question|length > 200 %}...{% endif %}</p>
     <div class="flex items-center gap-2 mt-1.5 flex-wrap">
-      <span class="text-sm text-gray-600">Answer: <strong class="text-gray-900">{{ e.generated_answer }}</strong></span>
-      <span class="text-xs px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">{{ e.generated_answer_format }}</span>
+      <span class="text-sm text-gray-600 dark:text-gray-400">Answer: <strong class="text-gray-900 dark:text-gray-100">{{ e.generated_answer }}</strong></span>
+      <span class="text-xs px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400">{{ e.generated_answer_format }}</span>
       {% if q_score > 0 %}
-      <span class="ml-auto text-sm font-bold {% if q_score >= 80 %}text-green-600{% elif q_score >= 50 %}text-yellow-600{% else %}text-red-600{% endif %}">{{ "%.0f"|format(q_score) }}/100</span>
+      <span class="ml-auto text-sm font-bold {% if q_score >= 80 %}text-green-600 dark:text-green-400{% elif q_score >= 50 %}text-yellow-600 dark:text-yellow-400{% else %}text-red-600 dark:text-red-400{% endif %}">{{ "%.0f"|format(q_score) }}/100</span>
       {% endif %}
     </div>
     {% if e.errors %}
-    <div class="mt-1.5 text-xs text-red-600 space-y-0.5">
+    <div class="mt-1.5 text-xs text-red-600 dark:text-red-400 space-y-0.5">
       {% for err in e.errors[:2] %}
       <div>❌ {{ err[:120] }}</div>
       {% endfor %}
       {% if e.errors|length > 2 %}
-      <div class="text-gray-400">+ {{ e.errors|length - 2 }} more errors</div>
+      <div class="text-gray-400 dark:text-gray-500">+ {{ e.errors|length - 2 }} more errors</div>
       {% endif %}
     </div>
     {% endif %}
     {% if e.generated_question and e.generated_answer %}
-    <div class="mt-2 pt-2 border-t border-gray-200/60 flex gap-2">
+    <div class="mt-2 pt-2 border-t border-gray-200/60 dark:border-gray-700/60 flex gap-2">
       <button type="button"
               hx-post="/api/task/{{ task_id }}/restore/{{ e.id }}"
               hx-target="#restore-feedback-{{ e.id }}"
               hx-swap="innerHTML"
               hx-confirm="Restore this version as the active Q&A? The current question/answer will be replaced."
-              class="text-xs px-2 py-1 rounded bg-gray-700 text-white hover:bg-gray-800 transition-colors">
+              class="text-xs px-2 py-1 rounded bg-gray-700 dark:bg-gray-600 text-white hover:bg-gray-800 dark:hover:bg-gray-500 transition-colors">
         ↩ Restore
       </button>
       <span id="restore-feedback-{{ e.id }}" class="text-xs self-center"></span>
@@ -68,102 +68,102 @@
     {% endif %}
   </div>
   {% elif e.event_type == "update" %}
-  <div class="border rounded-lg p-3 border-blue-200 bg-blue-50">
-    <div class="flex items-center gap-2 text-xs text-gray-500 mb-1">
-      <span class="font-medium text-blue-700 px-1.5 py-0.5 rounded bg-white/60 text-xs">✏️ Task Update</span>
+  <div class="border rounded-lg p-3 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
+    <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">
+      <span class="font-medium text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded bg-white/60 dark:bg-gray-700/60 text-xs">✏️ Task Update</span>
       <span class="ml-auto">{{ e.created_at }}</span>
     </div>
-    <div class="text-xs text-gray-600 space-y-0.5">
+    <div class="text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
       {% for field in e.changed_fields %}
-      <div><span class="font-medium">{{ field }}:</span> "{{ e.old_values[field] }}" → "{{ e.new_values[field] }}"</div>
+      <div><span class="font-medium text-gray-700 dark:text-gray-300">{{ field }}:</span> "{{ e.old_values[field] }}" → "{{ e.new_values[field] }}"</div>
       {% endfor %}
     </div>
   </div>
   {% elif e.event_type == "difficulty_change" %}
-  <div class="border rounded-lg p-3 border-purple-200 bg-purple-50">
-    <div class="flex items-center gap-2 text-xs text-gray-500 mb-1">
-      <span class="font-medium text-purple-700 px-1.5 py-0.5 rounded bg-white/60 text-xs">🎯 Difficulty Change</span>
+  <div class="border rounded-lg p-3 border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20">
+    <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">
+      <span class="font-medium text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded bg-white/60 dark:bg-gray-700/60 text-xs">🎯 Difficulty Change</span>
       <span class="ml-auto">{{ e.created_at }}</span>
     </div>
-    <div class="text-xs text-gray-600">
-      {{ e.old_difficulty|default('(none)') }} → <strong>{{ e.new_difficulty }}</strong>
+    <div class="text-xs text-gray-600 dark:text-gray-400">
+      {{ e.old_difficulty|default('(none)') }} → <strong class="text-gray-900 dark:text-gray-100">{{ e.new_difficulty }}</strong>
       {% if e.qwen_passes is defined %} | Qwen: {{ e.qwen_passes }}/{{ e.qwen_passes + e.gemini_passes }}{% endif %}
       {% if e.gemini_passes is defined %} | Gemini: {{ e.gemini_passes }}/{{ e.qwen_passes + e.gemini_passes }}{% endif %}
     </div>
   </div>
   {% elif e.event_type == "rhea_review" %}
-  <div class="border rounded-lg p-3 border-teal-200 bg-teal-50">
-    <div class="flex items-center gap-2 text-xs text-gray-500 mb-1">
-      <span class="font-medium text-teal-700 px-1.5 py-0.5 rounded bg-white/60 text-xs">🔍 Rhea Review</span>
+  <div class="border rounded-lg p-3 border-teal-200 dark:border-teal-800 bg-teal-50 dark:bg-teal-900/20">
+    <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">
+      <span class="font-medium text-teal-700 dark:text-teal-300 px-1.5 py-0.5 rounded bg-white/60 dark:bg-gray-700/60 text-xs">🔍 Rhea Review</span>
       <span class="ml-auto">{{ e.created_at }}</span>
     </div>
-    <div class="text-xs text-gray-600">
-      {% if e.rhea_passed %}<span class="text-green-600 font-medium">✅ Passed</span>{% else %}<span class="text-red-600 font-medium">❌ Failed</span>{% endif %}
+    <div class="text-xs text-gray-600 dark:text-gray-400">
+      {% if e.rhea_passed %}<span class="text-green-600 dark:text-green-400 font-medium">✅ Passed</span>{% else %}<span class="text-red-600 dark:text-red-400 font-medium">❌ Failed</span>{% endif %}
       {% if e.rhea_notes %}| {{ e.rhea_notes }}{% endif %}
     </div>
   </div>
   {% elif e.event_type == "issue_report" %}
-  <div class="border rounded-lg p-3 border-orange-200 bg-orange-50">
-    <div class="flex items-center gap-2 text-xs text-gray-500 mb-1">
-      <span class="font-medium text-orange-700 px-1.5 py-0.5 rounded bg-white/60 text-xs">🚩 Issue Report</span>
+  <div class="border rounded-lg p-3 border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20">
+    <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">
+      <span class="font-medium text-orange-700 dark:text-orange-300 px-1.5 py-0.5 rounded bg-white/60 dark:bg-gray-700/60 text-xs">🚩 Issue Report</span>
       <span class="ml-auto">{{ e.created_at }}</span>
     </div>
-    <div class="text-xs text-gray-600 space-y-0.5">
-      <div><strong>Reason:</strong> {{ e.reason }}</div>
+    <div class="text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
+      <div><strong class="text-gray-700 dark:text-gray-300">Reason:</strong> {{ e.reason }}</div>
       {% if e.description %}<div>{{ e.description }}</div>{% endif %}
-      {% if e.corrected_answer %}<div><strong>Corrected answer:</strong> {{ e.corrected_answer }}</div>{% endif %}
+      {% if e.corrected_answer %}<div><strong class="text-gray-700 dark:text-gray-300">Corrected answer:</strong> {{ e.corrected_answer }}</div>{% endif %}
     </div>
   </div>
   {% elif e.event_type == "ai_fix" %}
-  <div class="border rounded-lg p-3 border-indigo-200 bg-indigo-50">
-    <div class="flex items-center gap-2 text-xs text-gray-500 mb-1">
-      <span class="font-medium text-indigo-700 px-1.5 py-0.5 rounded bg-white/60 text-xs">🤖 AI Fix</span>
+  <div class="border rounded-lg p-3 border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20">
+    <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">
+      <span class="font-medium text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded bg-white/60 dark:bg-gray-700/60 text-xs">🤖 AI Fix</span>
       <span class="ml-auto">{{ e.created_at }}</span>
     </div>
-    <div class="text-xs text-gray-600 space-y-0.5">
-      <div><span class="font-medium">Question:</span> "{{ e.old_question[:120] }}" → "{{ e.new_question[:120] }}"</div>
-      <div><span class="font-medium">Answer:</span> "{{ e.old_answer }}" → "{{ e.new_answer }}"</div>
+    <div class="text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
+      <div><span class="font-medium text-gray-700 dark:text-gray-300">Question:</span> "{{ e.old_question[:120] }}" → "{{ e.new_question[:120] }}"</div>
+      <div><span class="font-medium text-gray-700 dark:text-gray-300">Answer:</span> "{{ e.old_answer }}" → "{{ e.new_answer }}"</div>
     </div>
   </div>
   {% elif e.event_type == "restore" %}
-  <div class="border rounded-lg p-3 border-amber-200 bg-amber-50">
-    <div class="flex items-center gap-2 text-xs text-gray-500 mb-1">
-      <span class="font-medium text-amber-700 px-1.5 py-0.5 rounded bg-white/60 text-xs">↩️ Restored #{{ e.attempt_id }}</span>
+  <div class="border rounded-lg p-3 border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
+    <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">
+      <span class="font-medium text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded bg-white/60 dark:bg-gray-700/60 text-xs">↩️ Restored #{{ e.attempt_id }}</span>
       <span class="ml-auto">{{ e.created_at }}</span>
     </div>
-    <div class="text-xs text-gray-600 space-y-0.5">
-      <div><span class="font-medium">Question:</span> "{{ e.old_question[:120] }}" → "{{ e.new_question[:120] }}"</div>
-      <div><span class="font-medium">Answer:</span> "{{ e.old_answer }}" → "{{ e.new_answer }}"</div>
+    <div class="text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
+      <div><span class="font-medium text-gray-700 dark:text-gray-300">Question:</span> "{{ e.old_question[:120] }}" → "{{ e.new_question[:120] }}"</div>
+      <div><span class="font-medium text-gray-700 dark:text-gray-300">Answer:</span> "{{ e.old_answer }}" → "{{ e.new_answer }}"</div>
       {% if e.attempt_quality is defined %}
-      <div class="mt-1 text-amber-700">Attempt quality: {{ "%.0f"|format(e.attempt_quality) }}/100</div>
+      <div class="mt-1 text-amber-700 dark:text-amber-300">Attempt quality: {{ "%.0f"|format(e.attempt_quality) }}/100</div>
       {% endif %}
     </div>
   </div>
   {% elif e.event_type == "submit" %}
-  <div class="border rounded-lg p-3 border-green-200 bg-green-50">
-    <div class="flex items-center gap-2 text-xs text-gray-500 mb-1">
-      <span class="font-medium text-green-700 px-1.5 py-0.5 rounded bg-white/60 text-xs">📤 Submitted</span>
+  <div class="border rounded-lg p-3 border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
+    <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">
+      <span class="font-medium text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded bg-white/60 dark:bg-gray-700/60 text-xs">📤 Submitted</span>
       <span class="ml-auto">{{ e.created_at }}</span>
     </div>
-    <div class="text-xs text-gray-600">
+    <div class="text-xs text-gray-600 dark:text-gray-400">
       Qwen: {{ e.qwen_passes }}/{{ e.qwen_passes + e.gemini_passes }} | Gemini: {{ e.gemini_passes }}/{{ e.qwen_passes + e.gemini_passes }}
     </div>
   </div>
   {% elif e.event_type == "delete" %}
-  <div class="border rounded-lg p-3 border-red-200 bg-red-50">
-    <div class="flex items-center gap-2 text-xs text-gray-500 mb-1">
-      <span class="font-medium text-red-700 px-1.5 py-0.5 rounded bg-white/60 text-xs">🗑️ Deleted</span>
+  <div class="border rounded-lg p-3 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
+    <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">
+      <span class="font-medium text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded bg-white/60 dark:bg-gray-700/60 text-xs">🗑️ Deleted</span>
       <span class="ml-auto">{{ e.created_at }}</span>
     </div>
-    <div class="text-xs text-gray-600">Reason: {{ e.reason }}</div>
+    <div class="text-xs text-gray-600 dark:text-gray-400">Reason: {{ e.reason }}</div>
   </div>
   {% else %}
-  <div class="border rounded-lg p-3 border-gray-200 bg-gray-50">
-    <div class="text-xs text-gray-500">{{ e.event_type }} — {{ e.created_at }}</div>
+  <div class="border rounded-lg p-3 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+    <div class="text-xs text-gray-500 dark:text-gray-400">{{ e.event_type }} — {{ e.created_at }}</div>
   </div>
   {% endif %}
 {% endfor %}
 </div>
 {% else %}
-<p class="text-gray-400 text-sm text-center py-8">No task history yet.</p>
+<p class="text-gray-400 dark:text-gray-500 text-sm text-center py-8">No task history yet.</p>
 {% endif %}

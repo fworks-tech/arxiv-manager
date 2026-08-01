@@ -2,24 +2,24 @@
 {% block title %}{% if task %}Edit Task #{{ task.id }}{% else %}New Task{% endif %} — ArXiv Manager{% endblock %}
 {% block content %}
 <div class="mb-6">
-    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">{% if task %}Edit Task #{{ task.id }}{% else %}New Task{% endif %}</h1>
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">{% if task %}Edit Task #{{ task.id }}{% else %}New Task{% endif %}</h1>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     {% if figure %}
     <div class="lg:col-span-1">
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5 sticky top-20">
-            <h2 class="text-lg font-semibold text-gray-900 mb-3">Source Image</h2>
-            <div class="bg-gray-50 rounded-lg p-2 mb-3 flex items-center justify-center">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-5 sticky top-20">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Source Image</h2>
+            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-2 mb-3 flex items-center justify-center">
                 <img src="/figures/{{ figure.image_path.split('/')[-1] }}?v={{ figure.image_hash[:8] }}" alt="Figure {{ figure.id }}" class="max-w-full max-h-64 object-contain rounded">
             </div>
             <dl class="space-y-2 text-sm">
-                <div class="flex justify-between"><dt class="text-gray-500">Figure ID</dt><dd class="font-medium">{{ figure.id }}</dd></div>
-                <div class="flex justify-between"><dt class="text-gray-500">Complexity</dt><dd class="font-medium">{{ "%.3f"|format(figure.complexity_score) }}</dd></div>
-                <div class="flex justify-between"><dt class="text-gray-500">Paper</dt><dd><a href="/papers/{{ figure.paper_id }}.pdf" target="_blank" class="text-blue-600 hover:underline font-medium">{{ figure.paper_id }}</a></dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500 dark:text-gray-400">Figure ID</dt><dd class="font-medium text-gray-900 dark:text-gray-100">{{ figure.id }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500 dark:text-gray-400">Complexity</dt><dd class="font-medium text-gray-900 dark:text-gray-100">{{ "%.3f"|format(figure.complexity_score) }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500 dark:text-gray-400">Paper</dt><dd><a href="/papers/{{ figure.paper_id }}.pdf" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline font-medium">{{ figure.paper_id }}</a></dd></div>
             </dl>
             {% if figure.caption %}
-            <p class="text-xs text-gray-400 mt-3 leading-relaxed">{{ figure.caption }}</p>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-3 leading-relaxed">{{ figure.caption }}</p>
             {% endif %}
         </div>
     </div>
@@ -27,23 +27,23 @@
 
     <div class="{% if figure %}lg:col-span-2{% else %}lg:col-span-3{% endif %} space-y-6">
         {% if validation %}
-        <div class="{% if validation.is_valid %}bg-green-50 border border-green-200{% else %}bg-red-50 border border-red-200{% endif %} rounded-xl p-4 sm:p-5">
+        <div class="{% if validation.is_valid %}bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800{% else %}bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800{% endif %} rounded-xl p-4 sm:p-5">
             <div class="flex items-center gap-2 mb-2">
                 <span class="text-lg">{% if validation.is_valid %}✅{% else %}❌{% endif %}</span>
-                <span class="font-semibold text-sm">{% if validation.is_valid %}Validation Passed{% else %}Validation Issues{% endif %}</span>
-                <span class="ml-auto text-xs text-gray-500">Score: <strong>{{ validation.quality_score|int }}/100</strong></span>
+                <span class="font-semibold text-sm text-gray-900 dark:text-gray-100">{% if validation.is_valid %}Validation Passed{% else %}Validation Issues{% endif %}</span>
+                <span class="ml-auto text-xs text-gray-500 dark:text-gray-400">Score: <strong>{{ validation.quality_score|int }}/100</strong></span>
             </div>
             {% for e in validation.errors %}
-            <div class="text-sm text-red-700 flex items-start gap-1.5 mt-1"><span>❌</span><span>{{ e }}</span></div>
+            <div class="text-sm text-red-700 dark:text-red-300 flex items-start gap-1.5 mt-1"><span>❌</span><span>{{ e }}</span></div>
             {% endfor %}
             {% for w in validation.warnings %}
-            <div class="text-sm text-yellow-700 flex items-start gap-1.5 mt-1"><span>⚠️</span><span>{{ w }}</span></div>
+            <div class="text-sm text-yellow-700 dark:text-yellow-300 flex items-start gap-1.5 mt-1"><span>⚠️</span><span>{{ w }}</span></div>
             {% endfor %}
         </div>
         {% endif %}
 
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Question & Answer</h2>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Question & Answer</h2>
             <form method="post" action="{% if task %}/api/task/{{ task.id }}/update{% else %}/api/task/create{% endif %}">
                 {% if not task %}
                 <input type="hidden" name="figure_id" value="{{ figure.id }}">
@@ -51,36 +51,36 @@
 
                 <div class="space-y-4">
                     <div>
-                        <label for="title" class="block text-sm font-medium text-gray-700 mb-1">Task Title</label>
+                        <label for="title" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Task Title</label>
                         <input type="text" name="title" id="title" value="{{ task.title if task else (form_data.title if form_data else (figure.caption[:60] if figure and figure.caption else '')) }}" required
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">
                     </div>
 
                     <div>
-                        <label for="domain" class="block text-sm font-medium text-gray-700 mb-1">Domain</label>
-                        <select name="domain" id="domain" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">
+                        <label for="domain" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Domain</label>
+                        <select name="domain" id="domain" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">
                             <option value="">Select domain</option>
-                            {% for d in ['Abstract / patterns','Accounting','Actuarial Science','Aerospace Manufacturing','Archaeology','Architecture','Art / design','Artificial Intelligence / Machine Learning','Asset Management','Astronomy','Audit','Auto Insurance','Automotive Manufacturing','Beaches / water','Biochemistry','Biology','Books / learning materials','Building Inspection','Buildings / architecture','Cars','Charts / diagrams','Chemical Engineering','Chemistry','City streets','Civil Construction','Civil Engineering','Claims Management','Clinical Research','Clothing / fashion','Commercial Construction','Commercial Insurance','Computer Science','Construction','Construction Management','Contract Law','Corporate Finance','Corporate Law','Criminal Law','Curriculum Design','Data Science','Demography','Dentistry','Documents / paperwork','Economics','Education / classrooms','Electrical Engineering','Electronics','Electronics Manufacturing','Employment Law','Environmental Science','Equipment Maintenance','Estimation','Events / celebrations','Faces / portraits','Family Law','Farming / agriculture','Financial Planning','FinTech','Fitness / recreation','Food & Beverage Manufacturing','Food / drink','Furniture / decor','Geology','Healthcare Administration','Healthcare Law','Health Insurance','Higher Education','Historical / cultural objects','Home interiors','Hotels / airports','HVAC / MEP Systems','Industrial / machinery','Industrial Manufacturing','Instructional Design','Insurance Compliance','Insurance Finance','Insurance Law','Intellectual Property Law','Investment Banking','K\u201312 Education','Kitchen / cooking','Landscapes','Lean Manufacturing','Life Insurance','Litigation','Low-quality / unclear','Maps / navigation','Materials Science','Mathematics','Mechanical Engineering','Medical Devices','Medical / health','Medicine','Memes / internet media','Mental Health','Military studies','Money / finance objects','Mountains / forests','Music / performance','Nursing','Nutrition','Other vehicles','Paleontology','Pathology','People','Personal items','Pets','Pharmaceutical Manufacturing','Pharmacy','Phones / computers','Physics','Plants / flowers','Police / security','Privacy / Data Protection Law','Private Equity','Process Engineering','Production Planning','Products / packaging','Project Scheduling','Property & Casualty Insurance','Public Health','Public transit','Quality Control','Quantitative Finance','Quantity Surveying','Radiology','Real Estate Law','Regulatory Compliance','Reinsurance','Religion / ceremony','Residential Construction','Restaurants / dining','Risk Assessment','Risk Management','Roads / traffic','Safety Compliance','Safety / emergency','Science / lab','Screenshots / UI','Signs / labels','Software Engineering','Sports','Statistics','Stores / shopping','Structural Engineering','Supply Chain / Logistics','Tax','Tax Law','Text / handwriting','Textile Manufacturing','Tools / repair','Toys / games','Travel / tourism','Underwriting','Vaccinology','Venture Capital','Wealth Management','Weather / sky','Wildlife'] %}
+                            {% for d in ['Abstract / patterns','Accounting','Actuarial Science','Aerospace Manufacturing','Archaeology','Architecture','Art / design','Artificial Intelligence / Machine Learning','Asset Management','Astronomy','Audit','Auto Insurance','Automotive Manufacturing','Beaches / water','Biochemistry','Biology','Books / learning materials','Building Inspection','Buildings / architecture','Cars','Charts / diagrams','Chemical Engineering','Chemistry','City streets','Civil Construction','Civil Engineering','Claims Management','Clinical Research','Clothing / fashion','Commercial Construction','Commercial Insurance','Computer Science','Construction','Construction Management','Contract Law','Corporate Finance','Corporate Law','Criminal Law','Curriculum Design','Data Science','Demography','Dentistry','Documents / paperwork','Economics','Education / classrooms','Electrical Engineering','Electronics','Electronics Manufacturing','Employment Law','Environmental Science','Equipment Maintenance','Estimation','Events / celebrations','Faces / portraits','Family Law','Farming / agriculture','Financial Planning','FinTech','Fitness / recreation','Food & Beverage Manufacturing','Food / drink','Furniture / decor','Geology','Healthcare Administration','Healthcare Law','Health Insurance','Higher Education','Historical / cultural objects','Home interiors','Hotels / airports','HVAC / MEP Systems','Industrial / machinery','Industrial Manufacturing','Instructional Design','Insurance Compliance','Insurance Finance','Insurance Law','Intellectual Property Law','Investment Banking','K–12 Education','Kitchen / cooking','Landscapes','Lean Manufacturing','Life Insurance','Litigation','Low-quality / unclear','Maps / navigation','Materials Science','Mathematics','Mechanical Engineering','Medical Devices','Medical / health','Medicine','Memes / internet media','Mental Health','Military studies','Money / finance objects','Mountains / forests','Music / performance','Nursing','Other','Petroleum Engineering','Pharmaceuticals','Philosophy','Photography','Physics','Political Science','Psychology','Public Policy','Real Estate','Renewable Energy','Satellite / aerial','Science / lab','Security / surveillance','Social Media','Social Science','Software Engineering','Sports','Telecommunications','Textiles / apparel','Transport / logistics','Urban / cityscapes','Veterinary Medicine','Waste management','Water / coastal'] %}
                             <option value="{{ d }}" {% if task and task.domain == d %}selected{% elif not task and d == 'Computer Science' %}selected{% endif %}>{{ d }}</option>
                             {% endfor %}
                         </select>
                     </div>
 
                     <div>
-                        <label for="question" class="block text-sm font-medium text-gray-700 mb-1">Question</label>
-                        <textarea name="question" id="question" rows="3" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">{{ task.question if task else (form_data.question if form_data else '') }}</textarea>
+                        <label for="question" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Question</label>
+                        <textarea name="question" id="question" rows="3" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">{{ task.question if task else (form_data.question if form_data else '') }}</textarea>
                     </div>
 
                     <div>
-                        <label for="answer" class="block text-sm font-medium text-gray-700 mb-1">Answer (boxed, short)</label>
+                        <label for="answer" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Answer (boxed, short)</label>
                         <input type="text" name="answer" id="answer" value="{{ task.answer if task else (form_data.answer if form_data else '') }}" required
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label for="task_type" class="block text-sm font-medium text-gray-700 mb-1">Task Type</label>
-                            <select name="task_type" id="task_type" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">
+                            <label for="task_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Task Type</label>
+                            <select name="task_type" id="task_type" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">
                                 {% for tt in ['chart', 'general_image', 'spatial'] %}
                                 <option value="{{ tt }}" {% if task and task.task_type == tt %}selected{% elif not task and tt == 'chart' %}selected{% endif %}>{{ tt }}</option>
                                 {% endfor %}
@@ -99,7 +99,7 @@
                         <span id="ai-fix-indicator" class="htmx-indicator"><svg class="spinner inline-block w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="4" stroke-linecap="round" class="opacity-75"/></svg></span>
                         <button type="button" class="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 transition-colors"
                                 hx-get="/api/task/{{ task.id }}/report-form" hx-target="#report-box" hx-swap="innerHTML">Report Issue</button>
-                        <select id="regenerate-difficulty" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        <select id="regenerate-difficulty" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                             <option value="easy" {% if task.difficulty == "easy" %}selected{% endif %}>Easy</option>
                             <option value="challenging" {% if task.difficulty == "challenging" %}selected{% endif %}>Challenging</option>
                             <option value="hardest" {% if task.difficulty == "hardest" %}selected{% endif %}>HARDEST</option>
@@ -114,11 +114,11 @@
         </div>
 
         {% if task %}
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Platform Info</h2>
-            <p class="text-sm text-gray-600 mb-2"><strong>Image Path:</strong> <code class="px-1.5 py-0.5 bg-gray-100 rounded text-xs">{{ figure.image_path if figure else task.image_path }}</code></p>
-            <p class="text-sm font-medium text-gray-700 mb-2">Export Format:</p>
-            <textarea readonly rows="5" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs font-mono bg-gray-50">Title: {{ task.title }}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Platform Info</h2>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2"><strong>Image Path:</strong> <code class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs text-gray-900 dark:text-gray-100">{{ figure.image_path if figure else task.image_path }}</code></p>
+            <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Export Format:</p>
+            <textarea readonly rows="5" class="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-xs font-mono bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">Title: {{ task.title }}
 Domain: {{ task.domain }}
 Question: {{ task.question }}
 Answer: {{ task.answer }}
@@ -126,72 +126,72 @@ Format: {{ task.answer_format }}
 Type: {{ task.task_type }}</textarea>
         </div>
 
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Rhea Review</h2>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Rhea Review</h2>
             <form method="post" action="/api/task/{{ task.id }}/rhea">
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <label class="flex items-center gap-2 text-sm">
-                        <input type="checkbox" name="rhea_reviewed" value="true" {% if task.rhea_reviewed %}checked{% endif %} class="rounded border-gray-300">
+                    <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <input type="checkbox" name="rhea_reviewed" value="true" {% if task.rhea_reviewed %}checked{% endif %} class="rounded border-gray-300 dark:border-gray-600">
                         Reviewed by Rhea
                     </label>
-                    <label class="flex items-center gap-2 text-sm">
-                        <input type="checkbox" name="rhea_passed" value="true" {% if task.rhea_passed %}checked{% endif %} class="rounded border-gray-300">
+                    <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <input type="checkbox" name="rhea_passed" value="true" {% if task.rhea_passed %}checked{% endif %} class="rounded border-gray-300 dark:border-gray-600">
                         Rhea Passed
                     </label>
                     <div class="sm:col-span-1">
-                        <input type="text" name="rhea_notes" value="{{ task.rhea_notes or '' }}" placeholder="Review feedback..." class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        <input type="text" name="rhea_notes" value="{{ task.rhea_notes or '' }}" placeholder="Review feedback..." class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                     </div>
                 </div>
                 <button type="submit" class="mt-3 px-4 py-2 bg-[#1a1a2e] text-white rounded-lg text-sm font-medium hover:bg-[#16213e] transition-colors">Update</button>
             </form>
             {% if task.rhea_reviewed and not task.rhea_passed %}
-            <div class="mt-4 pt-4 border-t border-gray-200">
-                <p class="text-sm text-gray-600 mb-2">Rhea marked this task as failed. Override?</p>
+            <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">Rhea marked this task as failed. Override?</p>
                 <button onclick="document.getElementById('rhea-override-modal').classList.remove('hidden')" class="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 transition-colors">Disagree with Rhea</button>
                 {% if task.rhea_override_notes %}
-                <div class="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                    <p class="text-xs font-medium text-orange-800 mb-1">Override on record:</p>
-                    <p class="text-sm text-orange-900 whitespace-pre-wrap">{{ task.rhea_override_notes }}</p>
+                <div class="mt-3 p-3 bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 rounded-lg">
+                    <p class="text-xs font-medium text-orange-800 dark:text-orange-300 mb-1">Override on record:</p>
+                    <p class="text-sm text-orange-900 dark:text-orange-200 whitespace-pre-wrap">{{ task.rhea_override_notes }}</p>
                 </div>
                 {% endif %}
             </div>
             {% endif %}
         </div>
 
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Model Runs</h2>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Model Runs</h2>
             <form method="post" action="/api/task/{{ task.id }}/difficulty">
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
-                        <select name="difficulty" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Difficulty</label>
+                        <select name="difficulty" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                             {% for d in ['easy', 'challenging', 'hardest'] %}
                             <option value="{{ d }}" {% if task.difficulty == d %}selected{% endif %}>{{ d }}</option>
                             {% endfor %}
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Qwen passes (0-4)</label>
-                        <input type="number" name="qwen" min="0" max="4" value="{{ task.qwen_passes }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Qwen passes (0-4)</label>
+                        <input type="number" name="qwen" min="0" max="4" value="{{ task.qwen_passes }}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Gemini passes (0-4)</label>
-                        <input type="number" name="gemini" min="0" max="4" value="{{ task.gemini_passes }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Gemini passes (0-4)</label>
+                        <input type="number" name="gemini" min="0" max="4" value="{{ task.gemini_passes }}" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                     </div>
                 </div>
                 <button type="submit" class="mt-3 px-4 py-2 bg-[#1a1a2e] text-white rounded-lg text-sm font-medium hover:bg-[#16213e] transition-colors">Update</button>
             </form>
         </div>
 
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Task History</h2>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Task History</h2>
             <div id="task-history-content" hx-get="/api/task/{{ task.id }}/task-history" hx-trigger="load" hx-swap="innerHTML">
-                <div class="text-center py-4 text-gray-400 text-sm">Loading history...</div>
+                <div class="text-center py-4 text-gray-400 dark:text-gray-500 text-sm">Loading history...</div>
             </div>
         </div>
 
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Actions</h2>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Actions</h2>
             <div class="flex flex-wrap gap-3">
                 <form method="post" action="/api/task/{{ task.id }}/submit">
                     <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">Mark as Submitted</button>
@@ -256,19 +256,19 @@ document.getElementById('regenerate-btn')?.addEventListener('click', function() 
 </script>
 
 <div id="rhea-override-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-semibold text-gray-900">Override Rhea feedback</h3>
-            <button onclick="document.getElementById('rhea-override-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Override Rhea feedback</h3>
+            <button onclick="document.getElementById('rhea-override-modal').classList.add('hidden')" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <p class="text-sm text-gray-600 mb-3">If you disagree with Rhea's verdict, explain why. This will be recorded on the task and Rhea will be marked as overridden.</p>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">If you disagree with Rhea's verdict, explain why. This will be recorded on the task and Rhea will be marked as overridden.</p>
         <form method="post" action="/api/task/{{ task.id }}/rhea-override" id="rhea-override-form">
             <input type="hidden" name="rhea_passed" value="true">
-            <textarea name="rhea_override_notes" rows="6" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]" placeholder="Why do you disagree with Rhea's feedback?"></textarea>
+            <textarea name="rhea_override_notes" rows="6" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]" placeholder="Why do you disagree with Rhea's feedback?"></textarea>
             <div class="flex justify-end gap-2 mt-4">
-                <button type="button" onclick="document.getElementById('rhea-override-modal').classList.add('hidden')" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">Cancel</button>
+                <button type="button" onclick="document.getElementById('rhea-override-modal').classList.add('hidden')" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">Cancel</button>
                 <button type="submit" class="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 transition-colors">Submit override</button>
             </div>
         </form>

@@ -2,39 +2,39 @@
 {% block title %}Author — ArXiv Manager{% endblock %}
 {% block content %}
 <div class="mb-6">
-    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Author Q&A Tasks</h1>
-    <p class="text-gray-500 mt-1">Upload images or search arXiv to create Q&A tasks</p>
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Author Q&A Tasks</h1>
+    <p class="text-gray-500 dark:text-gray-400 mt-1">Upload images or search arXiv to create Q&A tasks</p>
 </div>
 
-<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-    <div class="border-b border-gray-200">
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-6">
+    <div class="border-b border-gray-200 dark:border-gray-700">
         <div class="flex">
             <button onclick="showTab('upload')" id="tab-btn-upload" class="flex-1 sm:flex-none px-4 sm:px-6 py-3 text-sm font-medium border-b-2 transition-colors" style="border-color:#1a1a2e; color:#1a1a2e;">
-                <span class="hidden sm:inline">📤 </span>Upload Image
+                <span class="hidden sm:inline">Upload </span>Upload Image
             </button>
-            <button onclick="showTab('arxiv')" id="tab-btn-arxiv" class="flex-1 sm:flex-none px-4 sm:px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition-colors">
-                <span class="hidden sm:inline">📚 </span>Search arXiv
+            <button onclick="showTab('arxiv')" id="tab-btn-arxiv" class="flex-1 sm:flex-none px-4 sm:px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+                <span class="hidden sm:inline">Search </span>Search arXiv
             </button>
         </div>
     </div>
 
     <div class="p-4 sm:p-6">
         <div id="tab-upload">
-            <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 sm:p-10 text-center hover:border-[#1a1a2e] transition-colors cursor-pointer" id="drop-zone"
+            <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 sm:p-10 text-center hover:border-[#1a1a2e] transition-colors cursor-pointer" id="drop-zone"
                  ondragover="event.preventDefault(); this.classList.add('border-[#1a1a2e]', 'bg-gray-50')"
                  ondragleave="this.classList.remove('border-[#1a1a2e]', 'bg-gray-50')"
                  ondrop="event.preventDefault(); handleDrop(event); this.classList.remove('border-[#1a1a2e]', 'bg-gray-50')">
                 <div class="text-4xl mb-3">🖼️</div>
-                <p class="text-gray-600 font-medium">Drop an image here, click to browse, or <strong class="text-[#1a1a2e]">Ctrl+V</strong> to paste</p>
-                <p class="text-gray-400 text-sm mt-1">PNG, JPG, WebP — max 20MB</p>
+                <p class="text-gray-600 dark:text-gray-300 font-medium">Drop an image here, click to browse, or <strong class="text-[#1a1a2e] dark:text-blue-400">Ctrl+V</strong> to paste</p>
+                <p class="text-gray-400 dark:text-gray-500 text-sm mt-1">PNG, JPG, WebP — max 20MB</p>
                 <input type="file" accept="image/png,image/jpeg,image/webp" class="hidden" id="file-input" onchange="uploadFile(this.files[0])">
                 <button onclick="document.getElementById('file-input').click()" class="mt-4 px-4 py-2 bg-[#1a1a2e] text-white rounded-lg text-sm font-medium hover:bg-[#16213e] transition-colors">Browse files</button>
             </div>
 
             <div id="upload-status" class="mt-4"></div>
             <div id="analysis-results" class="mt-4">
-                <div class="bg-gray-50 rounded-xl p-6 text-center">
-                    <p class="text-gray-400 text-sm">Upload an image or search arXiv to begin.</p>
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 text-center">
+                    <p class="text-gray-400 dark:text-gray-500 text-sm">Upload an image or search arXiv to begin.</p>
                 </div>
             </div>
             <div id="draft-results" class="mt-4"></div>
@@ -43,12 +43,12 @@
 
         <div id="tab-arxiv" class="hidden">
             <div class="flex flex-col sm:flex-row gap-3 mb-4">
-                <input type="text" id="arxiv-query" placeholder="Search terms (e.g. neural network, object detection)" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">
+                <input type="text" id="arxiv-query" placeholder="Search terms (e.g. neural network, object detection)" class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-[#1a1a2e]">
                 <button onclick="searchArxiv()" class="px-4 py-2 bg-[#1a1a2e] text-white rounded-lg text-sm font-medium hover:bg-[#16213e] transition-colors" id="arxiv-search-btn">Search</button>
             </div>
             <div id="arxiv-results" class="space-y-3">
-                <div class="bg-gray-50 rounded-xl p-6 text-center">
-                    <p class="text-gray-400 text-sm">Enter search terms to find CC0 papers on arXiv.</p>
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 text-center">
+                    <p class="text-gray-400 dark:text-gray-500 text-sm">Enter search terms to find CC0 papers on arXiv.</p>
                 </div>
             </div>
         </div>
@@ -66,10 +66,13 @@ function showTab(tab) {
     document.getElementById('tab-arxiv').classList.toggle('hidden', tab !== 'arxiv');
     var btnUp = document.getElementById('tab-btn-upload');
     var btnAr = document.getElementById('tab-btn-arxiv');
-    btnUp.style.borderColor = tab === 'upload' ? '#1a1a2e' : 'transparent';
-    btnUp.style.color = tab === 'upload' ? '#1a1a2e' : '#6b7280';
-    btnAr.style.borderColor = tab === 'arxiv' ? '#1a1a2e' : 'transparent';
-    btnAr.style.color = tab === 'arxiv' ? '#1a1a2e' : '#6b7280';
+    var isDark = document.documentElement.classList.contains('dark');
+    var activeColor = isDark ? '#60a5fa' : '#1a1a2e';
+    var inactiveColor = '#6b7280';
+    btnUp.style.borderColor = tab === 'upload' ? activeColor : 'transparent';
+    btnUp.style.color = tab === 'upload' ? activeColor : inactiveColor;
+    btnAr.style.borderColor = tab === 'arxiv' ? activeColor : 'transparent';
+    btnAr.style.color = tab === 'arxiv' ? activeColor : inactiveColor;
 }
 
 function uploadFile(file) {
@@ -79,7 +82,7 @@ function uploadFile(file) {
         return;
     }
     var status = document.getElementById('upload-status');
-    status.innerHTML = '<div class="flex items-center gap-2 text-sm text-gray-600"><svg class="spinner w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="4" stroke-linecap="round" class="opacity-75"/></svg> <span id="upload-progress-text">Uploading...</span></div>' +
+    status.innerHTML = '<div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300"><svg class="spinner w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="4" stroke-linecap="round" class="opacity-75"/></svg> <span id="upload-progress-text">Uploading...</span></div>' +
     '<progress id="upload-progress-bar" value="0" max="100" class="w-full h-1.5 rounded-full mt-2" style="color:#1a1a2e; accent-color:#1a1a2e;"></progress>';
 
     var formData = new FormData();
@@ -107,14 +110,14 @@ function uploadFile(file) {
         } else {
             showToast('Upload failed (' + xhr.status + ')', 'error');
             document.getElementById('analysis-results').innerHTML =
-                '<div class="bg-red-50 border border-red-200 rounded-xl p-4"><p class="text-sm text-red-700">Upload failed (' + xhr.status + ')</p></div>';
+                '<div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl p-4"><p class="text-sm text-red-700 dark:text-red-300">Upload failed (' + xhr.status + ')</p></div>';
         }
     };
     xhr.onerror = function() {
         status.innerHTML = '';
         showToast('Upload failed — network error', 'error');
         document.getElementById('analysis-results').innerHTML =
-            '<div class="bg-red-50 border border-red-200 rounded-xl p-4"><p class="text-sm text-red-700">Network error during upload</p></div>';
+            '<div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl p-4"><p class="text-sm text-red-700 dark:text-red-300">Network error during upload</p></div>';
     };
     xhr.send(formData);
 }
@@ -165,7 +168,7 @@ function draftQA(uploadId, difficulty) {
     var thisController = new AbortController();
     _draftAbort = thisController;
     var status = document.getElementById('upload-status');
-    status.innerHTML = '<div class="flex items-center gap-2 text-sm text-gray-600"><svg class="spinner w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="4" stroke-linecap="round" class="opacity-75"/></svg> Generating draft...</div>';
+    status.innerHTML = '<div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300"><svg class="spinner w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="4" stroke-linecap="round" class="opacity-75"/></svg> Generating draft...</div>';
     var draftBtns = document.querySelectorAll('#draft-results button, #analysis-results button');
     for (var i = 0; i < draftBtns.length; i++) { draftBtns[i].disabled = true; }
     var body = new URLSearchParams({upload_id: uploadId, difficulty: difficulty});
@@ -246,7 +249,7 @@ function discardUpload(uploadId, btn) {
     fetch('/api/image/discard', { method: 'POST', body: body, headers: {'Content-Type': 'application/x-www-form-urlencoded'} })
         .then(function(r) {
             if (!r.ok) throw new Error('Discard failed (' + r.status + ')');
-            document.getElementById('analysis-results').innerHTML = '<div class="bg-gray-50 rounded-xl p-6 text-center"><p class="text-gray-400 text-sm">Upload an image or search arXiv to begin.</p></div>';
+            document.getElementById('analysis-results').innerHTML = '<div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 text-center"><p class="text-gray-400 dark:text-gray-500 text-sm">Upload an image or search arXiv to begin.</p></div>';
             document.getElementById('draft-results').innerHTML = '';
             currentUploadId = '';
             showToast('Image discarded', 'info');
@@ -257,7 +260,7 @@ function discardUpload(uploadId, btn) {
 function useArxivFigure(path) {
     showTab('upload');
     var status = document.getElementById('upload-status');
-    status.innerHTML = '<div class="flex items-center gap-2 text-sm text-gray-600"><svg class="spinner w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="4" stroke-linecap="round" class="opacity-75"/></svg> Loading figure...</div>';
+    status.innerHTML = '<div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300"><svg class="spinner w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="4" stroke-linecap="round" class="opacity-75"/></svg> Loading figure...</div>';
     var body = new URLSearchParams({arxiv_figure_path: path});
     fetch('/api/image/upload', { method: 'POST', body: body, headers: {'Content-Type': 'application/x-www-form-urlencoded'} })
         .then(function(r) { if (!r.ok) throw new Error('Load failed'); return r.text(); })
