@@ -117,6 +117,8 @@ arxiv-manager task new-batch --limit 5 --difficulty hardest
 arxiv-manager task list
 arxiv-manager task validate <task-id>
 arxiv-manager task analytics
+arxiv-manager task determinism <task-id> --runs 3   # 3 sampled VLM reads must match the golden answer
+arxiv-manager task verdict <task-id> --verdict too_easy   # record Realm outcome (too_easy|too_hard|approved)
 
 # Image library management
 arxiv-manager images list
@@ -158,6 +160,10 @@ arxiv-manager web
 | POST | `/api/task/{id}/regenerate` | Regenerate with self-critique |
 | GET | `/api/task/{id}/task-history` | Unified task history (generations + events) |
 | POST | `/api/task/{id}/delete` | Delete a task (cascades to related records) |
+| POST | `/api/task/{id}/check-answer` | Send image + question to a VLM, verify against golden |
+| POST | `/api/task/{id}/determinism-check` | 3 sampled VLM reads must all match the golden answer |
+| POST | `/api/task/{id}/verdict` | Record Realm verdict (too_easy / too_hard / approved) |
+| GET | `/analytics/strategies` | Strategy-class × model-verdict dashboard |
 
 Full API docs at `/docs` (Swagger) when the server is running.
 
@@ -180,6 +186,7 @@ src/arxiv_manager/
 ├── prompts/             # Hot-swappable prompt registry (DB-backed)
 ├── mcp/                 # MCP server (8 tools)
 ├── tracking/            # Task export, platform submission
+├── analytics/           # Strategy × model-verdict aggregation
 ├── evaluation/          # Golden dataset, offline eval script
 ├── models.py            # DB models
 ├── db.py                # SQLite engine + migrations + WAL mode
