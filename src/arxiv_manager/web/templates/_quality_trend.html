@@ -1,6 +1,6 @@
 {% if scores %}
-<div class="flex items-center gap-2 text-xs text-gray-500 mt-2">
-  <span class="text-gray-400">Quality trend:</span>
+<div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mt-2">
+  <span class="text-gray-400 dark:text-gray-500">Quality trend:</span>
   <div class="flex items-end gap-0.5 h-6">
     {% set max_score = scores|max %}
     {% for s in scores %}
@@ -16,11 +16,11 @@
     {% set last = scores[-1] %}
     {% set first = scores[0] %}
     {% if last > first %}
-    <span class="text-green-500">▲ improving</span>
+    <span class="text-green-500 dark:text-green-400">▲ improving</span>
     {% elif last < first %}
-    <span class="text-red-500">▼ declining</span>
+    <span class="text-red-500 dark:text-red-400">▼ declining</span>
     {% else %}
-    <span class="text-gray-300">— stable</span>
+    <span class="text-gray-300 dark:text-gray-600">— stable</span>
     {% endif %}
   {% endif %}
 </div>

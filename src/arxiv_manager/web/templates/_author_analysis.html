@@ -1,39 +1,39 @@
 {% if error %}
-<div class="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
-    <span class="text-red-600 font-bold text-lg">!</span>
-    <p class="text-sm text-red-700">{{ error }}</p>
+<div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-center gap-3">
+    <span class="text-red-600 dark:text-red-400 font-bold text-lg">!</span>
+    <p class="text-sm text-red-700 dark:text-red-300">{{ error }}</p>
 </div>
 {% elif result %}
-<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
     <div class="p-4 sm:p-5" data-upload-id="{{ upload_id }}" data-recommended-difficulty="{{ result.suitability|lower }}">
         <div class="flex flex-col sm:flex-row gap-4">
             <div class="sm:w-64 lg:w-80 flex-shrink-0">
-                <div class="bg-gray-50 rounded-lg p-2 flex items-center justify-center">
+                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-2 flex items-center justify-center">
                     <img src="/uploads/{{ upload_id }}.jpg" alt="Uploaded" class="max-w-full max-h-48 object-contain rounded">
                 </div>
             </div>
             <div class="flex-1 min-w-0 space-y-3">
                 <div class="flex flex-wrap items-center gap-2">
                     <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
-                        {% if result.suitability == 'HARDEST' %}bg-red-100 text-red-800
-                        {% elif result.suitability == 'CHALLENGING' %}bg-yellow-100 text-yellow-800
-                        {% elif result.suitability == 'EASY' %}bg-green-100 text-green-800
-                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                        {% if result.suitability == 'HARDEST' %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
+                        {% elif result.suitability == 'CHALLENGING' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+                        {% elif result.suitability == 'EASY' %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
+                        {% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300{% endif %}">
                         {{ result.suitability }}
                     </span>
-                    <span class="text-xs text-gray-400">{{ result.audit.figure_type }}</span>
-                    {% if result.audit.is_dense %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">dense</span>{% endif %}
-                    {% if result.audit.is_text_only %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">text</span>{% endif %}
+                    <span class="text-xs text-gray-400 dark:text-gray-500">{{ result.audit.figure_type }}</span>
+                    {% if result.audit.is_dense %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">dense</span>{% endif %}
+                    {% if result.audit.is_text_only %}<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">text</span>{% endif %}
                 </div>
 
                 <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
-                    <div><span class="text-gray-400">Complexity</span><br><span class="font-medium">{{ "%.3f"|format(result.audit.complexity_score) }}</span></div>
-                    <div><span class="text-gray-400">Size</span><br><span class="font-medium">{{ result.audit.width }}×{{ result.audit.height }}</span></div>
-                    <div><span class="text-gray-400">Ratio</span><br><span class="font-medium">{{ "%.2f"|format(result.audit.width_height_ratio) }}</span></div>
+                    <div><span class="text-gray-400 dark:text-gray-500">Complexity</span><br><span class="font-medium text-gray-900 dark:text-gray-100">{{ "%.3f"|format(result.audit.complexity_score) }}</span></div>
+                    <div><span class="text-gray-400 dark:text-gray-500">Size</span><br><span class="font-medium text-gray-900 dark:text-gray-100">{{ result.audit.width }}×{{ result.audit.height }}</span></div>
+                    <div><span class="text-gray-400 dark:text-gray-500">Ratio</span><br><span class="font-medium text-gray-900 dark:text-gray-100">{{ "%.2f"|format(result.audit.width_height_ratio) }}</span></div>
                 </div>
 
                 {% if result.audit.rejection_reason %}
-                <div class="bg-red-50 rounded-lg p-3 text-sm text-red-700">
+                <div class="bg-red-50 dark:bg-red-900/30 rounded-lg p-3 text-sm text-red-700 dark:text-red-300">
                     <strong>Rejected:</strong> {{ result.audit.rejection_reason }}
                 </div>
                 {% endif %}
@@ -45,14 +45,14 @@
                     {% elif result.suitability == 'EASY' %}
                     <button onclick="draftQA('{{ upload_id }}', 'easy')" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">Generate Easy</button>
                     {% endif %}
-                    <button onclick="discardUpload('{{ upload_id }}', this)" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">Discard</button>
+                    <button onclick="discardUpload('{{ upload_id }}', this)" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">Discard</button>
                 </div>
             </div>
         </div>
     </div>
 </div>
 {% else %}
-<div class="bg-gray-50 rounded-xl p-6 text-center">
-    <p class="text-gray-400 text-sm">Upload an image or search arXiv to begin.</p>
+<div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 text-center">
+    <p class="text-gray-400 dark:text-gray-500 text-sm">Upload an image or search arXiv to begin.</p>
 </div>
 {% endif %}
