@@ -1,6 +1,6 @@
 {% macro sort_link(col, label) %}
 <a href="#"
-   hx-get="/tasks/table?sort={{ col }}&dir={% if sort == col and dir == 'asc' %}desc{% else %}asc{% endif %}&q={{ q }}&status={{ status }}&page=1&per_page={{ per_page }}"
+   hx-get="/tasks/table?sort={{ col }}&dir={% if sort == col and dir == 'asc' %}desc{% else %}asc{% endif %}&q={{ q | urlencode }}&status={{ status }}&page=1&per_page={{ per_page }}"
    hx-target="#tasks-table-container"
    hx-push-url="false"
    class="select-none hover:text-blue-400 transition-colors">
@@ -71,7 +71,7 @@
     </div>
     <div class="flex items-center gap-2">
         <label class="text-sm text-gray-500 dark:text-gray-400">Per page:</label>
-        <select onchange="htmx.ajax('GET', '/tasks/table?sort={{ sort }}&dir={{ dir }}&q={{ q }}&status={{ status }}&page=1&per_page=' + this.value, {target:'#tasks-table-container'})"
+        <select onchange="htmx.ajax('GET', '/tasks/table?sort={{ sort }}&dir={{ dir }}&q={{ q | urlencode }}&status={{ status }}&page=1&per_page=' + this.value, {target:'#tasks-table-container'})"
                 class="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
             <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
             <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
@@ -79,7 +79,7 @@
     </div>
     <nav class="flex items-center gap-1">
         {% if page > 1 %}
-        <a href="#" hx-get="/tasks/table?sort={{ sort }}&dir={{ dir }}&q={{ q }}&status={{ status }}&page={{ page - 1 }}&per_page={{ per_page }}" hx-target="#tasks-table-container" hx-push-url="false"
+        <a href="#" hx-get="/tasks/table?sort={{ sort }}&dir={{ dir }}&q={{ q | urlencode }}&status={{ status }}&page={{ page - 1 }}&per_page={{ per_page }}" hx-target="#tasks-table-container" hx-push-url="false"
            class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">&laquo; Prev</a>
         {% endif %}
 
@@ -96,7 +96,7 @@
         {% endif %}
 
         {% if start > 1 %}
-        <a href="#" hx-get="/tasks/table?sort={{ sort }}&dir={{ dir }}&q={{ q }}&status={{ status }}&page=1&per_page={{ per_page }}" hx-target="#tasks-table-container" hx-push-url="false"
+        <a href="#" hx-get="/tasks/table?sort={{ sort }}&dir={{ dir }}&q={{ q | urlencode }}&status={{ status }}&page=1&per_page={{ per_page }}" hx-target="#tasks-table-container" hx-push-url="false"
            class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">1</a>
         {% if start > 2 %}
         <span class="px-1 text-gray-400">…</span>
@@ -104,7 +104,7 @@
         {% endif %}
 
         {% for p in page_range %}
-        <a href="#" hx-get="/tasks/table?sort={{ sort }}&dir={{ dir }}&q={{ q }}&status={{ status }}&page={{ p }}&per_page={{ per_page }}" hx-target="#tasks-table-container" hx-push-url="false"
+        <a href="#" hx-get="/tasks/table?sort={{ sort }}&dir={{ dir }}&q={{ q | urlencode }}&status={{ status }}&page={{ p }}&per_page={{ per_page }}" hx-target="#tasks-table-container" hx-push-url="false"
            class="px-3 py-1.5 text-sm rounded-lg border transition-colors
            {% if p == page %}bg-[#1a1a2e] text-white border-[#1a1a2e]{% else %}border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700{% endif %}">{{ p }}</a>
         {% endfor %}
@@ -113,12 +113,12 @@
         {% if last_page_shown < total_pages - 1 %}
         <span class="px-1 text-gray-400">…</span>
         {% endif %}
-        <a href="#" hx-get="/tasks/table?sort={{ sort }}&dir={{ dir }}&q={{ q }}&status={{ status }}&page={{ total_pages }}&per_page={{ per_page }}" hx-target="#tasks-table-container" hx-push-url="false"
+        <a href="#" hx-get="/tasks/table?sort={{ sort }}&dir={{ dir }}&q={{ q | urlencode }}&status={{ status }}&page={{ total_pages }}&per_page={{ per_page }}" hx-target="#tasks-table-container" hx-push-url="false"
            class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">{{ total_pages }}</a>
         {% endif %}
 
         {% if page < total_pages %}
-        <a href="#" hx-get="/tasks/table?sort={{ sort }}&dir={{ dir }}&q={{ q }}&status={{ status }}&page={{ page + 1 }}&per_page={{ per_page }}" hx-target="#tasks-table-container" hx-push-url="false"
+        <a href="#" hx-get="/tasks/table?sort={{ sort }}&dir={{ dir }}&q={{ q | urlencode }}&status={{ status }}&page={{ page + 1 }}&per_page={{ per_page }}" hx-target="#tasks-table-container" hx-push-url="false"
            class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">Next &raquo;</a>
         {% endif %}
     </nav>

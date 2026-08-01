@@ -24,6 +24,25 @@ SORTABLE_COLUMNS = {
 DEFAULT_PER_PAGE = 20
 
 
+def _apply_task_filters(query, count_query, *, status: str = "", q: str = ""):
+    """Apply status and search filters to both the data and count queries."""
+    if status:
+        query = query.where(Task.status == status)
+        count_query = count_query.where(Task.status == status)
+    if q:
+        query = query.where(
+            Task.title.contains(q)
+            | Task.question.contains(q)
+            | Task.answer.contains(q)
+        )
+        count_query = count_query.where(
+            Task.title.contains(q)
+            | Task.question.contains(q)
+            | Task.answer.contains(q)
+        )
+    return query, count_query
+
+
 @router.get("/", response_class=HTMLResponse)
 def index(request: Request):
     """Dashboard home."""
@@ -75,9 +94,7 @@ def tasks_page(request: Request, status: str = ""):
     try:
         query = select(Task)
         count_query = select(func.count()).select_from(Task)
-        if status:
-            query = query.where(Task.status == status)
-            count_query = count_query.where(Task.status == status)
+        query, count_query = _apply_task_filters(query, count_query, status=status)
 
         total = session.exec(count_query).one()
         total_pages = max(1, math.ceil(total / DEFAULT_PER_PAGE))
@@ -127,21 +144,7 @@ def tasks_table(
     try:
         query = select(Task)
         count_query = select(func.count()).select_from(Task)
-
-        if status:
-            query = query.where(Task.status == status)
-            count_query = count_query.where(Task.status == status)
-        if q:
-            query = query.where(
-                Task.title.contains(q)
-                | Task.question.contains(q)
-                | Task.answer.contains(q)
-            )
-            count_query = count_query.where(
-                Task.title.contains(q)
-                | Task.question.contains(q)
-                | Task.answer.contains(q)
-            )
+        query, count_query = _apply_task_filters(query, count_query, status=status, q=q)
 
         total = session.exec(count_query).one()
         total_pages = max(1, math.ceil(total / per_page))
