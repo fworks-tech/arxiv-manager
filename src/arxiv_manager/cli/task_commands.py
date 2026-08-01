@@ -418,3 +418,27 @@ def determinism_check_cmd(
             console.print(f"\n[bold yellow]🎲 Not deterministic.[/] Diverging: {result['diverging'] or '(no answers)'}")
     finally:
         session.close()
+
+
+@task_app.command("verdict")
+def record_verdict_cmd(
+    task_id: int = typer.Argument(..., help="Task ID"),
+    verdict: str = typer.Option(..., "--verdict", "-v", help="Realm verdict: too_easy | too_hard | approved"),
+    notes: str = typer.Option("", "--notes", "-n", help="Reviewer notes"),
+):
+    """Record a Realm evaluation verdict; auto-adjusts difficulty (warn-only)."""
+    from ..tracking import REALM_VERDICTS, record_realm_verdict
+
+    if verdict not in REALM_VERDICTS:
+        console.print(f"[red]Invalid verdict '{verdict}'. Choose from: {', '.join(REALM_VERDICTS)}[/]")
+        raise typer.Exit(1)
+
+    task = record_realm_verdict(task_id, verdict, notes)
+    if not task:
+        console.print(f"[red]Task {task_id} not found.[/]")
+        raise typer.Exit(1)
+
+    console.print(
+        f"[green]Verdict '{verdict}' recorded for task #{task_id}.[/] "
+        f"Difficulty: {task.difficulty}"
+    )

@@ -120,6 +120,70 @@ def mark_status(task_id: int, status: str, notes: str = "") -> Task | None:
         session.close()
 
 
+REALM_VERDICTS = ("too_easy", "too_hard", "approved")
+_DIFFICULTY_DOWNGRADE = {"hardest": "challenging", "challenging": "easy", "easy": "easy"}
+_DIFFICULTY_UPGRADE = {"easy": "challenging", "challenging": "hardest", "hardest": "hardest"}
+
+
+def record_realm_verdict(task_id: int, verdict: str, notes: str = "") -> Task | None:
+    """Record a Realm evaluation verdict and auto-adjust difficulty (warn-only).
+
+    too_easy  → downgrade one difficulty tier (the question is easier than claimed)
+    too_hard  → upgrade one tier
+    approved  → leave difficulty untouched
+
+    Warn-only by design: the author can override the new difficulty afterwards.
+    """
+    if verdict not in REALM_VERDICTS:
+        raise ValueError(f"verdict must be one of {REALM_VERDICTS}")
+
+    session = get_session()
+    try:
+        task = session.get(Task, task_id)
+        if not task:
+            return None
+
+        log = session.exec(
+            select(SubmissionLog).where(SubmissionLog.task_id == task_id).order_by(SubmissionLog.submitted_at.desc())
+        ).first()
+        if not log:
+            log = SubmissionLog(task_id=task_id)
+        log.review_status = verdict
+        log.reviewer_notes = notes[:2000]
+        session.add(log)
+
+        old_difficulty = task.difficulty
+        new_difficulty = old_difficulty
+        if verdict == "too_easy":
+            new_difficulty = _DIFFICULTY_DOWNGRADE.get(old_difficulty, old_difficulty)
+        elif verdict == "too_hard":
+            new_difficulty = _DIFFICULTY_UPGRADE.get(old_difficulty, old_difficulty)
+
+        difficulty_changed = new_difficulty != old_difficulty
+        if difficulty_changed:
+            task.difficulty = new_difficulty
+            session.add(task)
+
+        session.commit()
+        session.refresh(task)
+
+        log_task_event(
+            task_id,
+            "realm_verdict",
+            {
+                "verdict": verdict,
+                "notes": notes[:500],
+                "old_difficulty": old_difficulty,
+                "new_difficulty": new_difficulty,
+                "difficulty_changed": difficulty_changed,
+            },
+            quality_score=0.0 if verdict == "too_easy" else 1.0,
+        )
+        return task
+    finally:
+        session.close()
+
+
 def get_stats() -> dict[str, Any]:
     """Get overall statistics."""
     session = get_session()
