@@ -523,7 +523,7 @@ def inject_history_into_prompt(
             elif e.event_type == "difficulty_change":
                 history_parts.append(f"   [Difficulty: {details.get('old_difficulty','?')} -> {details.get('new_difficulty','?')}]")
             elif e.event_type == "rhea_review":
-                passed = details.get("passed", False)
+                passed = details.get("rhea_passed", False)
                 history_parts.append(f"   [Rhea review: {'PASSED' if passed else 'FAILED'}]")
             elif e.event_type == "ai_fix":
                 history_parts.append("   [AI fix applied]")
