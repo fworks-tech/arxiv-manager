@@ -128,7 +128,7 @@ def run_evaluation(
     det_checked = sum(1 for r in results if r.get("determinism_checked"))
     det_pass = sum(1 for r in results if r.get("determinism_pass"))
 
-    print(f"\n=== Offline Evaluation Report ===")
+    print("\n=== Offline Evaluation Report ===")
     print(f"Golden dataset: {total} examples")
     print(f"Handbook-valid: {valid}/{total}")
     if check_determinism:
