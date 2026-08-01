@@ -1,14 +1,46 @@
 """Static page GET route handlers."""
 
+import math
+
 from fastapi import Request
 from fastapi.responses import HTMLResponse
-from sqlmodel import select
+from sqlmodel import func, select
 
 from ...authoring.validator import validate_task
 from ...db import get_session
 from ...models import Figure, Task
 from ...tracking import get_stats
 from . import TEMPLATES, router
+
+SORTABLE_COLUMNS = {
+    "id": Task.id,
+    "title": Task.title,
+    "question": Task.question,
+    "status": Task.status,
+    "difficulty": Task.difficulty,
+    "created_at": Task.created_at,
+}
+
+DEFAULT_PER_PAGE = 20
+
+
+def _apply_task_filters(query, count_query, *, status: str = "", q: str = ""):
+    """Apply status and search filters to both the data and count queries."""
+    if status:
+        query = query.where(Task.status == status)
+        count_query = count_query.where(Task.status == status)
+    if q:
+        query = query.where(
+            Task.title.contains(q)
+            | Task.question.contains(q)
+            | Task.answer.contains(q)
+        )
+        count_query = count_query.where(
+            Task.title.contains(q)
+            | Task.question.contains(q)
+            | Task.answer.contains(q)
+        )
+    return query, count_query
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -57,13 +89,16 @@ def images_page(
 
 @router.get("/tasks", response_class=HTMLResponse)
 def tasks_page(request: Request, status: str = ""):
-    """Tasks list page."""
+    """Tasks list page with initial table data."""
     session = get_session()
     try:
         query = select(Task)
-        if status:
-            query = query.where(Task.status == status)
-        query = query.order_by(Task.created_at.desc())
+        count_query = select(func.count()).select_from(Task)
+        query, count_query = _apply_task_filters(query, count_query, status=status)
+
+        total = session.exec(count_query).one()
+        total_pages = max(1, math.ceil(total / DEFAULT_PER_PAGE))
+        query = query.order_by(Task.id.desc()).limit(DEFAULT_PER_PAGE)
         tasks = list(session.exec(query).all())
 
         return TEMPLATES.TemplateResponse(
@@ -71,7 +106,69 @@ def tasks_page(request: Request, status: str = ""):
             "tasks.html",
             {
                 "tasks": tasks,
+                "total": total,
+                "page": 1,
+                "total_pages": total_pages,
+                "per_page": DEFAULT_PER_PAGE,
+                "sort": "id",
+                "dir": "desc",
+                "q": "",
+                "status": status,
                 "status_filter": status,
+            },
+        )
+    finally:
+        session.close()
+
+
+@router.get("/tasks/table", response_class=HTMLResponse)
+def tasks_table(
+    request: Request,
+    status: str = "",
+    q: str = "",
+    sort: str = "id",
+    dir: str = "desc",
+    page: int = 1,
+    per_page: int = DEFAULT_PER_PAGE,
+):
+    """Tasks table partial — returns rendered table HTML for HTMX."""
+    if sort not in SORTABLE_COLUMNS:
+        sort = "id"
+    if dir not in ("asc", "desc"):
+        dir = "desc"
+    if per_page not in (20, 50):
+        per_page = DEFAULT_PER_PAGE
+    page = max(1, page)
+
+    session = get_session()
+    try:
+        query = select(Task)
+        count_query = select(func.count()).select_from(Task)
+        query, count_query = _apply_task_filters(query, count_query, status=status, q=q)
+
+        total = session.exec(count_query).one()
+        total_pages = max(1, math.ceil(total / per_page))
+        page = min(page, total_pages)
+
+        sort_col = SORTABLE_COLUMNS[sort]
+        order = sort_col.desc() if dir == "desc" else sort_col.asc()
+        query = query.order_by(order)
+        query = query.offset((page - 1) * per_page).limit(per_page)
+        tasks = list(session.exec(query).all())
+
+        return TEMPLATES.TemplateResponse(
+            request,
+            "tasks_table.html",
+            {
+                "tasks": tasks,
+                "total": total,
+                "page": page,
+                "total_pages": total_pages,
+                "per_page": per_page,
+                "sort": sort,
+                "dir": dir,
+                "q": q,
+                "status": status,
             },
         )
     finally:

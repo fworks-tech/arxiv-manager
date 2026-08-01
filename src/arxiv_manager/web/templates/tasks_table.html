@@ -1,0 +1,136 @@
+{% macro sort_link(col, label) %}
+<a href="#"
+   hx-get="/tasks/table?sort={{ col }}&dir={% if sort == col and dir == 'asc' %}desc{% else %}asc{% endif %}&q={{ q | urlencode }}&status={{ status }}&page=1&per_page={{ per_page }}"
+   hx-target="#tasks-table-container"
+   hx-push-url="false"
+   class="select-none hover:text-blue-400 transition-colors">
+    {{ label }}{% if sort == col %}<span class="ml-1 text-blue-400">{% if dir == 'asc' %}&#9650;{% else %}&#9660;{% endif %}</span>{% endif %}
+</a>
+{% endmacro %}
+
+{% if tasks %}
+<div class="overflow-x-auto">
+    <table id="tasks-datatable" class="w-full table-fixed divide-y divide-gray-200 dark:divide-gray-700" style="table-layout: fixed;">
+        <thead class="bg-gray-50 dark:bg-gray-700/50">
+            <tr>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider col-id" style="width:60px;">{{ sort_link('id', 'ID') }}</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider col-title" style="width:180px;">{{ sort_link('title', 'Title') }}</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider col-question hidden sm:table-cell" style="width:280px;">{{ sort_link('question', 'Question') }}</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider col-status" style="width:110px;">{{ sort_link('status', 'Status') }}</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider col-difficulty hidden sm:table-cell" style="width:120px;">{{ sort_link('difficulty', 'Difficulty') }}</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider col-actions" style="width:130px;"></th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for t in tasks %}
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                <td class="px-4 py-3 text-sm font-medium text-[#1a1a2e] dark:text-blue-400 truncate">{{ t.id }}</td>
+                <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 truncate" title="{{ t.title }}">{{ t.title[:30] }}{% if t.title|length > 30 %}…{% endif %}</td>
+                <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 truncate hidden sm:table-cell" title="{{ t.question }}">{{ t.question[:40] }}{% if t.question|length > 40 %}…{% endif %}</td>
+                <td class="px-4 py-3">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                        {% if t.status == 'draft' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+                        {% elif t.status == 'validated' %}bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200
+                        {% elif t.status == 'submitted' %}bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200
+                        {% elif t.status == 'approved' %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
+                        {% elif t.status == 'rework' %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
+                        {% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                        {{ t.status }}
+                    </span>
+                </td>
+                <td class="px-4 py-3 hidden sm:table-cell">
+                    {% if t.difficulty %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                        {% if t.difficulty == 'easy' %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
+                        {% elif t.difficulty == 'challenging' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+                        {% elif t.difficulty == 'hardest' %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
+                        {% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                        {{ t.difficulty }}
+                    </span>
+                    {% else %}
+                    <span class="text-gray-400 dark:text-gray-500 text-xs">—</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-3 text-right flex items-center gap-2 justify-end">
+                    <a href="/task/{{ t.id }}" class="inline-flex items-center px-3 py-1.5 bg-[#1a1a2e] text-white rounded-lg text-xs font-medium hover:bg-[#16213e] transition-colors">Edit</a>
+                    <button type="button"
+                            hx-post="/api/task/{{ t.id }}/delete"
+                            hx-confirm="Delete task #{{ t.id }}? This cannot be undone."
+                            hx-target="body"
+                            class="inline-flex items-center px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors">Delete</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 px-4 pb-2">
+    <div class="text-sm text-gray-500 dark:text-gray-400">
+        Showing {{ ((page - 1) * per_page) + 1 }}–{% if page * per_page < total %}{{ page * per_page }}{% else %}{{ total }}{% endif %} of {{ total }} tasks
+    </div>
+    <div class="flex items-center gap-2">
+        <label class="text-sm text-gray-500 dark:text-gray-400">Per page:</label>
+        <select onchange="htmx.ajax('GET', '/tasks/table?sort={{ sort }}&dir={{ dir }}&q={{ q | urlencode }}&status={{ status }}&page=1&per_page=' + this.value, {target:'#tasks-table-container'})"
+                class="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+            <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
+            <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+        </select>
+    </div>
+    <nav class="flex items-center gap-1">
+        {% if page > 1 %}
+        <a href="#" hx-get="/tasks/table?sort={{ sort }}&dir={{ dir }}&q={{ q | urlencode }}&status={{ status }}&page={{ page - 1 }}&per_page={{ per_page }}" hx-target="#tasks-table-container" hx-push-url="false"
+           class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">&laquo; Prev</a>
+        {% endif %}
+
+        {% set page_window = 2 %}
+        {% if total_pages <= 7 %}
+            {% set start = 1 %}
+            {% set page_range = range(1, total_pages + 1) %}
+            {% set last_page_shown = total_pages %}
+        {% else %}
+            {% set start = page - page_window if page - page_window > 1 else 1 %}
+            {% set end = page + page_window if page + page_window < total_pages else total_pages %}
+            {% set page_range = range(start, end + 1) %}
+            {% set last_page_shown = end %}
+        {% endif %}
+
+        {% if start > 1 %}
+        <a href="#" hx-get="/tasks/table?sort={{ sort }}&dir={{ dir }}&q={{ q | urlencode }}&status={{ status }}&page=1&per_page={{ per_page }}" hx-target="#tasks-table-container" hx-push-url="false"
+           class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">1</a>
+        {% if start > 2 %}
+        <span class="px-1 text-gray-400">…</span>
+        {% endif %}
+        {% endif %}
+
+        {% for p in page_range %}
+        <a href="#" hx-get="/tasks/table?sort={{ sort }}&dir={{ dir }}&q={{ q | urlencode }}&status={{ status }}&page={{ p }}&per_page={{ per_page }}" hx-target="#tasks-table-container" hx-push-url="false"
+           class="px-3 py-1.5 text-sm rounded-lg border transition-colors
+           {% if p == page %}bg-[#1a1a2e] text-white border-[#1a1a2e]{% else %}border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700{% endif %}">{{ p }}</a>
+        {% endfor %}
+
+        {% if last_page_shown < total_pages %}
+        {% if last_page_shown < total_pages - 1 %}
+        <span class="px-1 text-gray-400">…</span>
+        {% endif %}
+        <a href="#" hx-get="/tasks/table?sort={{ sort }}&dir={{ dir }}&q={{ q | urlencode }}&status={{ status }}&page={{ total_pages }}&per_page={{ per_page }}" hx-target="#tasks-table-container" hx-push-url="false"
+           class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">{{ total_pages }}</a>
+        {% endif %}
+
+        {% if page < total_pages %}
+        <a href="#" hx-get="/tasks/table?sort={{ sort }}&dir={{ dir }}&q={{ q | urlencode }}&status={{ status }}&page={{ page + 1 }}&per_page={{ per_page }}" hx-target="#tasks-table-container" hx-push-url="false"
+           class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">Next &raquo;</a>
+        {% endif %}
+    </nav>
+</div>
+
+{% else %}
+<div class="p-8 text-center">
+    {% if q or status %}
+    <p class="text-gray-400 dark:text-gray-500">No tasks match your filters.</p>
+    {% else %}
+    <p class="text-gray-400 dark:text-gray-500">No tasks yet.</p>
+    <a href="/images" class="inline-block mt-3 px-4 py-2 bg-[#1a1a2e] text-white rounded-lg text-sm font-medium hover:bg-[#16213e] transition-colors">Go to Image Library</a>
+    {% endif %}
+</div>
+{% endif %}
