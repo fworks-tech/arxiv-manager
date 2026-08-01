@@ -568,7 +568,12 @@ def _is_two_answer_question(q: str) -> bool:
     """
     q_lower = q.lower().rstrip(".")
     # Normalise conjunctive "when Xed" so it doesn't match as a question word
-    q_clean = re.sub(r"\bwhen\s+(?:ranked|sorted|compared|assigned|given|viewed|ordered|measured|numbered|evaluated|listed|arranged|placed|grouped|labeled|set)\b", " while ", q_lower)
+    when_words = (
+        r"ranked|sorted|compared|assigned|given|viewed|ordered|"
+        r"measured|numbered|evaluated|listed|arranged|placed|"
+        r"grouped|labeled|set"
+    )
+    q_clean = re.sub(rf"\bwhen\s+(?:{when_words})\b", " while ", q_lower)
     # Pattern: two question words (which/what/how) connected by " and "
     question_words = r"(?:which|what|how|where|when)"
     pattern = rf"{question_words}\b.*?\band\b.*?{question_words}\b"
