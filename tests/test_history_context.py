@@ -111,6 +111,79 @@ class TestGetFewShotExamples:
         assert len(examples) == 1
         assert examples[0]["question"] == "Q1"
 
+    def test_hardest_prefers_both_failed_examples(self, db_session, sample_figure):
+        """Hardest few-shot must rank both-model-failed attempts above Qwen-failed/Gemini-passed ones."""
+        db_session.add(
+            GenerationAttempt(
+                figure_id=sample_figure.id,
+                model_name="test",
+                validation_quality=80,
+                success=True,
+                validation_is_valid=True,
+                figure_type="chart_graph_text",
+                difficulty="hardest",
+                qwen_passes=2,
+                gemini_passes=4,
+                generated_question="Gemini-passes attempt",
+                generated_answer="A1",
+            )
+        )
+        db_session.add(
+            GenerationAttempt(
+                figure_id=sample_figure.id,
+                model_name="test",
+                validation_quality=95,
+                success=True,
+                validation_is_valid=True,
+                figure_type="chart_graph_text",
+                difficulty="hardest",
+                qwen_passes=0,
+                gemini_passes=0,
+                generated_question="Both-fail attempt",
+                generated_answer="A2",
+            )
+        )
+        db_session.commit()
+        examples = get_few_shot_examples(figure_type="chart_graph_text", difficulty="hardest", limit=2)
+        assert len(examples) == 2
+        assert examples[0]["question"] == "Both-fail attempt"
+
+    def test_challenging_prefers_qwen_failed_gemini_passed(self, db_session, sample_figure):
+        db_session.add(
+            GenerationAttempt(
+                figure_id=sample_figure.id,
+                model_name="test",
+                validation_quality=80,
+                success=True,
+                validation_is_valid=True,
+                figure_type="chart_graph_text",
+                difficulty="challenging",
+                qwen_passes=4,
+                gemini_passes=0,
+                generated_question="Qwen-passes attempt",
+                generated_answer="A1",
+            )
+        )
+        db_session.add(
+            GenerationAttempt(
+                figure_id=sample_figure.id,
+                model_name="test",
+                validation_quality=85,
+                success=True,
+                validation_is_valid=True,
+                figure_type="chart_graph_text",
+                difficulty="challenging",
+                qwen_passes=0,
+                gemini_passes=2,
+                generated_question="Qwen-fails-Gemini-passes attempt",
+                generated_answer="A2",
+            )
+        )
+        db_session.commit()
+        examples = get_few_shot_examples(figure_type="chart_graph_text", difficulty="challenging", limit=2)
+        assert len(examples) == 2
+        assert examples[0]["question"] == "Qwen-fails-Gemini-passes attempt"
+
 
 class TestBuildFigureHistory:
     def test_no_history_returns_empty(self, db_session):
