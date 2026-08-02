@@ -55,22 +55,39 @@ def update_task_difficulty(
     difficulty: str = Form(...),
     qwen: int = Form(0),
     gemini: int = Form(0),
+    test_model_restriction: str = Form("all"),
 ):
     """Update task difficulty (HTMX endpoint)."""
-    logger.info("task difficulty task_id=%d difficulty=%s qwen=%d gemini=%d", task_id, difficulty, qwen, gemini)
+    logger.info(
+        "task difficulty task_id=%d difficulty=%s qwen=%d gemini=%d restriction=%s",
+        task_id, difficulty, qwen, gemini, test_model_restriction,
+    )
     from ...db import get_session as _get_session
+
+    if test_model_restriction not in ("all", "qwen_only", "gemini_only"):
+        test_model_restriction = "all"
 
     s = _get_session()
     try:
         t = s.get(Task, task_id)
         old_diff = t.difficulty if t else ""
+        old_restriction = t.test_model_restriction if t else "all"
     finally:
         s.close()
     set_difficulty(task_id, difficulty, qwen, gemini)
+    if old_restriction != test_model_restriction:
+        from ...authoring import update_task as _update_task
+        _update_task(task_id, test_model_restriction=test_model_restriction)
     log_task_event(
         task_id,
         "difficulty_change",
-        {"old_difficulty": old_diff, "new_difficulty": difficulty, "qwen_passes": qwen, "gemini_passes": gemini},
+        {
+            "old_difficulty": old_diff,
+            "new_difficulty": difficulty,
+            "qwen_passes": qwen,
+            "gemini_passes": gemini,
+            "test_model_restriction": test_model_restriction,
+        },
     )
     return RedirectResponse(url=f"/task/{task_id}", status_code=303)
 
@@ -81,6 +98,25 @@ def submit_task_route(task_id: int):
     logger.info("task submit task_id=%d", task_id)
     mark_submitted(task_id)
     return RedirectResponse(url="/tasks", status_code=303)
+
+
+@router.post("/api/task/{task_id}/verdict")
+def record_verdict_route(task_id: int, verdict: str = Form(...), notes: str = Form("")):
+    """Record a Realm evaluation verdict; auto-adjusts difficulty (warn-only)."""
+    from fastapi import HTTPException
+    from fastapi.responses import JSONResponse
+
+    from ...tracking import REALM_VERDICTS, record_realm_verdict
+
+    logger.info("task verdict task_id=%d verdict=%s", task_id, verdict)
+    if verdict not in REALM_VERDICTS:
+        raise HTTPException(status_code=400, detail=f"verdict must be one of {REALM_VERDICTS}")
+    task = record_realm_verdict(task_id, verdict, notes)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return JSONResponse(
+        {"ok": True, "verdict": verdict, "difficulty": task.difficulty}
+    )
 
 
 @router.post("/api/task/{task_id}/rhea")

@@ -1,8 +1,11 @@
 {
   "meta": {
     "description": "Golden dataset of high-quality visual-reasoning Q&A pairs for evaluation",
-    "version": "1.0.0",
-    "created": "2026-07-24"
+    "version": "2.0.1",
+    "created": "2026-07-24",
+    "updated": "2026-08-01",
+    "verification": "3-run VLM determinism (minimax-m3 sampled reads must ALL match the golden answer) is the machine-verification bar; proved it distinguishes truly answerable questions from plausible-but-ambiguous ones — proven-009 passes, proven-008/010 diverge (16/17 vs 15 and 18/25% vs 20) and are flagged as candidates, not proven",
+    "note": "proven-001/002/003 are historical entries that now violate the manufactured-difficulty anti-pattern (multi-type counting + sum) and fail current handbook validation — kept for regression reference, flagged via known_issues. proven-004/007 fail current validator rules (extreme-seeking / shallow reasoning) and are historical too."
   },
   "examples": [
     {
@@ -14,7 +17,8 @@
       "complexity": 0.85,
       "question": "Count all the following elements in this neural network diagram: (1) black rectangular mirrors, (2) standalone gray ellipse lenses, and (3) groups of colored filter bars. Sum all three counts.",
       "answer": "18",
-      "reasoning": "Multi-type counting + sum. Qwen fails because it must track 3 categories simultaneously across a complex diagram."
+      "reasoning": "Multi-type counting + sum. Qwen fails because it must track 3 categories simultaneously across a complex diagram.",
+      "known_issues": ["manufactured difficulty: chained independent counts (now a validator ERROR)"]
     },
     {
       "id": "proven-002",
@@ -25,7 +29,8 @@
       "complexity": 0.88,
       "question": "How many convolutional filters are shown in the rightmost layer of this CNN architecture diagram? Only count filter groups that contain at least one colored (non-gray) filter.",
       "answer": "30",
-      "reasoning": "Subjective classification (colored vs gray) + spatial targeting (rightmost layer). Qwen fails on subjective boundary."
+      "reasoning": "Subjective classification (colored vs gray) + spatial targeting (rightmost layer). Qwen fails on subjective boundary.",
+      "known_issues": ["subjective boundary (colored vs gray) risks non-deterministic answers"]
     },
     {
       "id": "proven-003",
@@ -36,7 +41,8 @@
       "complexity": 0.72,
       "question": "In this optical computing diagram, count these three types of elements excluding anything inside the blue dashed boxes: (1) black rectangular mirrors, (2) standalone gray ellipse lenses, and (3) groups of colored filter bars. Sum all three counts.",
       "answer": "18",
-      "reasoning": "Multi-type counting + exclusion (inside dashed boxes). Tests spatial exclusion reasoning."
+      "reasoning": "Multi-type counting + exclusion (inside dashed boxes). Tests spatial exclusion reasoning.",
+      "known_issues": ["manufactured difficulty: chained independent counts (now a validator ERROR)"]
     },
     {
       "id": "proven-004",
@@ -81,6 +87,44 @@
       "question": "Count how many objects are closer to the camera than the red chair.",
       "answer": "7",
       "reasoning": "Count across depth planes. Requires judging relative distance for every object in the scene."
+    },
+    {
+      "id": "proven-008",
+      "figure_type": "general_image",
+      "difficulty": "challenging",
+      "task_type": "general_image",
+      "answer_format": "number",
+      "complexity": 0.8,
+      "image_path": "figures/user_upload_9a1ec421c2e99ae2.jpg",
+      "question": "Sum the number of gesture command rows shown in panel (a) and the number of items shown in the navigation drawer of panel (b), including the footer items.",
+      "answer": "15",
+      "reasoning": "Cross-panel counting + sum. CANDIDATE, not proven: handbook-valid and mimo-v2.5 check-answer matched once, but 3-run determinism diverges (reads 16/17/16 vs 15) — the drawer item count is ambiguous to the vision model.",
+      "known_issues": ["determinism FAIL: sampled minimax-m3 reads 16/17/16 vs golden 15"]
+    },
+    {
+      "id": "proven-009",
+      "figure_type": "general_image",
+      "difficulty": "challenging",
+      "task_type": "general_image",
+      "answer_format": "number",
+      "complexity": 0.8,
+      "image_path": "figures/user_upload_530ee6a4c0c3c4d1.jpg",
+      "question": "Sum the number of list rows shown in the second, third, and fourth panels of this figure.",
+      "answer": "14",
+      "reasoning": "Multi-panel row counting + sum. PROVEN: handbook-valid, 3-run determinism PASS, fact-check all SUPPORTED, and stored answer matches ground truth (6 + 6 + 2)."
+    },
+    {
+      "id": "proven-010",
+      "figure_type": "chart_graph_text",
+      "difficulty": "hardest",
+      "task_type": "chart",
+      "answer_format": "number",
+      "complexity": 0.8,
+      "image_path": "figures/user_upload_e126b464e90ae85d.jpg",
+      "question": "What is the difference between the sum of the two 'null value' confidence percentages in panel 4 and the sum of the 'text overlap' confidence in panel 2 and the 'missing image' confidence in panel 3?",
+      "answer": "20",
+      "reasoning": "Cross-panel arithmetic over labeled annotations. CANDIDATE, not proven: fact-check all SUPPORTED and the arithmetic is internally consistent (72+98=170 minus 80+70=150), but 3-run determinism diverges (reads 18/25%/18 vs 20) — the model misreads a value.",
+      "known_issues": ["determinism FAIL: sampled minimax-m3 reads 18/25%/18 vs golden 20"]
     }
   ]
 }

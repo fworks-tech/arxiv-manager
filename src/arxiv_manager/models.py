@@ -125,6 +125,7 @@ class Task(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.now)
     submitted_at: datetime | None = None
     platform_task_id: str = ""
+    test_model_restriction: str = Field(default="all")  # all | qwen_only | gemini_only
 
 
 class IssueReport(SQLModel, table=True):
@@ -248,6 +249,7 @@ class GenerationAttempt(SQLModel, table=True):
     validation_errors: str = ""  # JSON list
     validation_warnings: str = ""  # JSON list
     fact_check_errors: str = ""  # JSON list of unsupported premise claims
+    determinism_errors: str = ""  # JSON list of sampled answers that diverged from golden
 
     # Rhea feedback (captured on submit)
     rhea_passed: bool = False

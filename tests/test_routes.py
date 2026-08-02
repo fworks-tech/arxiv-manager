@@ -815,3 +815,72 @@ class TestTaskEventLogging:
         ).first()
         s.close()
         assert event is not None
+
+
+# ---------------------------------------------------------------------------
+# POST: Determinism check + Realm verdict endpoints
+# ---------------------------------------------------------------------------
+
+
+class TestDeterminismCheckRoute:
+    def test_determinism_check_with_mock(self, test_client, sample_task, monkeypatch, override_storage):
+        """Determinism endpoint renders the result partial."""
+        import arxiv_manager.authoring.ai_draft._determinism as det_mod
+        import arxiv_manager.web.routes.task_routes as tr_mod
+
+        # task_routes binds STORAGE_DIR at import time — point it at this test's temp storage
+        monkeypatch.setattr(tr_mod, "STORAGE_DIR", override_storage)
+        monkeypatch.setattr(
+            det_mod, "check_determinism_for_qa",
+            lambda *a, **kw: {
+                "deterministic": True,
+                "runs": [{"answer": "20", "reasoning": "observed", "match": True}] * 3,
+                "diverging": [],
+                "checked": True,
+            },
+        )
+        resp = test_client.post(f"/api/task/{sample_task.id}/determinism-check", data={"runs": "3"})
+        assert resp.status_code == 200
+        assert "Deterministic" in resp.text
+
+    def test_determinism_check_no_key(self, test_client_no_key, sample_task):
+        """Without OPENCODE_API_KEY the endpoint reports the error inline."""
+        resp = test_client_no_key.post(f"/api/task/{sample_task.id}/determinism-check")
+        assert resp.status_code == 200
+        assert "OPENCODE_API_KEY" in resp.text
+
+    def test_determinism_check_missing_task(self, test_client):
+        resp = test_client.post("/api/task/99999/determinism-check")
+        assert resp.status_code == 200
+        assert "Task not found" in resp.text
+
+
+class TestVerdictRoute:
+    def test_verdict_ok(self, test_client, sample_task, monkeypatch):
+        """Verdict endpoint records and returns the new difficulty."""
+        monkeypatch.setattr(
+            "arxiv_manager.tracking.record_realm_verdict",
+            lambda *a, **kw: sample_task,
+        )
+        resp = test_client.post(
+            f"/api/task/{sample_task.id}/verdict",
+            data={"verdict": "too_easy", "notes": "qwen 4/4"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["ok"] is True
+        assert data["verdict"] == "too_easy"
+
+    def test_verdict_invalid_returns_400(self, test_client, sample_task):
+        resp = test_client.post(
+            f"/api/task/{sample_task.id}/verdict",
+            data={"verdict": "bogus"},
+        )
+        assert resp.status_code == 400
+
+    def test_verdict_missing_task_returns_404(self, test_client):
+        resp = test_client.post(
+            "/api/task/99999/verdict",
+            data={"verdict": "too_easy"},
+        )
+        assert resp.status_code == 404

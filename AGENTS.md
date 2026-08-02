@@ -21,17 +21,27 @@ AI-powered assistant for extracting scientific figures from arXiv PDFs, analyzin
 src/arxiv_manager/
 ├── authoring/
 │   ├── ai_draft/           # LLM integration (client, parser, core, composition)
-│   ├── _draft_prompts.py   # 13 prompt templates with SHA-256 versioning (includes CHECK_ANSWER_PROMPT + VERIFY_ANSWER_PROMPT)
+│   │   ├── _fact_checker.py   # Adversarial premise fact-check (SUPPORTED/NOT_SUPPORTED/UNVERIFIABLE claims)
+│   │   ├── _determinism.py    # 3-run sampled answer determinism gate (normalized numeric / semantic match)
+│   │   ├── _api_client.py     # LLM API client (OpenCode), token usage capture
+│   │   ├── _response_parser.py# Think-block + brace-scan JSON parsing, type coercion
+│   │   ├── _image_utils.py    # Shared image encoding for LLM consumption (base64 JPEG)
+│   │   ├── core.py            # Prompt building, history injection, guardrails
+│   │   └── composition.py     # Self-critique + validation/feedback retry loops
+│   ├── _draft_prompts.py   # 14+ prompt templates with SHA-256 versioning (CHECK_ANSWER, VERIFY_ANSWER, FACT_CHECK, HARDEST/CHALLENGING + SPATIAL variants with FACT SAFETY blocks)
+│   ├── _model_cards.py     # Verified capability cards for Qwen3.6-35B-A3B + Gemini 3.5 Flash (HF/OpenRouter, 2026-08)
 │   ├── _draft_telemetry.py # Generation attempt logging to DB + JSONL
 │   ├── _guardrails.py      # Quality checks with auto-retry + feedback
-│   ├── _history_context.py # History injection, few-shot, model selection
+│   ├── _history_context.py # History injection, few-shot, model selection (difficulty-aware ordering)
 │   ├── validator.py        # 28+ handbook rule validation
 │   └── image_analyzer.py   # Figure suitability classification
+├── analytics/
+│   └── strategies.py       # Strategy-class × model-verdict aggregation (pluggable data-provider seam)
 ├── cli/                    # CLI commands (search, task, images, web, check, analytics, index)
 ├── sourcing/               # arXiv PDF download, figure extraction, filtering
-├── web/                    # FastAPI app + 15 Jinja2/HTMX templates
+├── web/                    # FastAPI app + 17 Jinja2/HTMX templates
 │   ├── routes/             # Route handlers (task, author, arxiv, lifecycle, metrics, health, prompts)
-│   └── templates/          # HTML templates with HTMX partials
+│   └── templates/          # HTML templates with HTMX partials (_determinism.html, strategies.html)
 ├── components/             # RAG: hybrid retriever, reranker, config
 ├── services/               # CRAG: RAG pipeline, semantic cache, query router
 ├── agents/                 # Adaptive router, query decomposer, document grader, tools/
@@ -100,6 +110,12 @@ src/arxiv_manager/
 - **Task state injection in regenerate:** Regeneration prompt now includes current task state (question, answer, difficulty, status), Rhea review results, and model performance metrics (Qwen/Gemini pass rates) as additional context.
 - **AI Fix with image context:** The AI Fix endpoint now sends the figure image, figure history, and validation context to the LLM for context-aware fixes.
 - **Check Answer (VLM verification):** "Check Answer" button sends the task image + question to `mimo-v2.5` (VLM), then verifies the VLM's answer against the golden answer using `mimo-v2.5` (text-only) for unbiased semantic equivalence. Result displayed inline and logged as `TaskEvent(event_type="check_answer")`. Helps authors discover if a task is answerable and whether it's challenging enough to stump VLMs.
+- **Premise fact-check gate:** Every regenerate draft that passes text validation is run through an adversarial VLM fact-checker (`FACT_CHECK_PROMPT`): each factual claim is marked SUPPORTED / NOT_SUPPORTED / UNVERIFIABLE and any non-SUPPORTED claim rejects the draft. Failures feed back into the retry loop as feedback; fact-failed drafts are stored in Task History (restorable) but never auto-saved. Fail-open on checker tooling errors. Stored in `generation_attempts.fact_check_errors`.
+- **Answer determinism gate:** Challenging/Hardest drafts must also pass a 3-run sampled determinism check (minimax-m3 reads the question independently; every read must match the golden answer — numeric with relative tolerance, words exact + semantic fallback). This is the machine proof of the "two readers give the same answer" rule; diverging reads reject the draft and feed back into regeneration. Stored in `generation_attempts.determinism_errors`. Standalone: `POST /api/task/{id}/determinism-check` button + `arxiv-manager task determinism <id>`.
+- **Dual-target Hardest prompts:** HARDEST means BOTH `openrouter/qwen/qwen3.6-35b-a3b` AND `google/gemini-3.5-flash` must fail. `_model_cards.py` holds verified capability cards (Qwen: strong OCR/diagrams/math 82–93, weak ODInW13 counting 50.8 / ZEROBench novel formats 34.4 / RefSpatial 64.3; Gemini: near-Pro reasoner — beatable only via perception failures). HARDEST_PROMPT + SELF_CRITIQUE_PROMPT enforce the both-fail rubric with FAILS-BOTH avoid/prefer lists.
+- **Difficulty-aware few-shot ordering:** `get_few_shot_examples` prefers both-model-failed attempts (`qwen_passes=0 AND gemini_passes=0`) for Hardest, and Qwen-failed/Gemini-passed attempts for Challenging.
+- **Realm verdict ingestion:** `arxiv-manager task verdict <id> --verdict too_easy|too_hard|approved` (or `POST /api/task/{id}/verdict`) records the outcome on the latest SubmissionLog and auto-adjusts difficulty one tier (warn-only). Logged as `TaskEvent(realm_verdict)` and consumed by strategy analytics.
+- **Strategy analytics:** `/analytics/strategies` aggregates auto-classified question strategies (counting, comparison, rank, cross_panel_sum_diff, spatial, percentage_change, single_lookup, other) × every verdict signal (Realm verdicts, manual pass counts, check-answer, determinism) via a pluggable data-provider seam (`analytics/strategies.task_verdict_sources`) for a future rollout engine.
 - **Multi-agent orchestration:** Orchestrator plans subtasks → delegates to Generator → delegates to Reviewer → aggregates results. Uses `AgentContext` for shared state and delegation chains.
 - **DB-backed task scheduling:** Jobs are enqueued to `scheduled_tasks` table, picked up by a subprocess worker. Priority-based FIFO with automatic retry. No external dependencies (no Redis/Celery).
 - **Subprocess worker isolation:** Worker runs in a separate Python process via `subprocess.Popen`, communicates via shared SQLite (WAL mode). Sentinel file for graceful shutdown on all platforms.
@@ -115,6 +131,10 @@ src/arxiv_manager/
 | `run.py` | FastAPI entry point |
 | `src/arxiv_manager/web/app.py` | App factory, route registration, logging, rate limiting, MCP, auth middleware |
 | `src/arxiv_manager/authoring/ai_draft/core.py` | Core generation pipeline with RAG injection |
+| `src/arxiv_manager/authoring/ai_draft/_fact_checker.py` | Adversarial premise fact-check (`fact_check_draft`) |
+| `src/arxiv_manager/authoring/ai_draft/_determinism.py` | 3-run sampled answer determinism (`check_determinism_for_qa`) |
+| `src/arxiv_manager/authoring/_model_cards.py` | Verified Qwen/Gemini capability cards (HF/OpenRouter) |
+| `src/arxiv_manager/analytics/strategies.py` | Strategy-class × verdict aggregation + provider seam |
 | `src/arxiv_manager/authoring/ai_draft/_api_client.py` | LLM API client (OpenCode), token usage capture |
 | `src/arxiv_manager/authoring/ai_draft/_image_utils.py` | Shared image encoding for LLM consumption (base64 JPEG) |
 | `src/arxiv_manager/authoring/_history_context.py` | History injection (build_task_history + build_figure_history), few-shot, model selection, task state injection |
@@ -146,8 +166,8 @@ src/arxiv_manager/
 | `src/arxiv_manager/vision/models.py` | Lazy ResNet-18 loader |
 | `src/arxiv_manager/vision/extractor.py` | 512-dim feature extraction |
 | `src/arxiv_manager/vision/classifier.py` | Figure type classification |
-| `evaluation/golden_dataset.json` | Golden dataset of 7 proven Q&A pairs |
-| `evaluation/offline_eval.py` | Offline evaluation harness |
+| `evaluation/golden_dataset.json` | Golden dataset of 10 Q&A pairs (3 verified against real images, determinism bar) |
+| `evaluation/offline_eval.py` | Offline evaluation harness (validator + optional determinism runs) |
 
 ## New DB Tables
 
@@ -158,7 +178,15 @@ src/arxiv_manager/
 | `auth_tokens` | `personalization.models` | Bearer token storage |
 | `user_profiles` | `personalization.models` | User generation preferences |
 | `user_preferences` | `personalization.models` | Key-value preference pairs |
-| `task_events` | `models.py` | Unified audit trail for all task state changes (regeneration, update, difficulty_change, rhea_review, issue_report, ai_fix, submit, delete) |
+| `task_events` | `models.py` | Unified audit trail for all task state changes (regeneration, update, difficulty_change, rhea_review, issue_report, ai_fix, submit, delete, restore, check_answer, determinism_check, realm_verdict) |
+
+## Key DB Columns (migrations in `db.py`)
+
+| Column | Table | Purpose |
+|--------|-------|---------|
+| `fact_check_errors` | `generation_attempts` | JSON list of unsupported premise claims (fact-check gate) |
+| `determinism_errors` | `generation_attempts` | JSON list of sampled answers that diverged from the golden |
+| `review_status` | `submission_logs` | `pending \| approved \| rework \| too_easy \| too_hard` (Realm verdicts via `record_realm_verdict`)
 
 ## Storage Layout
 

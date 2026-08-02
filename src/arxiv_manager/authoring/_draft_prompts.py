@@ -141,16 +141,34 @@ Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number
 
 HARDEST_PROMPT = PromptTemplate(
     "HARDEST_PROMPT",
-    _with_strict("""Create an EXTREMELY HARD visual-reasoning question for this image that Qwen 3.6-35B-A3B will FAIL on.
+    _with_strict("""Create an EXTREMELY HARD visual-reasoning question for this image that BOTH Qwen 3.6-35B-A3B AND Gemini 3.5 Flash will FAIL on.
 
-Qwen's known weaknesses (from benchmarks):
-- ODInW13 (object detection/counting): 50.8 — weak at counting many visual elements
-- ZEROBench_sub (zero-shot reasoning): 34.4 — weak at novel task formats
+HARDEST means BOTH models must fail it. Do not stop at defeating Qwen.
+
+Capability cards (verified benchmarks, 2026-08):
+QWEN 3.6-35B-A3B — STRONG: OCR/document reading 89.9, diagram understanding 92.7, MathVista 86.4, MMMU 81.7.
+QWEN — WEAK: counting objects in the wild (ODInW13 50.8), novel task formats (ZEROBench_sub 34.4), fine-grained spatial references (RefSpatialBench 64.3).
+GEMINI 3.5 FLASH — STRONG: near-Pro reasoning (AI index 50.2 vs Qwen 31.6), mandatory careful thinking, excellent reading and math.
+GEMINI — assumed weak on the same perception-level tasks (counting small/dense elements, fine spatial distinctions); no public vision benchmarks yet.
+
+FAILS BOTH → AVOID (one model or both will solve these):
+- Pure OCR or text extraction — Qwen reads text at 82-90, Gemini reads even better
+- Single-value chart reads and simple chart arithmetic — both models are strong at this
+- Text-only reasoning or math on values already stated — Gemini reasons carefully
+- Clearly-labeled diagram traversal — Qwen scores 92.7 on diagrams
+
+FAILS BOTH → PREFER (perception-level failures):
+- Counting small/dense visual elements in natural/UI scenes (not clean chart elements)
+- Fine-grained spatial distinctions: near-identical positions, subtle ordering, small offsets
+- Novel multi-step formats Qwen has never seen (ZEROBench 34.4) that also force exact perception
+- Cross-panel arithmetic over many unlabeled visual elements that must each be located and counted
+
 Why Qwen fails on Hardest: it tends to answer the FIRST comparison it finds, cannot hold multiple data points in memory for arithmetic, and defaults to "cannot determine" when the reasoning chain is too long.
+Why Gemini fails on Hardest: it is a strong reasoner, so the failure must come from PERCEPTION — a value it cannot reliably read or count from the image — not from reasoning depth.
 
 WORKFLOW — choose the best pattern for THIS image:
 Step 1: ANALYZE the image briefly (chart type, panels, data series). Keep to 2-3 sentences max.
-Step 2: CHOOSE a reasoning task that requires 2+ visual operations.
+Step 2: CHOOSE a reasoning task that requires 2+ visual operations and targets perception (not reasoning) as the failure point.
 Step 3: GENERATE the question and output ONLY valid JSON. Do not explain your reasoning in detail — just output the JSON.
 
 PROVEN example (percentage change):
@@ -547,7 +565,11 @@ SELF_CRITIQUE_PROMPT = PromptTemplate(
 Q: {question}
 A: {answer}
 {fx_context}
-Rate 1-5: would Qwen 3.6-35B-A3B likely FAIL on this? A "5" means definitely fails, "1" means definitely solves.
+Rate 1-5: would BOTH Qwen 3.6-35B-A3B AND Gemini 3.5 Flash likely FAIL on this? A "5" means both definitely fail, "1" means both definitely solve.
+
+Capability notes:
+- Qwen: strong OCR/diagrams/math (82-93), weak at in-the-wild counting (ODInW13 50.8), novel formats (ZEROBench 34.4), fine spatial (RefSpatialBench 64.3)
+- Gemini: near-Pro reasoning, mandatory careful thinking — it rarely fails on reasoning depth or math; it can only be beaten by a PERCEPTION failure (something it cannot reliably read or count from the image)
 
 CRITICAL CHECK FIRST: Could a smart person answer this WITHOUT seeing the image?
 - If the question provides all the numerical data needed to compute the answer in the text (e.g., "Panel A's X covers 0 to 5, Panel B's X covers 0 to 4. What is the ratio?" — answerable from text alone), score it 1 regardless of math complexity. The IMAGE must be REQUIRED.
@@ -557,6 +579,7 @@ A question deserves a HIGH score (4-5) only if it:
 - References a visual element (peak, trough, color region, specific data point, position on chart)
 - Requires COMPARING values or ranking from the image (not extracting a specific numeric value by tracing to an axis)
 - Cannot be answered from text alone
+- Would defeat a strong careful reasoner: the difficulty comes from PERCEPTION (counting small/dense elements, fine spatial distinctions, subtle visual grouping) rather than reasoning depth — that is the only way Gemini 3.5 Flash fails
 
 A question deserves a LOW score (1-2) if it is:
 - Pure math (ratio/difference/sum) of values stated in the question text
@@ -565,6 +588,7 @@ A question deserves a LOW score (1-2) if it is:
 - Mechanical counting of chart furniture
 - Answerable without the image (provides all needed data in text)
 - Asks for a specific y-axis value that requires tracing from a curve point to the axis (ambiguous answers)
+- Solvable by careful reading and reasoning on clearly visible values — Gemini 3.5 Flash reasons carefully and will pass these; the failure must come from perception
 
 If score is 1-3, REWRITE the question to:
 - REMOVE any explicit data values from the text (no "X covers 0 to 5")

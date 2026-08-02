@@ -84,15 +84,24 @@ def get_few_shot_examples(
         if task_type:
             query = query.where(GenerationAttempt.generated_task_type == task_type)
 
-        # Order by: closest complexity match first, then Rhea-approved, then Qwen-failed/Gemini-passed
+        # Order by: closest complexity match first, then Rhea-approved, then
+        # difficulty-appropriate model profile: for HARDEST prefer examples
+        # where BOTH models failed (qwen_passes == 0 AND gemini_passes == 0);
+        # otherwise prefer Qwen-failed/Gemini-passed (the CHALLENGING profile).
         if complexity_score > 0:
             query = query.order_by(abs(GenerationAttempt.complexity_score - complexity_score))
         else:
             query = query.order_by(desc(GenerationAttempt.validation_quality))
-        if reported_ids:
+        if difficulty == "hardest":
+            query = query.order_by(GenerationAttempt.qwen_passes.asc())
+            query = query.order_by(GenerationAttempt.gemini_passes.asc())
+        elif reported_ids:
             query = query.order_by(GenerationAttempt.rhea_passed.desc())
-        query = query.order_by(GenerationAttempt.qwen_passes.asc())
-        query = query.order_by(GenerationAttempt.gemini_passes.desc())
+            query = query.order_by(GenerationAttempt.qwen_passes.asc())
+            query = query.order_by(GenerationAttempt.gemini_passes.desc())
+        else:
+            query = query.order_by(GenerationAttempt.qwen_passes.asc())
+            query = query.order_by(GenerationAttempt.gemini_passes.desc())
 
         rows = list(session.exec(query.limit(limit * 2)).all())
 

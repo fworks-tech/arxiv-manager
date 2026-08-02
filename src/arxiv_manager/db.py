@@ -34,6 +34,13 @@ def _migrate() -> None:
             logger.info("migration: added tasks.rhea_override_notes")
 
     with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(text("PRAGMA table_info(tasks)")).fetchall()]
+        if "test_model_restriction" not in cols:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN test_model_restriction TEXT NOT NULL DEFAULT 'all'"))
+            conn.commit()
+            logger.info("migration: added tasks.test_model_restriction")
+
+    with engine.connect() as conn:
         cols = [row[1] for row in conn.execute(text("PRAGMA table_info(generation_attempts)")).fetchall()]
         if "prompt_text_hash" not in cols:
             conn.execute(text("ALTER TABLE generation_attempts ADD COLUMN prompt_text_hash TEXT NOT NULL DEFAULT ''"))
@@ -72,6 +79,13 @@ def _migrate() -> None:
             conn.execute(text("ALTER TABLE generation_attempts ADD COLUMN fact_check_errors TEXT NOT NULL DEFAULT ''"))
             conn.commit()
             logger.info("migration: added generation_attempts.fact_check_errors")
+
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(text("PRAGMA table_info(generation_attempts)")).fetchall()]
+        if "determinism_errors" not in cols:
+            conn.execute(text("ALTER TABLE generation_attempts ADD COLUMN determinism_errors TEXT NOT NULL DEFAULT ''"))
+            conn.commit()
+            logger.info("migration: added generation_attempts.determinism_errors")
 
     with engine.connect() as conn:
         tables = [row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()]
