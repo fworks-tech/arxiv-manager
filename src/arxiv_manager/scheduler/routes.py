@@ -25,7 +25,7 @@ def api_enqueue(body: dict[str, Any]) -> dict[str, Any]:
     """Enqueue a new job.
 
     Body:
-        type: str (required) - "generate_qa" | "validate_batch" | "rag_index"
+        type: str (required) - "generate_qa" | "regenerate_task" | "validate_batch" | "rag_index"
         payload: dict (optional) - kwargs for the job handler
         priority: int (optional, default 0)
         max_attempts: int (optional, default 3)

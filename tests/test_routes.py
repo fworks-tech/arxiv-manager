@@ -9,6 +9,7 @@ direct reference to the original function object.
 """
 
 import io
+import json
 import re
 
 import pytest
@@ -272,17 +273,13 @@ class TestDiscardUpload:
 
 
 class TestTaskRegenerate:
-    def test_regenerate_with_mock(self, test_client, override_storage, monkeypatch):
-        """Regenerate with mocked API returns new Q&A."""
+    def test_regenerate_async_enqueues_job(self, test_client, override_storage, monkeypatch):
+        """Regenerate now enqueues a scheduler job (async) by default."""
         import arxiv_manager.web.routes.task_routes as tr_mod
 
-        def _fake_draft(**kw):
-            return {"question": "Compare the blue bar at category X across both panels — which panel has the higher value?", "answer": "Panel A", "answer_format": "word", "task_type": "chart", "_validation_is_valid": True}
+        monkeypatch.setattr(tr_mod, "draft_with_self_critique", lambda **kw: None)
+        monkeypatch.setattr(tr_mod, "draft_qa", lambda **kw: None)
 
-        monkeypatch.setattr(tr_mod, "draft_with_self_critique", _fake_draft)
-        monkeypatch.setattr(tr_mod, "draft_qa", _fake_draft)
-
-        # Upload an image to get a valid upload_id
         import io
 
         from PIL import Image
@@ -297,7 +294,6 @@ class TestTaskRegenerate:
         assert match
         upload_id = match.group(1).decode()
 
-        # Propose the task
         prop = test_client.post(
             "/api/image/propose",
             data={
@@ -330,6 +326,82 @@ class TestTaskRegenerate:
 
         resp = test_client.post(
             f"/api/task/{task_id}/regenerate",
+            data={"difficulty": "challenging"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["ok"] is True
+        assert data.get("async") is True
+        assert data.get("job_id") is not None
+        assert data.get("status") == "queued"
+
+        # Job row exists with the right payload
+        from arxiv_manager.db import get_session as _gs
+        from arxiv_manager.scheduler.models import ScheduledTask
+
+        s = _gs()
+        job = s.get(ScheduledTask, data["job_id"])
+        s.close()
+        assert job is not None
+        assert job.type == "regenerate_task"
+        assert json.loads(job.payload)["task_id"] == task_id
+
+    def test_regenerate_sync_with_mock(self, test_client, override_storage, monkeypatch):
+        """Regenerate with sync=1 still runs the full pipeline inline."""
+        import arxiv_manager.web.routes.task_routes as tr_mod
+
+        def _fake_draft(**kw):
+            return {"question": "Compare the blue bar at category X across both panels — which panel has the higher value?", "answer": "Panel A", "answer_format": "word", "task_type": "chart", "_validation_is_valid": True, "_validation_errors": [], "_fact_check_errors": [], "_determinism_errors": []}
+
+        monkeypatch.setattr(tr_mod, "draft_with_self_critique", _fake_draft)
+        monkeypatch.setattr(tr_mod, "draft_qa", _fake_draft)
+
+        import io
+
+        from PIL import Image
+
+        img = Image.new("RGB", (100, 100), (100, 150, 200))
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG")
+        buf.seek(0)
+        up = test_client.post("/api/image/upload", files={"image": ("t.jpg", buf, "image/jpeg")})
+        assert up.status_code == 200
+        match = re.search(rb'data-upload-id="([^"]+)"', up.content)
+        assert match
+        upload_id = match.group(1).decode()
+
+        prop = test_client.post(
+            "/api/image/propose",
+            data={
+                "upload_id": upload_id,
+                "question": "Q?",
+                "answer": "1",
+                "answer_format": "number",
+                "task_type": "chart",
+                "domain": "Physics",
+                "title": "Test",
+            },
+        )
+        task_id = None
+        if prop.status_code in (303, 302):
+            loc = prop.headers.get("location", "")
+            m2 = re.search(r"/task/(\d+)", loc)
+            if m2:
+                task_id = int(m2.group(1))
+        if not task_id:
+            from arxiv_manager.db import get_session
+            from arxiv_manager.models import Task
+
+            s = get_session()
+            tasks = s.exec(select(Task).order_by(Task.id.desc())).first()
+            if tasks:
+                task_id = tasks.id
+            s.close()
+        if not task_id:
+            pytest.skip("Could not create a task via propose endpoint")
+
+        resp = test_client.post(
+            f"/api/task/{task_id}/regenerate?sync=1",
             data={"difficulty": "challenging"},
         )
         assert resp.status_code == 200

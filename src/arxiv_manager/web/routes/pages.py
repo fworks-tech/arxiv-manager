@@ -209,6 +209,16 @@ def task_detail(request: Request, task_id: int):
 
         validation = validate_task(task.question, task.answer, task.answer_format)
 
+        from sqlmodel import select as _select
+
+        from ...models import SubmissionLog
+
+        log = session.exec(
+            _select(SubmissionLog)
+            .where(SubmissionLog.task_id == task_id)
+            .order_by(SubmissionLog.submitted_at.desc())
+        ).first()
+
         return TEMPLATES.TemplateResponse(
             request,
             "task_form.html",
@@ -216,6 +226,7 @@ def task_detail(request: Request, task_id: int):
                 "figure": figure,
                 "task": task,
                 "validation": validation,
+                "latest_verdict": log.review_status if log else "",
             },
         )
     finally:

@@ -110,6 +110,13 @@ def _migrate() -> None:
             SQLModel.metadata.create_all(engine, tables=["issue_reports"])
             logger.info("migration: created issue_reports table")
 
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(text("PRAGMA table_info(tasks)")).fetchall()]
+        if "golden_suspect" not in cols:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN golden_suspect INTEGER NOT NULL DEFAULT 0"))
+            conn.commit()
+            logger.info("migration: added tasks.golden_suspect")
+
 
 def init_db() -> None:
     """Create all tables if they don't exist."""

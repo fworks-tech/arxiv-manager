@@ -538,12 +538,14 @@ Examine the image carefully, then compare the proposed answer to what you observ
 
 When the answers DIFFER, analyze what the VLM may have miscounted or misinterpreted based on your own visual analysis, and explain the correct reasoning.
 
+"golden_correct" is your independent judgment of whether the EXPECTED answer is correct given the image. When match=false, the VLM may be wrong, the golden answer may be wrong, or both may be wrong — decide based on your own reading of the image.
+
 Question: {question}
 Expected answer: {golden_answer}
 Proposed answer: {vlm_answer}
 VLM reasoning: {vlm_reasoning}
 
-Return ONLY valid JSON: {{"match": true/false, "explanation": "<brief reason why they match or differ>", "analysis": "<if match=false: based on your visual analysis, identify what the VLM miscounted or misinterpreted and what the correct reasoning should be. If match=true: return empty string>"}}""",
+Return ONLY valid JSON: {{"match": true/false, "golden_correct": true/false, "explanation": "<brief reason why they match or differ>", "analysis": "<if match=false: based on your visual analysis, identify what the VLM miscounted or misinterpreted and what the correct reasoning should be. If match=true: return empty string>"}}""",
 )
 
 

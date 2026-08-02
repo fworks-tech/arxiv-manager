@@ -47,12 +47,36 @@ def _execute_job(task: ScheduledTask) -> None:
 
     if task.type == "generate_qa":
         _execute_generate_qa(task.id, payload)
+    elif task.type == "regenerate_task":
+        _execute_regenerate_task(task.id, payload)
     elif task.type == "validate_batch":
         _execute_validate_batch(task.id, payload)
     elif task.type == "rag_index":
         _execute_rag_index(task.id, payload)
     else:
         fail_job(task.id, f"Unknown job type: {task.type}")
+
+
+def _execute_regenerate_task(job_id: int, payload: dict) -> None:
+    """Regenerate a task's Q&A via the full gate chain (worker-callable)."""
+    try:
+        from ..web.routes.task_routes import run_regeneration
+
+        task_id = payload.get("task_id")
+        difficulty = payload.get("difficulty", "challenging")
+        if not task_id:
+            fail_job(job_id, "regenerate_task: missing task_id in payload")
+            return
+        result = run_regeneration(task_id, difficulty, source_route="scheduler_worker")
+        if result and result.get("ok"):
+            complete_job(job_id, result)
+        else:
+            error = (result or {}).get("error", "Regeneration failed")
+            logger.warning("worker: regenerate_task job %d failed: %s", job_id, error)
+            fail_job(job_id, error)
+    except Exception as exc:
+        logger.exception("worker: regenerate_task job %d failed", job_id)
+        fail_job(job_id, str(exc))
 
 
 def _execute_generate_qa(job_id: int, payload: dict) -> None:
