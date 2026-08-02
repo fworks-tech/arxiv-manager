@@ -21,6 +21,9 @@ def app_db(tmp_path, monkeypatch):
     from arxiv_manager import models as _app_models  # noqa: F401
     from arxiv_manager.scheduler import models as _sched_models  # noqa: F401
 
+    monkeypatch.setenv("OPENCODE_API_KEY", "test-api-key-12345")
+    monkeypatch.setenv("OPENCODE_TESTING", "1")
+
     db_path = tmp_path / "app_test.db"
     engine = create_engine(f"sqlite:///{db_path}", echo=False)
     SQLModel.metadata.create_all(engine)
