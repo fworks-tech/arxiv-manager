@@ -171,6 +171,33 @@
       Qwen: {{ e.qwen_passes }}/{{ e.qwen_passes + e.gemini_passes }} | Gemini: {{ e.gemini_passes }}/{{ e.qwen_passes + e.gemini_passes }}
     </div>
   </div>
+  {% elif e.event_type == "check_answer" %}
+  <div class="border rounded-lg p-3 {% if e.match %}border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20{% else %}border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20{% endif %}">
+    <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">
+      <span class="font-medium text-gray-700 dark:text-gray-200 px-1.5 py-0.5 rounded bg-white/60 dark:bg-gray-700/60 text-xs">🧪 Check Answer</span>
+      <span class="ml-auto">{{ e.created_at }}</span>
+    </div>
+    <div class="text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
+      <div>{% if e.match %}<span class="text-green-600 dark:text-green-400">✅ VLM matched golden ({{ e.vlm_answer }})</span>{% else %}<span class="text-yellow-700 dark:text-yellow-300">❌ VLM differed — golden: {{ e.golden_answer }} · VLM: {{ e.vlm_answer }}</span>{% endif %}</div>
+      {% if e.golden_correct is defined and not e.golden_correct %}
+      <div class="text-red-600 dark:text-red-400 font-medium">⚠️ Verifier judged the GOLDEN answer wrong</div>
+      {% endif %}
+      {% if e.analysis %}<div class="text-gray-500 dark:text-gray-400">{{ e.analysis[:200] }}{% if e.analysis|length > 200 %}...{% endif %}</div>{% endif %}
+    </div>
+  </div>
+  {% elif e.event_type == "realm_verdict" %}
+  <div class="border rounded-lg p-3 border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-900/20">
+    <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">
+      <span class="font-medium text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded bg-white/60 dark:bg-gray-700/60 text-xs">🌐 Realm Verdict</span>
+      <span class="ml-auto">{{ e.created_at }}</span>
+    </div>
+    <div class="text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
+      <div><strong class="text-gray-700 dark:text-gray-300">{{ e.verdict }}</strong>
+        {% if e.old_difficulty is defined and e.new_difficulty is defined %} | difficulty: {{ e.old_difficulty }} → <strong class="text-gray-900 dark:text-gray-100">{{ e.new_difficulty }}</strong>{% endif %}
+      </div>
+      {% if e.notes %}<div>{{ e.notes }}</div>{% endif %}
+    </div>
+  </div>
   {% elif e.event_type == "delete" %}
   <div class="border rounded-lg p-3 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
     <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">

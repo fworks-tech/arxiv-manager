@@ -111,9 +111,14 @@ def record_verdict_route(task_id: int, verdict: str = Form(...), notes: str = Fo
     logger.info("task verdict task_id=%d verdict=%s", task_id, verdict)
     if verdict not in REALM_VERDICTS:
         raise HTTPException(status_code=400, detail=f"verdict must be one of {REALM_VERDICTS}")
-    task = record_realm_verdict(task_id, verdict, notes)
+    try:
+        task = record_realm_verdict(task_id, verdict, notes)
+    except Exception as exc:
+        logger.error("task verdict task_id=%d failed to persist: %s", task_id, exc)
+        raise HTTPException(status_code=500, detail=f"Verdict persistence failed: {exc}")
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    logger.info("task verdict persisted task_id=%d verdict=%s difficulty=%s", task_id, verdict, task.difficulty)
     return JSONResponse(
         {"ok": True, "verdict": verdict, "difficulty": task.difficulty}
     )

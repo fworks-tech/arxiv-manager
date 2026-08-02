@@ -52,26 +52,38 @@ def enqueue(
 def dequeue() -> ScheduledTask | None:
     """Pick the highest-priority queued job and mark it running.
 
-    Returns the job or None if the queue is empty.
+    Uses an atomic UPDATE ... WHERE status='queued' claim so concurrent
+    workers never execute the same job twice. Returns the job or None if
+    the queue is empty.
     """
+    from sqlmodel import update
+
     session = get_session()
     try:
-        task = session.exec(
-            select(ScheduledTask)
-            .where(ScheduledTask.status == "queued")
-            .order_by(desc(ScheduledTask.priority), ScheduledTask.created_at)
-            .limit(1)
-        ).first()
+        while True:
+            task = session.exec(
+                select(ScheduledTask)
+                .where(ScheduledTask.status == "queued")
+                .order_by(desc(ScheduledTask.priority), ScheduledTask.created_at)
+                .limit(1)
+            ).first()
 
-        if task is None:
-            return None
+            if task is None:
+                return None
 
-        task.status = "running"
-        task.started_at = datetime.now()
-        session.add(task)
-        session.commit()
-        session.refresh(task)
-        return task
+            # Atomic claim: only succeeds if still queued
+            result = session.exec(
+                update(ScheduledTask)
+                .where(ScheduledTask.id == task.id)
+                .where(ScheduledTask.status == "queued")
+                .values(status="running", started_at=datetime.now())
+            )
+            session.commit()
+            if result.rowcount != 1:
+                session.expire_all()  # lost the race; re-scan
+                continue
+            session.refresh(task)
+            return task
     finally:
         session.close()
 

@@ -39,6 +39,12 @@
       <div class="text-xs text-red-600 dark:text-red-400 whitespace-pre-wrap">{{ analysis }}</div>
     </div>
     {% endif %}
+    {% if golden_suspect %}
+    <div class="mt-2 p-2 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded-lg">
+      <div class="text-xs font-semibold text-red-700 dark:text-red-300">⚠️ Golden answer flagged as suspect</div>
+      <div class="text-xs text-red-600 dark:text-red-400">The verifier judged the golden answer wrong. Re-verify the answer against the image before submitting.</div>
+    </div>
+    {% endif %}
     {% if tokens > 0 %}
     <div class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ tokens }} tokens · logged to Task History</div>
     {% endif %}

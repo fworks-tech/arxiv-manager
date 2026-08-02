@@ -126,6 +126,7 @@ class Task(SQLModel, table=True):
     submitted_at: datetime | None = None
     platform_task_id: str = ""
     test_model_restriction: str = Field(default="all")  # all | qwen_only | gemini_only
+    golden_suspect: bool = False  # Check Answer VLM disagreed and verifier judged the golden wrong
 
 
 class IssueReport(SQLModel, table=True):

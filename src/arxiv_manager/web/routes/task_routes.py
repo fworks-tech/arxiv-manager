@@ -104,6 +104,18 @@ def api_update_task(
             s.close()
     logger.info("task updated id=%d valid=%s", task_id, validation.is_valid)
 
+    from ...models import SubmissionLog
+
+    s2 = get_session()
+    try:
+        log = s2.exec(
+            select(SubmissionLog)
+            .where(SubmissionLog.task_id == task_id)
+            .order_by(SubmissionLog.submitted_at.desc())
+        ).first()
+    finally:
+        s2.close()
+
     return TEMPLATES.TemplateResponse(
         request,
         "task_form.html",
@@ -111,6 +123,7 @@ def api_update_task(
             "figure": figure,
             "task": task,
             "validation": validation,
+            "latest_verdict": log.review_status if log else "",
         },
     )
 
@@ -445,6 +458,7 @@ def _log_attempt(
     complexity,
     prev_question,
     model_name="",
+    source_route="api_regenerate_task",
 ):
     """Log a generation attempt to telemetry."""
     usage = draft.get("_usage", {})
@@ -453,7 +467,7 @@ def _log_attempt(
         task_id=task_id,
         attempt_number=attempt_number,
         generation_type=generation_type,
-        source_route="api_regenerate_task",
+        source_route=source_route,
         prompt_template_name=f"{difficulty}_{figure_type}" if figure_type else difficulty,
         prompt_version_id=draft.get("_prompt_version_id", ""),
         prompt_text_hash=draft.get("_prompt_text_hash", ""),
@@ -518,9 +532,13 @@ def _dedup_retry(
     return None
 
 
-@router.post("/api/task/{task_id}/regenerate")
-def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("challenging")):
-    """Regenerate Q&A for a task using AI draft."""
+def run_regeneration(task_id: int, difficulty: str, source_route: str = "api_regenerate_task") -> dict:
+    """Run the full regeneration pipeline for a task and return the result dict.
+
+    Worker-callable: no FastAPI request dependency, so the scheduler worker
+    subprocess can execute the same gate chain (validation → fact-check →
+    determinism → dedup → auto-classify → save) as the synchronous route.
+    """
     import os as os_mod
 
     logger.info("task regenerate task_id=%d difficulty=%s", task_id, difficulty)
@@ -534,44 +552,53 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
         if not task:
             return {"error": "Task not found", "ok": False}
 
-        # Cap consecutive regenerate failures at 2 — block all subsequent attempts
-        # unless the task Q&A has been manually edited since the last failure.
-        # Each logged record represents a failure AFTER internal feedback retries
-        # were exhausted, so this only fires when regeneration is truly stuck.
-        recent_failures = session.exec(
+        # Cap consecutive regeneration failures at 3 — block all subsequent
+        # attempts unless the task Q&A has been manually edited since the last
+        # failure. Unlike the previous same-error-only cap, ANY failure reason
+        # counts (validation, fact-check, determinism, or LLM error), so a task
+        # that keeps failing with different errors is blocked after 3 attempts
+        # instead of burning unlimited LLM calls (~$2-3 each).
+        consecutive_failures = session.exec(
             select(GenerationAttempt)
             .where(GenerationAttempt.task_id == task_id)
             .where(GenerationAttempt.generation_type == "regenerate_initial")
             .order_by(GenerationAttempt.created_at.desc())
-            .limit(2)
+            .limit(3)
         ).all()
-        if len(recent_failures) >= 2:
-            err_sets = []
-            fact_sets = []
-            for a in recent_failures:
-                errs = _json.loads(a.validation_errors) if a.validation_errors else []
-                err_sets.append(set(errs))
-                fcts = _json.loads(a.fact_check_errors) if a.fact_check_errors else []
-                fact_sets.append(set(fcts))
-            common = err_sets[0] & err_sets[1]
-            common_facts = fact_sets[0] & fact_sets[1]
-            if common or common_facts:
-                # Check if task was manually edited since last failure
-                newest = recent_failures[0]
-                task_unchanged = (
-                    task.question == (newest.generated_question or "")
-                    and task.answer == (newest.generated_answer or "")
+        failed_reasons: list[str] = []
+        for a in consecutive_failures:
+            if not a.success:
+                failed_reasons.append("generation failed")
+            elif not a.validation_is_valid:
+                failed_reasons.append("validation rejected the draft")
+            elif _json.loads(a.fact_check_errors) if a.fact_check_errors else False:
+                failed_reasons.append("premise fact-check failed")
+            elif _json.loads(a.determinism_errors) if a.determinism_errors else False:
+                failed_reasons.append("determinism check failed")
+            else:
+                failed_reasons = []
+                break
+        if len(failed_reasons) == 3:
+            # Check if the task was manually edited since the last failure — an
+            # edit resets the cap so the author can try again on fresh content.
+            # previous_question holds the task's question when the attempt ran,
+            # so "unchanged" means the author hasn't touched the task since.
+            newest = consecutive_failures[0]
+            task_unchanged = task.question == (newest.previous_question or "")
+            if task_unchanged:
+                reasons = "; ".join(failed_reasons)
+                logger.warning(
+                    "task regenerate cap hit task_id=%d (3 consecutive failures: %s)",
+                    task_id, reasons,
                 )
-                if task_unchanged:
-                    common_str = "; ".join(list(common | common_facts)[:2])
-                    return {
-                        "error": (
-                            f"This task has failed regeneration twice with the same issue: {common_str}. "
-                            "Try changing the difficulty to 'easy', editing the Q&A manually, "
-                            "or using a different image."
-                        ),
-                        "ok": False,
-                    }
+                return {
+                    "error": (
+                        f"This task has failed regeneration 3 consecutive times ({reasons}). "
+                        "Each attempt costs LLM calls with no result. Edit the Q&A manually "
+                        "first (resets the cap), or use a different image."
+                    ),
+                    "ok": False,
+                }
 
         img_path = STORAGE_DIR / task.image_path
         if not img_path.exists():
@@ -618,6 +645,7 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
             complexity,
             prev_question,
             model_name,
+            source_route=source_route,
         )
 
         # Fail fast: if draft failed difficulty-aware validation, return early
@@ -723,6 +751,7 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
             complexity,
             prev_question,
             model_name,
+            source_route=source_route,
         )
 
         usage = draft.get("_usage", {})
@@ -748,6 +777,93 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
         }
     finally:
         session.close()
+
+
+@router.post("/api/task/{task_id}/regenerate")
+def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("challenging")):
+    """Regenerate Q&A for a task via the DB-backed scheduler (async by default).
+
+    The job is executed by the scheduler worker subprocess (same gate chain as
+    the synchronous path: validation → fact-check → determinism → dedup →
+    auto-classify → save). The client polls GET /api/task/{id}/regenerate-status
+    until the job reaches done/failed. Pass sync=1 to run inline instead.
+    """
+    from ...scheduler.manager import start_worker, worker_is_alive
+    from ...scheduler.queue import enqueue as _enqueue
+
+    sync = request.query_params.get("sync", "0") == "1"
+    if sync:
+        return run_regeneration(task_id, difficulty, source_route="api_regenerate_task")
+
+    import os as os_mod
+
+    if not os_mod.environ.get("OPENCODE_API_KEY"):
+        return {"error": "No OPENCODE_API_KEY set", "ok": False}
+
+    # Fast-fail pre-checks so the author gets an immediate error instead of a
+    # job that dies in the worker for a bad task/image.
+    session = get_session()
+    try:
+        task = session.get(Task, task_id)
+        if not task:
+            return {"error": "Task not found", "ok": False}
+        img_path = STORAGE_DIR / task.image_path
+        if not img_path.exists():
+            return {"error": "Image not found", "ok": False}
+    finally:
+        session.close()
+
+    job = _enqueue(
+        "regenerate_task",
+        payload={"task_id": task_id, "difficulty": difficulty},
+        priority=10,
+        max_attempts=1,  # regeneration has its own internal retries; don't burn 3x
+    )
+    if not worker_is_alive():
+        try:
+            start_worker()
+        except Exception as exc:
+            logger.warning("task regenerate worker autostart failed: %s", exc)
+    logger.info("task regenerate enqueued task_id=%d job=%d difficulty=%s", task_id, job.id, difficulty)
+    return {"ok": True, "job_id": job.id, "status": job.status, "async": True}
+
+
+@router.get("/api/task/{task_id}/regenerate-status")
+def api_regenerate_status(task_id: int):
+    """Return the latest regenerate job status + result for a task."""
+    from ...scheduler.models import ScheduledTask
+    from ...scheduler.queue import get_job_status
+
+    session = get_session()
+    try:
+        job = session.exec(
+            select(ScheduledTask)
+            .where(ScheduledTask.type == "regenerate_task")
+            .order_by(ScheduledTask.id.desc())
+            .limit(20)
+        ).all()
+    finally:
+        session.close()
+
+    for candidate in job:
+        import json as _json_mod
+
+        try:
+            payload = _json_mod.loads(candidate.payload) if candidate.payload else {}
+        except _json_mod.JSONDecodeError:
+            payload = {}
+        if payload.get("task_id") == task_id:
+            status = get_job_status(candidate.id)
+            if status is None:
+                continue
+            result = None
+            if status.get("result"):
+                try:
+                    result = _json_mod.loads(status["result"])
+                except _json_mod.JSONDecodeError:
+                    result = {"raw": status["result"]}
+            return {"ok": True, "job_id": candidate.id, "status": status["status"], "result": result}
+    return {"ok": True, "job_id": None, "status": "none"}
 
 
 @router.post("/api/task/{task_id}/ai-fix", response_class=HTMLResponse)
@@ -922,6 +1038,43 @@ def api_restore_task(request: Request, task_id: int, attempt_id: int):
             return HTMLResponse(
                 "<div class='text-red-500 p-3 text-sm'>Cannot restore — attempt has empty Q&A</div>"
             )
+
+        # Restore gate: never restore an attempt that failed the gates. A restore
+        # reintroduces that Q&A as the task's golden pair, so it must not be a
+        # rejected draft (invalid, fact-check-failed, or determinism-failed).
+        import json as _json_mod
+
+        def _nonempty_json_list(value: str) -> list:
+            try:
+                data = _json_mod.loads(value) if value else []
+                return data if isinstance(data, list) else []
+            except _json_mod.JSONDecodeError:
+                return []
+
+        gate_reasons: list[str] = []
+        if not attempt.validation_is_valid:
+            gate_reasons.append("failed validation")
+        if _nonempty_json_list(attempt.fact_check_errors):
+            gate_reasons.append("failed the premise fact-check (claims not supported by the image)")
+        if _nonempty_json_list(attempt.determinism_errors):
+            gate_reasons.append("failed the determinism check (sampled reads disagreed with the golden answer)")
+        if gate_reasons:
+            reasons = "; ".join(gate_reasons)
+            logger.warning("task restore blocked task_id=%d attempt_id=%d: %s", task_id, attempt_id, reasons)
+            blocked_html = (
+                """<div class="border border-red-200 dark:border-red-800 bg-red-50"""
+                """ dark:bg-red-900/30 rounded-xl p-4 mt-2">"""
+                """<div class="flex items-center gap-2 text-sm">"""
+                """<span>⛔</span>"""
+                """<span class="font-semibold text-red-800 dark:text-red-300">Restore blocked</span>"""
+                f"""<span class="text-xs text-red-600 dark:text-red-400 ml-auto">attempt #{attempt_id}</span>"""
+                """</div>"""
+                f"""<p class="text-xs text-red-700 dark:text-red-400 mt-2">This attempt {reasons}. Restoring it would"""
+                """reintroduce a rejected Q&A as the golden answer. Edit the Q&A manually instead, or pick a"""
+                """different attempt.</p>"""
+                """</div>"""
+            )
+            return HTMLResponse(blocked_html)
 
         old_q = task.question
         old_a = task.answer
@@ -1194,12 +1347,26 @@ def api_check_answer(request: Request, task_id: int):
         )
 
         match = False
+        golden_correct = True  # default: golden answer assumed correct until verifier says otherwise
         explanation = ""
         analysis = ""
         if verify_result:
             match = bool(verify_result.get("match", False))
+            golden_correct = bool(verify_result.get("golden_correct", True))
             explanation = verify_result.get("explanation", "")
             analysis = verify_result.get("analysis", "")
+
+        # Persist a suspect-golden flag: VLM disagreed AND the verifier independently
+        # judged the golden answer wrong. Clear the flag when a run agrees.
+        if not match and not golden_correct:
+            task.golden_suspect = True
+            session.add(task)
+            session.commit()
+            logger.warning("check-answer: golden answer suspect task_id=%d vlm=%s", task_id, vlm_answer)
+        elif match:
+            task.golden_suspect = False
+            session.add(task)
+            session.commit()
 
         # Log to TaskEvent
         log_task_event(
@@ -1212,6 +1379,7 @@ def api_check_answer(request: Request, task_id: int):
                 "vlm_answer": vlm_answer,
                 "vlm_reasoning": vlm_reasoning,
                 "match": match,
+                "golden_correct": golden_correct,
                 "explanation": explanation,
                 "analysis": analysis,
                 "tokens": total_tokens,
@@ -1227,9 +1395,11 @@ def api_check_answer(request: Request, task_id: int):
                 "vlm_answer": vlm_answer,
                 "vlm_reasoning": vlm_reasoning,
                 "match": match,
+                "golden_correct": golden_correct,
                 "explanation": explanation,
                 "analysis": analysis,
                 "tokens": total_tokens,
+                "golden_suspect": bool(getattr(task, "golden_suspect", False)),
             },
         )
     finally:

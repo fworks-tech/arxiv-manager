@@ -116,6 +116,11 @@ src/arxiv_manager/
 - **Difficulty-aware few-shot ordering:** `get_few_shot_examples` prefers both-model-failed attempts (`qwen_passes=0 AND gemini_passes=0`) for Hardest, and Qwen-failed/Gemini-passed attempts for Challenging.
 - **Realm verdict ingestion:** `arxiv-manager task verdict <id> --verdict too_easy|too_hard|approved` (or `POST /api/task/{id}/verdict`) records the outcome on the latest SubmissionLog and auto-adjusts difficulty one tier (warn-only). Logged as `TaskEvent(realm_verdict)` and consumed by strategy analytics.
 - **Strategy analytics:** `/analytics/strategies` aggregates auto-classified question strategies (counting, comparison, rank, cross_panel_sum_diff, spatial, percentage_change, single_lookup, other) × every verdict signal (Realm verdicts, manual pass counts, check-answer, determinism) via a pluggable data-provider seam (`analytics/strategies.task_verdict_sources`) for a future rollout engine.
+- **Restore gate:** `api_restore_task` refuses to restore attempts that failed validation, the premise fact-check, or the 3-run determinism check — restoring a rejected draft would reintroduce a bad golden answer. Restore events record `attempt_valid` for audit.
+- **Golden-suspect flag:** Check Answer's verifier now returns `golden_correct` (independent judgment of the EXPECTED answer). When the VLM disagrees AND the verifier judges the golden wrong, `tasks.golden_suspect` is set (cleared on the next matching run) and a red banner appears in the task form + Check Answer partial.
+- **Async regeneration:** `POST /api/task/{id}/regenerate` enqueues a `regenerate_task` scheduler job (worker subprocess auto-starts if not alive) instead of blocking the HTTP request; the client polls `GET /api/task/{id}/regenerate-status`. `?sync=1` runs inline (used by tests/CLI). The worker executes the same gate chain via `run_regeneration()` (`web/routes/task_routes.py`), logging attempts with `source_route="scheduler_worker"`.
+- **Consecutive-failure regenerate cap:** regeneration is blocked after 3 consecutive failed attempts (ANY failure reason: validation, fact-check, determinism, or LLM error — not just repeated identical errors) unless the task Q&A was manually edited since the last failure (`previous_question` comparison). Prevents burning ~$2-3 LLM calls per attempt on stuck tasks.
+- **Atomic queue dequeue:** `scheduler.queue.dequeue` claims jobs via `UPDATE ... WHERE status='queued'` with rowcount check so concurrent workers never double-execute a job.
 - **Multi-agent orchestration:** Orchestrator plans subtasks → delegates to Generator → delegates to Reviewer → aggregates results. Uses `AgentContext` for shared state and delegation chains.
 - **DB-backed task scheduling:** Jobs are enqueued to `scheduled_tasks` table, picked up by a subprocess worker. Priority-based FIFO with automatic retry. No external dependencies (no Redis/Celery).
 - **Subprocess worker isolation:** Worker runs in a separate Python process via `subprocess.Popen`, communicates via shared SQLite (WAL mode). Sentinel file for graceful shutdown on all platforms.
@@ -187,6 +192,7 @@ src/arxiv_manager/
 | `fact_check_errors` | `generation_attempts` | JSON list of unsupported premise claims (fact-check gate) |
 | `determinism_errors` | `generation_attempts` | JSON list of sampled answers that diverged from the golden |
 | `review_status` | `submission_logs` | `pending \| approved \| rework \| too_easy \| too_hard` (Realm verdicts via `record_realm_verdict`)
+| `golden_suspect` | `tasks` | Flag set when Check Answer finds the VLM disagreed AND the verifier judged the golden answer wrong |
 
 ## Storage Layout
 

@@ -16,7 +16,7 @@ class ScheduledTask(SQLModel, table=True):
     __tablename__ = "scheduled_tasks"
 
     id: int | None = Field(default=None, primary_key=True)
-    type: str = ""  # "generate_qa" | "validate_batch" | "rag_index"
+    type: str = ""  # "generate_qa" | "regenerate_task" | "validate_batch" | "rag_index"
     status: str = Field(default="queued", index=True)  # queued | running | done | failed | cancelled
     payload: str = ""  # JSON-serialized kwargs
     priority: int = 0  # higher = more urgent
