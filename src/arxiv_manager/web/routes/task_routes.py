@@ -265,8 +265,16 @@ FORMAT_ONLY_ERROR_INDICATORS = [
 ]
 
 
+def _nonempty_json_list(value: str | None) -> list:
+    """Parse a JSON-list column safely; return [] on None/invalid/empty."""
+    try:
+        data = _json.loads(value) if value else []
+        return data if isinstance(data, list) else []
+    except _json.JSONDecodeError:
+        return []
+
+
 def _is_format_only_error(validation_context: str) -> bool:
-    """Check if all errors in validation_context are format-only (not difficulty-related)."""
     if not validation_context:
         return False
     errors_part = validation_context.split(" | ")[0].split("Warnings:")[0].replace("Errors: ", "")
@@ -459,6 +467,7 @@ def _log_attempt(
     prev_question,
     model_name="",
     source_route="api_regenerate_task",
+    success=True,
 ):
     """Log a generation attempt to telemetry."""
     usage = draft.get("_usage", {})
@@ -491,7 +500,7 @@ def _log_attempt(
         validation_warnings=_json.dumps(draft.get("_validation_warnings", [])),
         fact_check_errors=_json.dumps(draft.get("_fact_check_errors", [])),
         determinism_errors=_json.dumps(draft.get("_determinism_errors", []) or draft.get("_determinism_diverging", [])),
-        success=True,
+        success=success,
     )
 
 
@@ -507,6 +516,7 @@ def _dedup_retry(
     task_answer,
     task_question,
     validation_context="",
+    source_route="api_regenerate_task",
 ):
     """If the draft matches the existing answer, retry up to 1 time."""
     for dedup_attempt in range(1, 2):
@@ -526,6 +536,7 @@ def _dedup_retry(
                 complexity,
                 prev_question,
                 draft2.get("_model", difficulty),
+                source_route=source_route,
             )
             if draft2["answer"].strip().lower() != task_answer.strip().lower():
                 return draft2
@@ -571,9 +582,9 @@ def run_regeneration(task_id: int, difficulty: str, source_route: str = "api_reg
                 failed_reasons.append("generation failed")
             elif not a.validation_is_valid:
                 failed_reasons.append("validation rejected the draft")
-            elif _json.loads(a.fact_check_errors) if a.fact_check_errors else False:
+            elif _nonempty_json_list(a.fact_check_errors):
                 failed_reasons.append("premise fact-check failed")
-            elif _json.loads(a.determinism_errors) if a.determinism_errors else False:
+            elif _nonempty_json_list(a.determinism_errors):
                 failed_reasons.append("determinism check failed")
             else:
                 failed_reasons = []
@@ -581,11 +592,19 @@ def run_regeneration(task_id: int, difficulty: str, source_route: str = "api_reg
         if len(failed_reasons) == 3:
             # Check if the task was manually edited since the last failure — an
             # edit resets the cap so the author can try again on fresh content.
-            # previous_question holds the task's question when the attempt ran,
-            # so "unchanged" means the author hasn't touched the task since.
+            # Use TaskEvent audit rows (update/restore/ai_fix) rather than
+            # previous_question: any edit — including answer-only — resets.
+            from ...models import TaskEvent
+
             newest = consecutive_failures[0]
-            task_unchanged = task.question == (newest.previous_question or "")
-            if task_unchanged:
+            edited_since = session.exec(
+                select(TaskEvent)
+                .where(TaskEvent.task_id == task_id)
+                .where(TaskEvent.event_type.in_(["update", "restore", "ai_fix"]))
+                .where(TaskEvent.created_at > newest.created_at)
+                .limit(1)
+            ).first()
+            if edited_since is None:
                 reasons = "; ".join(failed_reasons)
                 logger.warning(
                     "task regenerate cap hit task_id=%d (3 consecutive failures: %s)",
@@ -631,6 +650,29 @@ def run_regeneration(task_id: int, difficulty: str, source_route: str = "api_reg
             prev_question, task.figure_id, validation_context, task_id=task.id,
         )
         if not draft:
+            # Log the failure so the consecutive-failure cap can see LLM/API
+            # errors too — otherwise a task whose API calls keep failing would
+            # bypass the cap and burn ~$2-3 per attempt indefinitely.
+            logger.warning("task regenerate draft failed task_id=%d", task_id)
+            _log_attempt(
+                task.figure_id,
+                task.id,
+                1,
+                "regenerate_initial",
+                {
+                    "question": task.question,
+                    "answer": task.answer,
+                    "answer_format": task.answer_format,
+                    "task_type": task.task_type,
+                },
+                difficulty,
+                figure_type,
+                complexity,
+                prev_question,
+                "",
+                source_route=source_route,
+                success=False,
+            )
             return {"error": "Draft generation failed", "ok": False}
 
         model_name = draft.get("_model", difficulty)
@@ -698,6 +740,7 @@ def run_regeneration(task_id: int, difficulty: str, source_route: str = "api_reg
                 task.answer,
                 task.question,
                 validation_context,
+                source_route=source_route,
             )
             if better:
                 draft = better
@@ -831,14 +874,22 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
 @router.get("/api/task/{task_id}/regenerate-status")
 def api_regenerate_status(task_id: int):
     """Return the latest regenerate job status + result for a task."""
+    import json as _json_mod
+
     from ...scheduler.models import ScheduledTask
     from ...scheduler.queue import get_job_status
 
     session = get_session()
     try:
+        # Filter by task_id in SQL: enqueue serializes payload with default
+        # json separators, so the task_id key is `"task_id": N, ...` (or the
+        # last key, `"task_id": N}`). Match both shapes exactly.
+        task_id_pattern = f'%"task_id": {task_id}'
         job = session.exec(
             select(ScheduledTask)
             .where(ScheduledTask.type == "regenerate_task")
+            .where(ScheduledTask.payload.like(task_id_pattern + ",%")
+                  | ScheduledTask.payload.like(task_id_pattern + "}%"))
             .order_by(ScheduledTask.id.desc())
             .limit(20)
         ).all()
@@ -846,23 +897,16 @@ def api_regenerate_status(task_id: int):
         session.close()
 
     for candidate in job:
-        import json as _json_mod
-
-        try:
-            payload = _json_mod.loads(candidate.payload) if candidate.payload else {}
-        except _json_mod.JSONDecodeError:
-            payload = {}
-        if payload.get("task_id") == task_id:
-            status = get_job_status(candidate.id)
-            if status is None:
-                continue
-            result = None
-            if status.get("result"):
-                try:
-                    result = _json_mod.loads(status["result"])
-                except _json_mod.JSONDecodeError:
-                    result = {"raw": status["result"]}
-            return {"ok": True, "job_id": candidate.id, "status": status["status"], "result": result}
+        status = get_job_status(candidate.id)
+        if status is None:
+            continue
+        result = None
+        if status.get("result"):
+            try:
+                result = _json_mod.loads(status["result"])
+            except _json_mod.JSONDecodeError:
+                result = {"raw": status["result"]}
+        return {"ok": True, "job_id": candidate.id, "status": status["status"], "result": result}
     return {"ok": True, "job_id": None, "status": "none"}
 
 
@@ -1042,15 +1086,6 @@ def api_restore_task(request: Request, task_id: int, attempt_id: int):
         # Restore gate: never restore an attempt that failed the gates. A restore
         # reintroduces that Q&A as the task's golden pair, so it must not be a
         # rejected draft (invalid, fact-check-failed, or determinism-failed).
-        import json as _json_mod
-
-        def _nonempty_json_list(value: str) -> list:
-            try:
-                data = _json_mod.loads(value) if value else []
-                return data if isinstance(data, list) else []
-            except _json_mod.JSONDecodeError:
-                return []
-
         gate_reasons: list[str] = []
         if not attempt.validation_is_valid:
             gate_reasons.append("failed validation")

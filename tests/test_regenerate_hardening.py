@@ -130,7 +130,7 @@ class TestRestoreGate:
 
 
 class TestRegenerateCap:
-    def _make_failed_attempt(self, engine, task_id, valid=False, prev_question="Q?"):
+    def _make_failed_attempt(self, engine, task_id, valid=False, prev_question="Q?", success=True):
         s = Session(engine)
         a_row = GenerationAttempt(
             figure_id=1,
@@ -139,7 +139,7 @@ class TestRegenerateCap:
             validation_is_valid=valid,
             fact_check_errors="[]",
             determinism_errors="[]",
-            success=True,
+            success=success,
             previous_question=prev_question,
             generated_question="Draft Q?",
             generated_answer="1",
@@ -167,12 +167,16 @@ class TestRegenerateCap:
         for _ in range(3):
             self._make_failed_attempt(app_db, tid, valid=False)
 
-        # Manual edit resets the cap (task Q&A differs from the failed drafts)
+        # A manual edit (logged as a TaskEvent) resets the cap
+
+        from arxiv_manager.models import TaskEvent
+
         s = Session(app_db)
         t = s.get(Task, tid)
         t.question = "Manually edited question?"
         t.answer = "99"
         s.add(t)
+        s.add(TaskEvent(task_id=tid, event_type="update", details='{"question": "Manually edited question?"}'))
         s.commit()
         s.close()
 
@@ -180,6 +184,40 @@ class TestRegenerateCap:
         # image check — proving the cap no longer blocks.
         result = tr_mod.run_regeneration(tid, "hardest")
         assert result["error"] == "Image not found"
+
+    def test_cap_resets_after_answer_only_edit(self, app_db, monkeypatch):
+        """Answer-only edits reset the cap too (TaskEvent-based detection)."""
+        from arxiv_manager.web.routes import task_routes as tr_mod
+
+        tid = _make_task(app_db)
+        for _ in range(3):
+            self._make_failed_attempt(app_db, tid, valid=False)
+
+        from arxiv_manager.models import TaskEvent
+
+        s = Session(app_db)
+        t = s.get(Task, tid)
+        t.answer = "99"
+        s.add(t)
+        s.add(TaskEvent(task_id=tid, event_type="update", details='{"answer": "99"}'))
+        s.commit()
+        s.close()
+
+        result = tr_mod.run_regeneration(tid, "hardest")
+        assert result["error"] == "Image not found"  # cap passed, image check hit
+
+    def test_cap_counts_llm_error_failures(self, app_db, monkeypatch):
+        """Draft-None (LLM error) attempts are logged as failures and counted."""
+        from arxiv_manager.web.routes import task_routes as tr_mod
+
+        tid = _make_task(app_db)
+        for _ in range(3):
+            self._make_failed_attempt(app_db, tid, success=False, valid=False)
+
+        result = tr_mod.run_regeneration(tid, "hardest")
+        assert result["ok"] is False
+        assert "3 consecutive times" in result["error"]
+        assert "generation failed" in result["error"]
 
     def test_one_success_resets_cap(self, app_db, monkeypatch):
         from arxiv_manager.web.routes import task_routes as tr_mod
@@ -205,6 +243,39 @@ class TestRegenerateCap:
 
         result = tr_mod.run_regeneration(tid, "hardest")
         assert result["error"] == "Image not found"  # cap passed, image check hit
+
+    def test_draft_none_logs_failed_attempt(self, app_db, tmp_path, monkeypatch):
+        """Draft-None (LLM error) now logs a success=False attempt for the cap."""
+        from sqlmodel import select
+
+        from arxiv_manager.models import GenerationAttempt
+        from arxiv_manager.web.routes import task_routes as tr_mod
+
+        # Create a real image so the pipeline reaches the draft call
+        img = tmp_path / "figures" / "missing.png"
+        img.parent.mkdir(parents=True, exist_ok=True)
+        from PIL import Image
+
+        Image.new("RGB", (50, 50), (128, 128, 128)).save(img)
+        monkeypatch.setattr(tr_mod, "STORAGE_DIR", tmp_path)
+        tid = _make_task(app_db, image_path="figures/missing.png")
+
+        # Force draft_qa to return None so _do_regenerate returns None
+        monkeypatch.setattr(tr_mod, "draft_with_self_critique", lambda **kw: None)
+        monkeypatch.setattr(tr_mod, "draft_qa", lambda **kw: None)
+
+        result = tr_mod.run_regeneration(tid, "hardest")
+        assert result["error"] == "Draft generation failed"
+
+        s = Session(app_db)
+        attempt = s.exec(
+            select(GenerationAttempt)
+            .where(GenerationAttempt.task_id == tid)
+            .order_by(GenerationAttempt.id.desc())
+        ).first()
+        assert attempt is not None
+        assert attempt.success is False
+        s.close()
 
 
 class TestRegenerateStatusEndpoint:
@@ -238,6 +309,31 @@ class TestRegenerateStatusEndpoint:
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "none"
+
+    def test_status_endpoint_filters_other_tasks(self, app_db, monkeypatch):
+        """Jobs for other tasks don't shadow this task's job (SQL filter)."""
+        from fastapi.testclient import TestClient
+
+        tid = _make_task(app_db)
+        other = _make_task(app_db, image_path="figures/other.jpg")
+
+        from arxiv_manager.scheduler.queue import complete_job, enqueue
+
+        # 25 jobs for OTHER tasks, pushing this task's job out of a naive top-20
+        for i in range(25):
+            j = enqueue("regenerate_task", {"task_id": other, "difficulty": "hardest"}, max_attempts=1)
+            complete_job(j.id, {"ok": True, "answer": str(i)})
+        job = enqueue("regenerate_task", {"task_id": tid, "difficulty": "hardest"}, max_attempts=1)
+        complete_job(job.id, {"ok": True, "question": "Q2?", "answer": "42"})
+
+        from arxiv_manager.web.app import create_app
+
+        with TestClient(create_app()) as c:
+            resp = c.get(f"/api/task/{tid}/regenerate-status")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "done"
+        assert data["result"]["answer"] == "42"
 
 
 class TestGoldenSuspectFlag:
