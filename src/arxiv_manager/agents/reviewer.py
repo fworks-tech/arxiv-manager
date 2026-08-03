@@ -62,14 +62,18 @@ class ReviewerAgent(Agent):
 
         ctx.set_artifact("review", review_result)
 
-        # Mark pipeline as completed
-        ctx.pipeline_status = "completed"
+        score = review_result.get("score", 0)
+        if score >= 3:
+            ctx.pipeline_status = "completed"
+        else:
+            ctx.add_error(f"Review rejected: score {score}/5")
+            # add_error already sets pipeline_status to "failed"
 
         return [PipelineEvent(
-            event_type="pipeline_completed",
+            event_type="pipeline_completed" if ctx.pipeline_status == "completed" else "pipeline_failed",
             context=ctx,
             source_agent=self.name,
-            metadata={"score": review_result.get("score", 0), "passed": review_result.get("passed", False)},
+            metadata={"score": score, "passed": review_result.get("passed", False)},
         )]
 
     def _llm_review(self, ctx, draft, api_key):

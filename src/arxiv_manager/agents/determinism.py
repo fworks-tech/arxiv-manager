@@ -42,15 +42,24 @@ class DeterminismCheckerAgent(Agent):
 
         from ..authoring.ai_draft._determinism import check_determinism_for_qa
 
-        det = check_determinism_for_qa(
-            question=question,
-            golden=answer,
-            answer_format=answer_format,
-            image_path=image_path,
-            api_key=api_key,
-            runs=3,
-            difficulty=difficulty,
-        )
+        try:
+            det = check_determinism_for_qa(
+                question=question,
+                golden=answer,
+                answer_format=answer_format,
+                image_path=image_path,
+                api_key=api_key,
+                runs=3,
+                difficulty=difficulty,
+            )
+        except Exception as exc:
+            ctx.add_error(f"DeterminismChecker: {exc}")
+            return [PipelineEvent(
+                event_type="pipeline_failed",
+                context=ctx,
+                source_agent=self.name,
+                metadata={"error": str(exc)},
+            )]
 
         draft = ctx.get_artifact("draft", {})
         draft["_determinism_checked"] = det["checked"]

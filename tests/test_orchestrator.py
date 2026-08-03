@@ -82,6 +82,8 @@ class TestPipelineEndToEnd:
         assert "too_easy" in ctx.get_artifact("issue_hints")
 
     def test_reviewer_marks_pipeline_completed(self):
+        from unittest.mock import patch
+
         from arxiv_manager.agents.reviewer import ReviewerAgent
 
         rev = ReviewerAgent()
@@ -89,7 +91,9 @@ class TestPipelineEndToEnd:
         ctx.set_artifact("draft", {"question": "Q?", "answer": "A", "_validation_quality": 0.9})
 
         event = PipelineEvent(event_type="answer_verified", context=ctx)
-        results = rev.process(event)
+        # Unset API key so the heuristic review is used (returns score=4 for quality=0.9)
+        with patch.dict("os.environ", {"OPENCODE_API_KEY": ""}, clear=False):
+            results = rev.process(event)
 
         assert len(results) == 1
         assert results[0].event_type == "pipeline_completed"

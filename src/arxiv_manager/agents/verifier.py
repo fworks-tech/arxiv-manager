@@ -75,8 +75,17 @@ class VerifierAgent(Agent):
                             break
             return None
 
-        vlm_result = _call(api_key, check_prompt, b64_image, model=CONFIG.text_model,
-                           retries=1, difficulty=ctx.difficulty, parser=_parse_answer)
+        try:
+            vlm_result = _call(api_key, check_prompt, b64_image, model=CONFIG.text_model,
+                               retries=1, difficulty=ctx.difficulty, parser=_parse_answer)
+        except Exception as exc:
+            ctx.add_error(f"Verifier: VLM call failed: {exc}")
+            return [PipelineEvent(
+                event_type="pipeline_failed",
+                context=ctx,
+                source_agent=self.name,
+                metadata={"error": str(exc)},
+            )]
 
         vlm_answer = (vlm_result.get("answer", "") if vlm_result else "").strip()
 
@@ -89,8 +98,12 @@ class VerifierAgent(Agent):
             vlm_answer=vlm_answer,
             vlm_reasoning="",
         )
-        verify_result = _call(api_key, verify_prompt, "", model=CONFIG.text_model,
-                              retries=1, parser=None)
+        try:
+            verify_result = _call(api_key, verify_prompt, "", model=CONFIG.text_model,
+                                  retries=1, parser=None)
+        except Exception as exc:
+            logger.warning("verifier: verify call failed: %s", exc)
+            verify_result = None
 
         golden_correct = True
         if verify_result:

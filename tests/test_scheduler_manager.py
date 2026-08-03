@@ -26,9 +26,7 @@ def _reset_globals(tmp_path, monkeypatch):
 
     monkeypatch.setattr(st_mod, "STORAGE_DIR", tmp_path)
 
-    mgr._PROCESS = None
-    mgr._SENTINEL_PATH = None
-    mgr._WORKER_LOG_HANDLE = None
+    mgr._WORKERS.clear()
 
 
 class TestStartWorker:
@@ -55,7 +53,7 @@ class TestStartWorker:
 
         # Start first worker via direct call
         start_worker()
-        # Second call should return existing PID
+        # Second call should return existing PID (pool already has a worker)
         pid2 = start_worker()
         assert pid2 == 12345
 
@@ -79,28 +77,41 @@ class TestStopWorker:
         sentinel_file.unlink.assert_called_once()
 
     def test_stop_when_not_running(self):
-        # Clean global state from previous tests
         import arxiv_manager.scheduler.manager as mgr
 
-        mgr._PROCESS = None
+        mgr._WORKERS.clear()
         assert stop_worker() is False
 
 
 class TestWorkerIsAlive:
-    @patch("arxiv_manager.scheduler.manager._PROCESS", None)
     def test_no_process(self):
+        import arxiv_manager.scheduler.manager as mgr
+
+        mgr._WORKERS.clear()
         assert worker_is_alive() is False
 
-    @patch("arxiv_manager.scheduler.manager._PROCESS")
-    def test_process_running(self, mock_process):
+    @patch("arxiv_manager.scheduler.manager._orphan_worker_pids", return_value={})
+    def test_process_running(self, _mock_orphans):
+        import arxiv_manager.scheduler.manager as mgr
+
+        mock_process = MagicMock()
         mock_process.poll.return_value = None
+        mock_process.pid = 12345
+        mgr._WORKERS[0] = mgr._WorkerSlot(id=0, process=mock_process)
         assert worker_is_alive() is True
 
-    @patch("arxiv_manager.scheduler.manager._PROCESS")
-    def test_process_exited(self, mock_process):
+    @patch("arxiv_manager.scheduler.manager._orphan_worker_pids", return_value={})
+    def test_process_exited(self, _mock_orphans):
+        import arxiv_manager.scheduler.manager as mgr
+
+        mock_process = MagicMock()
         mock_process.poll.return_value = 0
+        mock_process.pid = 12345
+        mgr._WORKERS[0] = mgr._WorkerSlot(id=0, process=mock_process)
         assert worker_is_alive() is False
 
-    @patch("arxiv_manager.scheduler.manager._PROCESS", None)
     def test_get_pid_no_process(self):
+        import arxiv_manager.scheduler.manager as mgr
+
+        mgr._WORKERS.clear()
         assert get_worker_pid() is None

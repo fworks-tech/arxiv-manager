@@ -78,7 +78,12 @@ class TestEventBus:
         ctx = new_context(figure_id=1, difficulty="easy", figure_type="chart")
         produced = self.bus.emit(PipelineEvent(event_type="draft_generated", context=ctx))
 
-        assert len(produced) == 1
+        # pipeline_failed from the bad handler + draft_validated from the good handler
+        assert len(produced) == 2
+        assert produced[0].event_type == "pipeline_failed"
+        assert produced[0].source_agent == "event_bus"
+        assert produced[1].event_type == "draft_validated"
+        assert ctx.errors
 
     def test_subscriber_count(self):
         assert self.bus.subscriber_count("draft_generated") == 0

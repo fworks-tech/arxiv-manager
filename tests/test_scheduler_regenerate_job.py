@@ -39,11 +39,10 @@ class TestRegenerateTaskJob:
             calls["source_route"] = source_route
             return {"ok": True, "question": "Q?", "answer": "42", "answer_format": "number", "task_type": "chart"}
 
-        # The worker lazily does `from ..web.routes.task_routes import run_regeneration`
-        # at job-execution time, so patching the module attribute is sufficient.
-        import arxiv_manager.web.routes.task_routes as tr_mod
+        # The worker imports from agents.orchestrator.run_regeneration
+        import arxiv_manager.agents.orchestrator as orch_mod
 
-        monkeypatch.setattr(tr_mod, "run_regeneration", _fake_run)
+        monkeypatch.setattr(orch_mod, "run_regeneration", _fake_run)
 
         job = worker_db.enqueue("regenerate_task", {"task_id": 7, "difficulty": "hardest"}, max_attempts=1)
         _execute_regenerate_task(job.id, {"task_id": 7, "difficulty": "hardest"})
@@ -62,9 +61,9 @@ class TestRegenerateTaskJob:
         def _fake_run(task_id, difficulty, source_route):
             return {"ok": False, "error": "Determinism check failed"}
 
-        import arxiv_manager.web.routes.task_routes as tr_mod
+        import arxiv_manager.agents.orchestrator as orch_mod
 
-        monkeypatch.setattr(tr_mod, "run_regeneration", _fake_run)
+        monkeypatch.setattr(orch_mod, "run_regeneration", _fake_run)
 
         job = worker_db.enqueue("regenerate_task", {"task_id": 7, "difficulty": "hardest"}, max_attempts=1)
         _execute_regenerate_task(job.id, {"task_id": 7, "difficulty": "hardest"})

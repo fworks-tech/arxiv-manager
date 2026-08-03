@@ -46,7 +46,7 @@ class TestEnqueueEndpoint:
         assert resp.status_code == 200
         data = resp.json()
         assert "job_id" in data
-        assert data["status"] == "queued"
+        assert data["ok"] is True
 
     def test_enqueue_missing_type(self, scheduler_client):
         resp = scheduler_client.post("/api/scheduler/enqueue", json={})

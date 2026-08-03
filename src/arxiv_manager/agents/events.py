@@ -133,13 +133,22 @@ class EventBus:
                 if result:
                     produced.extend(result)
             except Exception as exc:
+                handler_name = getattr(handler, "__name__", str(handler))
                 logger.error(
                     "event_bus: handler %s failed on %s: %s",
-                    getattr(handler, "__name__", handler),
+                    handler_name,
                     event.event_type,
                     exc,
                     exc_info=True,
                 )
+                ctx = event.context
+                ctx.add_error(f"{handler_name} failed on {event.event_type}: {exc}")
+                produced.append(PipelineEvent(
+                    event_type="pipeline_failed",
+                    context=ctx,
+                    source_agent="event_bus",
+                    metadata={"error": str(exc), "failed_handler": handler_name},
+                ))
         return produced
 
     def subscriber_count(self, event_type: str | None = None) -> int:
