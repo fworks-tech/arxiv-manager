@@ -341,32 +341,75 @@ Why it works: rank is discrete and objective (tallest bar = 1st, shortest = 4th)
 
 ## Multi-Agent Orchestration
 
-The `agents/orchestrator.py` coordinator extends the drafting pipeline with multi-agent collaboration:
+The `agents/` module implements an event-driven pipeline with 7 specialized agents:
 
-1. **Plan**: Orchestrator uses `query_decomposer` to break hardest tasks into reasoning steps
-2. **Delegate**: Generator agent (wraps `draft_qa`) creates N attempts (3 for hardest, 1 otherwise)
-3. **Review**: Reviewer agent scores each draft 1-5 on quality, format, and content
-4. **Aggregate**: Best draft selected by validation quality; review suggestions applied if score < 3
+### Event-Driven Pipeline
 
-AgentContext tracks delegation chains and shared artifacts across the workflow.
+```
+issue_reported → [issue_analyst] → regeneration_requested
+                                      ↓
+                               [generator] → draft_generated
+                                      ↓
+                              [self_critique] → draft_validated
+                                      ↓
+                               [fact_checker] → fact_checked ❌ → pipeline_failed
+                                      ↓
+                          [determinism_checker] → determinism_checked ❌ → pipeline_failed
+                                      ↓
+                                 [verifier] → answer_verified
+                                      ↓
+                                 [reviewer] → review_completed → pipeline_completed
+```
 
-### Draft Reviewer (`agents/reviewer.py`)
+### The 7 Agents
 
-The Reviewer scores drafts across these dimensions:
-- **Quality**: Direct mapping of `_validation_quality` (0.9+ = 5, 0.7+ = 4, 0.5+ = 3, else 2)
-- **Penalties**: Empty draft → 1, very short answer → -1, answer in question → -1, format mismatch
-- **Output**: Score (1-5), passed (bool), suggestions (list), strengths (list)
+| Agent | Subscribes To | Emits | Purpose |
+|-------|--------------|-------|---------|
+| **Issue Analyst** | `issue_reported` | `regeneration_requested` | Analyzes issue patterns, generates strategy hints |
+| **Generator** | `regeneration_requested` | `draft_generated` | Wraps `draft_qa()` |
+| **Self-Critique** | `draft_generated` | `draft_validated` | Scores/rewrites draft (skipped for easy) |
+| **Fact Checker** | `draft_validated` | `fact_checked` | Verifies premises against image |
+| **Determinism Checker** | `fact_checked` | `determinism_checked` | 3-run answer consistency check |
+| **Verifier** | `determinism_checked` | `answer_verified` | Independent VLM cross-check |
+| **Reviewer** | `answer_verified` | `pipeline_completed` | LLM-powered quality assessment |
+
+### Agent Base Class
+
+All agents implement:
+- `name`: Unique identifier
+- `capabilities`: List of capability strings
+- `subscribe_events`: Events this agent handles
+- `process(event) -> list[PipelineEvent]`: Handle event, emit new events
+
+### EventBus
+
+Thread-safe pub/sub with re-entrant protection. Agents communicate by emitting events that trigger other agents.
+
+### Worker Pool
+
+5 parallel workers (configurable via WORKER_COUNT env var):
+- Each worker has unique ID, PID file, sentinel
+- Atomic dequeue prevents double-claiming
+- Stale job requeue filtered by worker_id
+- Abort support via sentinel file checked mid-execution
+
+### Queue Management
+
+- **Drop**: Cancel a queued regeneration from the UI
+- **Abort**: Kill a running regeneration (worker checks abort sentinel)
+- **Queue position**: Shows position/total in UI when task page opens
 
 ## Async Job Queue
 
-The `scheduler/` module provides a DB-backed async job queue for generation tasks:
+The `scheduler/` module provides a DB-backed worker pool for generation tasks:
 
 - **No external deps**: Uses existing SQLite (WAL mode for concurrent access)
 - **Priority FIFO**: Jobs ordered by priority DESC, created_at ASC
-- **Automatic retry**: Configurable max_attempts (default 3), re-queued on failure
-- **Subprocess worker**: Runs as isolated subprocess via `subprocess.Popen`
-- **Graceful shutdown**: Sentinel file pattern — worker exits when file is deleted
-- **Job types**: `generate_qa`, `validate_batch`, `rag_index`
+- **Worker pool**: 5 parallel workers (configurable via WORKER_COUNT env var, max 10)
+- **Atomic dequeue**: `UPDATE ... WHERE status='queued'` with rowcount check prevents double-claiming
+- **Graceful shutdown**: Sentinel file pattern — workers exit when files are deleted
+- **Abort support**: Users can abort running jobs via UI (writes sentinel file checked by worker)
+- **Queue position**: UI shows position/total for queued jobs
 
 ### Scheduler API
 
@@ -374,9 +417,21 @@ The `scheduler/` module provides a DB-backed async job queue for generation task
 |----------|-------------|
 | `POST /api/scheduler/enqueue` | Enqueue a job `{type, payload, priority}` |
 | `GET /api/scheduler/status/{id}` | Poll job status |
-| `POST /api/scheduler/cancel/{id}` | Cancel a queued job |
+| `POST /api/scheduler/cancel/{id}` | Cancel a queued job (drop from queue) |
+| `POST /api/scheduler/abort/{id}` | Abort a running job (worker checks sentinel) |
 | `GET /api/scheduler/queue` | List queue depth + recent jobs |
-| `GET /api/scheduler/worker` | Check if worker is alive |
+| `GET /api/scheduler/worker` | Check worker pool status |
+| `POST /api/scheduler/pool/start` | Start worker pool |
+| `POST /api/scheduler/pool/stop` | Stop worker pool |
+
+### Task Regeneration API
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/task/{id}/regenerate` | Enqueue regeneration (async) |
+| `GET /api/task/{id}/regenerate-status` | Poll status + queue position |
+| `POST /api/task/{id}/drop` | Drop queued regeneration |
+| `POST /api/task/{id}/abort` | Abort running regeneration |
 
 ## Authentication & Personalization
 

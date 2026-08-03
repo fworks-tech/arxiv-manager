@@ -35,6 +35,23 @@ src/arxiv_manager/
 │   ├── _history_context.py # History injection, few-shot, model selection (difficulty-aware ordering)
 │   ├── validator.py        # 28+ handbook rule validation
 │   └── image_analyzer.py   # Figure suitability classification
+├── agents/                 # Event-driven agent pipeline
+│   ├── base.py             # Agent ABC (name, capabilities, subscribe_events, process)
+│   ├── events.py           # EventBus (thread-safe pub/sub, re-entrant protection)
+│   ├── context.py          # AgentContext (shared state, artifacts, errors, pipeline_status)
+│   ├── registry.py         # Agent registry (populated at startup)
+│   ├── orchestrator.py     # Pipeline planner + event dispatch loop
+│   ├── issue_analyst.py    # Analyzes issue reports → strategy hints
+│   ├── generator.py        # Wraps draft_qa
+│   ├── self_critique.py    # Wraps self-critique loop
+│   ├── fact_checker.py     # Wraps premise verification
+│   ├── determinism.py      # Wraps answer consistency check
+│   ├── verifier.py         # Wraps VLM cross-check
+│   ├── reviewer.py         # LLM-powered quality assessment
+│   ├── adaptive_router.py  # Historical performance-based pipeline recommendation
+│   ├── query_decomposer.py # Hard difficulty task decomposition into reasoning steps
+│   ├── document_grader.py  # RAG document relevance scoring
+│   └── tools/              # LangChain-style tool wrappers
 ├── analytics/
 │   └── strategies.py       # Strategy-class × model-verdict aggregation (pluggable data-provider seam)
 ├── cli/                    # CLI commands (search, task, images, web, check, analytics, index)
@@ -44,17 +61,12 @@ src/arxiv_manager/
 │   └── templates/          # HTML templates with HTMX partials (_determinism.html, strategies.html)
 ├── components/             # RAG: hybrid retriever, reranker, config
 ├── services/               # CRAG: RAG pipeline, semantic cache, query router
-├── agents/                 # Adaptive router, query decomposer, document grader, tools/
-│   ├── registry.py         # Agent metadata/capabilities registry
-│   ├── context.py          # AgentContext — shared state across agents
-│   ├── orchestrator.py     # Orchestrator — plans, delegates, aggregates
-│   └── reviewer.py         # Reviewer — critiques drafts
-├── scheduler/              # DB-backed async job queue with subprocess worker
+├── scheduler/              # DB-backed worker pool
 │   ├── models.py           # ScheduledTask (queued | running | done | failed | cancelled)
-│   ├── queue.py            # FIFO queue with priority, retry, cancel
-│   ├── worker.py           # Standalone worker subprocess (python -m ...worker)
-│   ├── manager.py          # Subprocess lifecycle (start/stop via sentinel file)
-│   └── routes.py           # API: enqueue, status, cancel, queue depth
+│   ├── queue.py            # FIFO queue with priority, retry, cancel, abort, drop
+│   ├── worker.py           # Worker subprocess (python -m ...worker, --worker-id)
+│   ├── manager.py          # Worker pool lifecycle (start/stop/orphan detection)
+│   └── routes.py           # API: enqueue, status, cancel, abort, pool status
 ├── personalization/        # User accounts, auth, preferences, learning
 │   ├── models.py           # User, AuthToken, UserProfile, UserPreference
 │   ├── auth.py             # Password hashing (PBKDF2-SHA256), token management
@@ -112,22 +124,20 @@ src/arxiv_manager/
 - **Check Answer (VLM verification):** "Check Answer" button sends the task image + question to `mimo-v2.5` (VLM), then verifies the VLM's answer against the golden answer using `mimo-v2.5` (text-only) for unbiased semantic equivalence. Result displayed inline and logged as `TaskEvent(event_type="check_answer")`. Helps authors discover if a task is answerable and whether it's challenging enough to stump VLMs.
 - **Premise fact-check gate:** Every regenerate draft that passes text validation is run through an adversarial VLM fact-checker (`FACT_CHECK_PROMPT`): each factual claim is marked SUPPORTED / NOT_SUPPORTED / UNVERIFIABLE and any non-SUPPORTED claim rejects the draft. Failures feed back into the retry loop as feedback; fact-failed drafts are stored in Task History (restorable) but never auto-saved. Fail-open on checker tooling errors. Stored in `generation_attempts.fact_check_errors`.
 - **Answer determinism gate:** Challenging/Hardest drafts must also pass a 3-run sampled determinism check (minimax-m3 reads the question independently; every read must match the golden answer — numeric with relative tolerance, words exact + semantic fallback). This is the machine proof of the "two readers give the same answer" rule; diverging reads reject the draft and feed back into regeneration. Stored in `generation_attempts.determinism_errors`. Standalone: `POST /api/task/{id}/determinism-check` button + `arxiv-manager task determinism <id>`.
-- **Dual-target Hardest prompts:** HARDEST means BOTH `openrouter/qwen/qwen3.6-35b-a3b` AND `google/gemini-3.5-flash` must fail. `_model_cards.py` holds verified capability cards (Qwen: strong OCR/diagrams/math 82–93, weak ODInW13 counting 50.8 / ZEROBench novel formats 34.4 / RefSpatial 64.3; Gemini: near-Pro reasoner — beatable only via perception failures). HARDEST_PROMPT + SELF_CRITIQUE_PROMPT enforce the both-fail rubric with FAILS-BOTH avoid/prefer lists.
+- **Qwen-first Hardest prompts:** HARDEST means Qwen must fail (Realm classifies by Qwen). `_model_cards.py` holds verified capability cards (Qwen: strong OCR/diagrams/math 82–93, weak ODInW13 counting 50.8 / ZEROBench novel formats 34.4 / RefSpatial 64.3). HARDEST_PROMPT + SELF_CRITIQUE_PROMPT target Qwen's counting/spatial weaknesses specifically.
 - **Difficulty-aware few-shot ordering:** `get_few_shot_examples` prefers both-model-failed attempts (`qwen_passes=0 AND gemini_passes=0`) for Hardest, and Qwen-failed/Gemini-passed attempts for Challenging.
 - **Realm verdict ingestion:** `arxiv-manager task verdict <id> --verdict too_easy|too_hard|approved` (or `POST /api/task/{id}/verdict`) records the outcome on the latest SubmissionLog and auto-adjusts difficulty one tier (warn-only). Logged as `TaskEvent(realm_verdict)` and consumed by strategy analytics.
 - **Strategy analytics:** `/analytics/strategies` aggregates auto-classified question strategies (counting, comparison, rank, cross_panel_sum_diff, spatial, percentage_change, single_lookup, other) × every verdict signal (Realm verdicts, manual pass counts, check-answer, determinism) via a pluggable data-provider seam (`analytics/strategies.task_verdict_sources`) for a future rollout engine.
-- **Restore gate:** `api_restore_task` refuses to restore attempts that failed validation, the premise fact-check, or the 3-run determinism check — restoring a rejected draft would reintroduce a bad golden answer. Restore events record `attempt_valid` for audit.
+- **Restore gate removed:** Any historical attempt can be restored, including failed validation/fact-check/determinism. Users have full control over which Q&A version they use.
 - **Golden-suspect flag:** Check Answer's verifier now returns `golden_correct` (independent judgment of the EXPECTED answer). When the VLM disagrees AND the verifier judges the golden wrong, `tasks.golden_suspect` is set (cleared on the next matching run) and a red banner appears in the task form + Check Answer partial.
-- **Async regeneration:** `POST /api/task/{id}/regenerate` enqueues a `regenerate_task` scheduler job (worker subprocess auto-starts if not alive) instead of blocking the HTTP request; the client polls `GET /api/task/{id}/regenerate-status`. `?sync=1` runs inline (used by tests/CLI). The worker executes the same gate chain via `run_regeneration()` (`web/routes/task_routes.py`), logging attempts with `source_route="scheduler_worker"`.
-- **Consecutive-failure regenerate cap:** regeneration is blocked after 3 consecutive failed attempts (ANY failure reason: validation, fact-check, determinism, or LLM error — not just repeated identical errors) unless the task Q&A was manually edited since the last failure (`previous_question` comparison). Prevents burning ~$2-3 LLM calls per attempt on stuck tasks.
-- **Atomic queue dequeue:** `scheduler.queue.dequeue` claims jobs via `UPDATE ... WHERE status='queued'` with rowcount check so concurrent workers never double-execute a job.
-- **Multi-agent orchestration:** Orchestrator plans subtasks → delegates to Generator → delegates to Reviewer → aggregates results. Uses `AgentContext` for shared state and delegation chains.
-- **DB-backed task scheduling:** Jobs are enqueued to `scheduled_tasks` table, picked up by a subprocess worker. Priority-based FIFO with automatic retry. No external dependencies (no Redis/Celery).
-- **Subprocess worker isolation:** Worker runs in a separate Python process via `subprocess.Popen`, communicates via shared SQLite (WAL mode). Sentinel file for graceful shutdown on all platforms.
-- **Token-based authentication:** PBKDF2-SHA256 password hashing, UUID tokens stored in DB. `AuthMiddleware` checks `Authorization: Bearer` or `X-API-Key` headers.
-- **User personalization:** `UserProfile` (model preference, difficulty, prompt style) + key-value `UserPreference` applied to routing configs via `personalizer.apply_preferences()`.
-- **Local CNN vision:** ResNet-18 feature extractor (lazy-loaded, ~44MB). Falls back to heuristic classifier when torch/torchvision unavailable. Prototype-based few-shot classification.
-- **Agent registry:** Dict-based lookup by name or capability. Used by orchestrator to discover available agents and their capabilities.
+- **Event-driven agent pipeline:** 7 specialized agents communicate via EventBus. Each agent subscribes to events, processes them, and emits new events. The orchestrator drives the pipeline until a terminal event (pipeline_completed/pipeline_failed). Agents run synchronously within the worker process; the EventBus handles re-entrant emits via a pending queue.
+- **Worker pool:** 5 parallel workers (configurable via WORKER_COUNT env var). Each worker has a unique ID, PID file, and sentinel. Atomic dequeue prevents double-claiming. Stale job requeue filtered by worker_id (only dead workers' jobs are reset). Abort support via sentinel file checked mid-execution.
+- **Drop/abort controls:** Users can drop queued regenerations from the queue or abort running ones via the task UI. Abort writes a sentinel file that the worker checks during execution.
+- **Queue position display:** When opening a task page, the UI checks regeneration status and shows queue position (position/total) for queued jobs, or "Running on worker #N" with abort button for running jobs.
+- **Extreme-seeking always error:** Questions with extreme-seeking words (highest/lowest/most) are now an ERROR for ALL difficulties, not just Challenging/Hardest. Qwen checks these first regardless of difficulty.
+- **Difficulty-aware validation messages:** Validation error messages now use the actual difficulty label ("Hardest" instead of hardcoded "Challenging").
+- **Image-refusal false positive fix:** VLMs that roleplay "ERROR: Cannot read... (this model does not support image input)" after real analysis are no longer rejected. `_looks_like_image_refusal()` returns False when the response contains strong visual evidence of image reading.
+- **Duplicate task update fix:** `update_task()` now only logs fields that actually changed, preventing noisy duplicate entries in Task History.
 
 ## Key Files
 

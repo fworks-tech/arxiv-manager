@@ -9,10 +9,10 @@ AI-powered assistant for creating challenging visual-reasoning Q&A tasks from sc
 - **Task Management** — Full pipeline: draft → proposed → validated → submitted
 - **Dashboard** — Pipeline metrics, per-provider draft performance, task status breakdown, cost tracking
 - **Health Check** — `GET /health` endpoint for monitoring (DB, API key, LLM connectivity)
-- **Multi-Agent Orchestration** — Orchestrator plans subtasks, delegates to Generator and Reviewer agents, aggregates results via weighted voting
+- **Event-Driven Agent Pipeline** — 7 specialized agents (IssueAnalyst, Generator, SelfCritique, FactChecker, DeterminismChecker, Verifier, Reviewer) communicate via EventBus; each agent subscribes to events and emits new events, driving the pipeline to completion
 - **Token Authentication** — PBKDF2-SHA256 password hashing, Bearer token auth, `AuthMiddleware` on all endpoints
 - **User Personalization** — User profiles with model/difficulty/prompt-style preferences, key-value preference pairs
-- **Async Job Queue** — DB-backed FIFO queue with subprocess worker, priority ordering, automatic retry
+- **Worker Pool** — 5 parallel workers (configurable via WORKER_COUNT) with queue position display, drop/abort controls, and abort sentinel support
 - **Local CNN Vision** — Lazy-loaded ResNet-18 feature extractor with prototype-based figure classification (falls back to heuristic)
 
 ### Smart Generation Pipeline
@@ -153,11 +153,17 @@ arxiv-manager web
 | POST | `/api/scheduler/enqueue` | Enqueue a generation job |
 | GET | `/api/scheduler/status/{id}` | Poll job status |
 | POST | `/api/scheduler/cancel/{id}` | Cancel a queued job |
-| GET | `/api/scheduler/worker` | Check worker subprocess status |
+| POST | `/api/scheduler/abort/{id}` | Abort a running job |
+| GET | `/api/scheduler/worker` | Check worker pool status |
+| POST | `/api/scheduler/pool/start` | Start worker pool |
+| POST | `/api/scheduler/pool/stop` | Stop worker pool |
 | GET | `/` | Dashboard |
 | POST | `/api/image/upload` | Upload an image |
 | POST | `/api/image/draft` | Generate AI draft |
-| POST | `/api/task/{id}/regenerate` | Regenerate with self-critique |
+| POST | `/api/task/{id}/regenerate` | Regenerate with event-driven pipeline |
+| POST | `/api/task/{id}/drop` | Drop queued regeneration from queue |
+| POST | `/api/task/{id}/abort` | Abort running regeneration |
+| GET | `/api/task/{id}/regenerate-status` | Poll regeneration status + queue position |
 | GET | `/api/task/{id}/task-history` | Unified task history (generations + events) |
 | POST | `/api/task/{id}/delete` | Delete a task (cascades to related records) |
 | POST | `/api/task/{id}/check-answer` | Send image + question to a VLM, verify against golden |
@@ -172,8 +178,18 @@ Full API docs at `/docs` (Swagger) when the server is running.
 ```
 src/arxiv_manager/
 ├── authoring/           # AI pipeline: prompts, validation, guardrails, telemetry
-├── agents/              # Agent registry, orchestrator, reviewer, adaptive router, tools
-├── scheduler/           # DB-backed async job queue + subprocess worker
+├── agents/              # Event-driven agent pipeline (EventBus, 7 agents, orchestrator, registry)
+│   ├── base.py          # Agent ABC
+│   ├── events.py        # EventBus (thread-safe pub/sub)
+│   ├── orchestrator.py  # Pipeline planner + event dispatch
+│   ├── issue_analyst.py # Analyzes issue reports → strategy hints
+│   ├── generator.py     # Wraps draft_qa
+│   ├── self_critique.py # Wraps self-critique loop
+│   ├── fact_checker.py  # Wraps premise verification
+│   ├── determinism.py   # Wraps answer consistency check
+│   ├── verifier.py      # Wraps VLM cross-check
+│   └── reviewer.py      # LLM-powered quality assessment
+├── scheduler/           # DB-backed worker pool (5 parallel workers)
 ├── personalization/     # User accounts, auth, profiles, preferences
 ├── vision/              # Local ResNet-18 CNN figure classification (lazy-loaded)
 ├── cli/                 # CLI commands (search, task, images, web, check, analytics, index)
