@@ -162,6 +162,76 @@ def _persist_result(
         session.close()
 
 
+def _persist_failure(
+    task_id: int,
+    draft: dict | None,
+    difficulty: str,
+    figure_type: str,
+    complexity: float,
+    prev_question: str,
+    source_route: str,
+    errors: list[str],
+) -> None:
+    """Persist a failed pipeline attempt to GenerationAttempt for task history visibility.
+
+    Even when the pipeline fails (validation, fact-check, determinism), the draft
+    should be recorded so authors can see what was tried and potentially restore it.
+    """
+    from ..authoring._draft_telemetry import log_generation_attempt
+    from ..db import get_session
+    from ..models import Task
+
+    session = get_session()
+    try:
+        task = session.get(Task, task_id)
+        if not task:
+            return
+
+        usage = (draft or {}).get("_usage", {})
+        error_msg = "; ".join(errors[:3])
+
+        log_generation_attempt(
+            figure_id=task.figure_id,
+            task_id=task_id,
+            attempt_number=1,
+            generation_type="regenerate_initial",
+            source_route=source_route,
+            prompt_template_name=f"{difficulty}_{figure_type}" if figure_type else difficulty,
+            prompt_version_id=(draft or {}).get("_prompt_version_id", ""),
+            prompt_text_hash=(draft or {}).get("_prompt_text_hash", ""),
+            model_name=(draft or {}).get("_model", difficulty),
+            difficulty=difficulty,
+            figure_type=figure_type,
+            complexity_score=complexity,
+            previous_question=prev_question,
+            raw_response=(draft or {}).get("_raw_response", ""),
+            reasoning_trace=(draft or {}).get("_reasoning_trace", ""),
+            generated_question=(draft or {}).get("question", ""),
+            generated_answer=(draft or {}).get("answer", ""),
+            generated_answer_format=(draft or {}).get("answer_format", ""),
+            generated_task_type=(draft or {}).get("task_type", ""),
+            input_tokens=usage.get("input_tokens", 0),
+            output_tokens=usage.get("output_tokens", 0),
+            total_tokens=usage.get("total_tokens", 0),
+            validation_quality=(draft or {}).get("_validation_quality", 0.0),
+            validation_is_valid=(draft or {}).get("_validation_is_valid", False),
+            validation_errors=_json.dumps((draft or {}).get("_validation_errors", [])),
+            validation_warnings=_json.dumps((draft or {}).get("_validation_warnings", [])),
+            fact_check_errors=_json.dumps((draft or {}).get("_fact_check_errors", [])),
+            determinism_errors=_json.dumps(
+                (draft or {}).get("_determinism_errors", [])
+                or (draft or {}).get("_determinism_diverging", [])
+            ),
+            success=False,
+            error_message=error_msg,
+        )
+        logger.info("orchestrator: persisted failure attempt task_id=%d errors=%s", task_id, error_msg[:100])
+    except Exception as exc:
+        logger.warning("orchestrator: persist_failure failed task_id=%d: %s", task_id, exc)
+    finally:
+        session.close()
+
+
 def run_pipeline(
     task_id: int,
     difficulty: str,
@@ -288,6 +358,19 @@ def run_pipeline(
         elapsed_ms = int((time.time() - start_time) * 1000)
         errors = ctx.errors or ["Pipeline produced no draft"]
         logger.warning("orchestrator: pipeline failed task_id=%d errors=%s", task_id, errors[:3])
+
+        # Persist the failed attempt so it appears in Task History
+        _persist_failure(
+            task_id=task_id,
+            draft=draft,
+            difficulty=difficulty,
+            figure_type=figure_type,
+            complexity=complexity,
+            prev_question=prev_question,
+            source_route=source_route,
+            errors=errors,
+        )
+
         return {"error": "; ".join(errors[:2]), "ok": False, "elapsed_ms": elapsed_ms}
 
     # Persist result to DB
