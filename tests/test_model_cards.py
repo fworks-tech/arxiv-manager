@@ -33,24 +33,25 @@ class TestModelCards:
 
 
 class TestDualTargetPrompts:
-    def test_hardest_targets_both_models(self):
+    def test_hardest_targets_qwen(self):
         text = HARDEST_PROMPT.text
-        assert "BOTH Qwen 3.6-35B-A3B AND Gemini 3.5 Flash" in text
-        assert "HARDEST means BOTH models must fail" in text
-        assert "Gemini" in text
+        assert "Qwen 3.6-35B-A3B" in text
+        assert "Realm classifies difficulty by Qwen" in text
+        assert "ODInW13 50.8" in text
 
     def test_hardest_avoids_and_prefers_lists(self):
         text = HARDEST_PROMPT.text
-        assert "FAILS BOTH → AVOID" in text
-        assert "FAILS BOTH → PREFER" in text
+        # Prompt must have clear avoid/prefer guidance for Qwen-targeting strategies
+        assert "DO NOT generate these" in text or "AVOID" in text
+        assert "PROVEN" in text and "strategies" in text
 
     def test_spatial_hardest_carries_fact_safety(self):
         assert "FACT SAFETY" in SPATIAL_HARDEST_PROMPT.text
 
-    def test_self_critique_scores_both_models(self):
+    def test_self_critique_scores_qwen(self):
         text = SELF_CRITIQUE_PROMPT.text
-        assert "BOTH Qwen 3.6-35B-A3B AND Gemini 3.5 Flash" in text
-        assert "PERCEPTION" in text
+        assert "Qwen 3.6-35B-A3B" in text
+        assert "Realm classifies difficulty by Qwen" in text
 
     def test_challenging_still_targets_qwen_only(self):
         # Challenging = Qwen fails, Gemini passes — must NOT demand both fail.

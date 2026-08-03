@@ -61,17 +61,19 @@ MODEL_CARDS: dict[str, dict] = {
 }
 
 # Strategy guidance derived from the cards: what is safe to ask for HARDEST.
-# Both models must fail, so avoid anything Gemini's strong reasoning + Qwen's
-# strong OCR/diagram reading can solve.
-BOTH_FAIL_AVOID = [
-    "pure OCR or text extraction (Qwen scores 82-90; Gemini near-Pro reading)",
-    "single-value chart reads and simple chart arithmetic (both strong)",
-    "text-only reasoning or math on stated values (Gemini strong)",
-    "diagram traversal with clear labels (Qwen AI2D 92.7)",
+# Realm classifies difficulty by Qwen — if Qwen passes, it's "Easy" regardless
+# of Gemini. Focus on Qwen's known weaknesses.
+QWEN_FAIL_AVOID = [
+    "pure OCR or text extraction (Qwen scores 89.9 — will pass easily)",
+    "single-value chart reads and simple chart arithmetic (Qwen scores 78-93)",
+    "text-only reasoning or math on values already stated",
+    "clearly-labeled diagram traversal (Qwen AI2D 92.7)",
+    "simple comparisons ('which is higher/lower/larger') — Qwen reads charts at 78-93",
+    "extreme-seeking questions ('highest/lowest/most') — Qwen checks these first",
 ]
-BOTH_FAIL_PREFER = [
-    "counting small/dense elements in the wild (Qwen ODInW13 50.8; Gemini unverified)",
-    "fine-grained spatial distinctions (Qwen RefSpatialBench 64.3)",
-    "novel multi-step task formats (Qwen ZEROBench 34.4)",
-    "cross-panel arithmetic on many unlabeled visual elements",
+QWEN_FAIL_PREFER = [
+    "counting small/dense visual elements (Qwen ODInW13 50.8 — weakest capability)",
+    "fine-grained spatial distinctions: near-identical positions, subtle ordering (Qwen RefSpatialBench 64.3)",
+    "novel multi-step task formats (Qwen ZEROBench_sub 34.4)",
+    "multi-group counting with comparison (Qwen cannot hold multiple counts in memory)",
 ]

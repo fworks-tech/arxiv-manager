@@ -141,113 +141,59 @@ Return JSON only: {{"question":"...","answer":"...","answer_format":"word|number
 
 HARDEST_PROMPT = PromptTemplate(
     "HARDEST_PROMPT",
-    _with_strict("""Create an EXTREMELY HARD visual-reasoning question for this image that BOTH Qwen 3.6-35B-A3B AND Gemini 3.5 Flash will FAIL on.
+    _with_strict("""Create an EXTREMELY HARD visual-reasoning question for this image that Qwen 3.6-35B-A3B will FAIL on.
 
-HARDEST means BOTH models must fail it. Do not stop at defeating Qwen.
+CRITICAL: Realm classifies difficulty by Qwen's performance. If Qwen passes → "Easy". If Qwen fails → "Hardest". Gemini's performance is secondary — focus on breaking Qwen.
 
-Capability cards (verified benchmarks, 2026-08):
-QWEN 3.6-35B-A3B — STRONG: OCR/document reading 89.9, diagram understanding 92.7, MathVista 86.4, MMMU 81.7.
-QWEN — WEAK: counting objects in the wild (ODInW13 50.8), novel task formats (ZEROBench_sub 34.4), fine-grained spatial references (RefSpatialBench 64.3).
-GEMINI 3.5 FLASH — STRONG: near-Pro reasoning (AI index 50.2 vs Qwen 31.6), mandatory careful thinking, excellent reading and math.
-GEMINI — assumed weak on the same perception-level tasks (counting small/dense elements, fine spatial distinctions); no public vision benchmarks yet.
+Qwen 3.6-35B-A3B failure profile (verified benchmarks, 2026-08):
+- COUNTING in the wild (ODInW13 50.8) — Qwen fails when it must count many small/dense visual elements. This is its WEAKEST capability.
+- NOVEL task formats (ZEROBench_sub 34.4) — Qwen fails on unfamiliar reasoning structures it hasn't seen in training.
+- FINE-GRAINED spatial references (RefSpatialBench 64.3) — Qwen fails on precise position/orientation distinctions (near-identical positions, subtle ordering, small offsets).
+- Qwen STRENGTHS (AVOID these — Qwen will pass): OCR 89.9, chart reading 78.0, diagram understanding 92.7, MathVista 86.4, simple comparisons, single-value reads.
 
-FAILS BOTH → AVOID (one model or both will solve these):
-- Pure OCR or text extraction — Qwen reads text at 82-90, Gemini reads even better
-- Single-value chart reads and simple chart arithmetic — both models are strong at this
-- Text-only reasoning or math on values already stated — Gemini reasons carefully
-- Clearly-labeled diagram traversal — Qwen scores 92.7 on diagrams
-
-FAILS BOTH → PREFER (perception-level failures):
-- Counting small/dense visual elements in natural/UI scenes (not clean chart elements)
-- Fine-grained spatial distinctions: near-identical positions, subtle ordering, small offsets
-- Novel multi-step formats Qwen has never seen (ZEROBench 34.4) that also force exact perception
-- Cross-panel arithmetic over many unlabeled visual elements that must each be located and counted
-
-Why Qwen fails on Hardest: it tends to answer the FIRST comparison it finds, cannot hold multiple data points in memory for arithmetic, and defaults to "cannot determine" when the reasoning chain is too long.
-Why Gemini fails on Hardest: it is a strong reasoner, so the failure must come from PERCEPTION — a value it cannot reliably read or count from the image — not from reasoning depth.
+Why Qwen fails: it answers the FIRST comparison it finds, cannot hold multiple data points in memory for arithmetic, and defaults to "cannot determine" when the reasoning chain is too long.
 
 WORKFLOW — choose the best pattern for THIS image:
-Step 1: ANALYZE the image briefly (chart type, panels, data series). Keep to 2-3 sentences max.
-Step 2: CHOOSE a reasoning task that requires 2+ visual operations and targets perception (not reasoning) as the failure point.
+Step 1: ANALYZY the image briefly (chart type, panels, data series). Keep to 2-3 sentences max.
+Step 2: CHOOSE a reasoning task that targets Qwen's COUNTING or SPATIAL weaknesses. If the image has many small elements, count them. If positions are close together, ask about precise ordering.
 Step 3: GENERATE the question and output ONLY valid JSON. Do not explain your reasoning in detail — just output the JSON.
 
-PROVEN example (percentage change):
-"Windpower's share of electricity in the EU was [X]% in 2006 and [Y]% in 2015. What is the percentage point increase?"
-→ requires locating two data points on a stacked area chart, reading values, computing difference. Answer is a small number (e.g., 10). [Hardest: Qwen fails because it cannot hold two values and compute]
+PROVEN Qwen-failure strategies (ranked by effectiveness):
 
-PROVEN example (rank delta):
-"Determine [entity]'s rank among [list all entities] at [year A] and at [year B], then calculate how many positions it drops."
-→ requires ranking bars by height at two time points, then computing ordinal delta. Answer is a small integer. [Hardest: Qwen cannot rank and compute simultaneously]
+1. DENSE COUNTING with condition (Qwen ODInW13 50.8 — weakest):
+"How many [elements] in [region/panel] satisfy [condition]?" → Qwen cannot count many small elements accurately.
+Example: "How many bars in the stacked chart exceed the 50% threshold line across all panels?"
 
-PROVEN example (diagram — connection matrix):
-"Which [component] in [section A] sends arrows to the most [component type] in [section B]?"
-→ requires counting outgoing arrows per component by target type, comparing counts. Answer is a component name. [Hardest: Qwen cannot count connections across multiple groups simultaneously]
+2. SPATIAL ORDERING among near-identical positions (RefSpatialBench 64.3):
+"Among [elements at similar positions], which is the [ordinal: second/third] from [direction]?" → Qwen cannot distinguish fine-grained positions.
+Example: "Among the three peaks between 1000-2000 Hz, which is the second from the left?"
 
-Use these PROVEN Hardest strategies (genuine visual REASONING with calculation, not mechanical tasks):
-1. Percentage change: "[Entity]'s [metric] changed from [A] to [B]. What is the percentage point increase or decrease?"
-2. Rank delta: "Determine [entity]'s rank among [list] at [condition A] and at [condition B]. How many positions does it drop or rise?"
-3. Cross-panel calculation: "Calculate the difference between [panel A value] and [panel B value] for [category X]."
-4. Threshold crossing: "Between [year A] and [year B], does [entity] cross the [threshold] line? In which year?"
-5. Multi-panel identification: "Which panel's [entity] has the [property]: [A] or [B]?" (property = larger peak, steeper slope, earlier crossing)
-6. Arithmetic + comparison: "For [category X], compute [operation] of [values]. Is this greater or less than [threshold]?"
-7. Trace + identify: "Follow [path/flow] from [start] to [end]. What [intermediate element] has [property]?"
-8. Temporal comparison: "Between [year A] and [year B], which [category] shows the largest [metric] change?"
-9. Relative ranking: "Among [entities], rank by [metric] and identify the [nth] highest."
-10. Multi-step filtering: "Among [subset filtered by condition], which has the [property]?"
+3. MULTI-STEP COUNTING across groups (ODInW13 + ZEROBench):
+"For each [category], count [elements with property]. Which category has the [most/second most]?" → Qwen cannot hold multiple counts in memory.
+Example: "Count the red and blue dots in each panel. Which panel has more red dots than blue dots?"
 
-DIAGRAM-SPECIFIC strategies (for flow diagrams, architecture diagrams, UI mockups, pipelines):
-11. Connection matrix: "Which [component] connects to the most [component type] across both [section A] and [section B]?" — requires counting connections across multiple groups.
-12. Multi-attribute path tracing: "Tracing from [start] following [arrows], which [component] is the [position] one with [property]?" — requires path tracing + attribute filtering.
-13. Relationship chain: "Which [component] is connected to [A] AND [B] but NOT [C]? How many connections does it have?" — requires multi-condition filtering + counting.
-14. Cross-component arithmetic: "How many more [arrow type] connections does [component X] have compared to [component Y]?" — requires comparing connection counts.
-15. Nested path comparison: "Starting from [start], go to [middle] following [arrows]. From [middle], which path leads to [end]?" — requires multi-step path following.
+4. NOVEL FORMAT requiring exact spatial perception (ZEROBench 34.4):
+"What is the [spatial property] of the [element] that [condition]?" → Qwen fails on unfamiliar spatial reasoning.
+Example: "What is the color of the bar that is directly above the x-axis label 'B' in the bottom panel?"
 
-Calculation templates (prefer these when the image has quantitative data):
-- Percentage change: "[Entity]'s [metric] changed from [A] to [B]. What is the percentage point change?"
-- Difference: "How many [units] more does [X] have compared to [Y]?"
-- Ratio: "What is the ratio of [X] to [Y]?"
-- Rank position: "Among [list], rank by [metric]. What is [entity]'s rank?"
-- Rank delta: "How many positions does [entity] drop or rise from [condition A] to [condition B]?"
-- Threshold crossing: "In which year does [entity] first exceed [threshold]?"
+5. CROSS-PANEL SPATIAL with arithmetic (RefSpatialBench + counting):
+"Count [elements] in [panel A] and [panel B]. What is the difference?" → requires spatial perception + arithmetic.
+Example: "How many more peaks are visible in the top spectrum compared to the bottom spectrum?"
 
-🚫 DO NOT make counting the primary difficulty. The challenge MUST come from interpreting visual patterns, relationships, or trends — NOT from how many items need counting. If you must count, it must be the final step AFTER genuine visual reasoning (classification, comparison, tracing, value reading), and the count itself must be small and obvious.
+🚫 DO NOT generate these — Qwen will PASS:
+- Simple chart comparisons ("which is higher/lower/larger/smaller") — Qwen reads charts at 78-93
+- OCR or text extraction — Qwen reads text at 89.9
+- Single-value reads ("what is the value at x=?") — Qwen excels
+- Questions where the answer is stated in the question text
+- Extreme-seeking words (highest/lowest/most) — Qwen checks these first
+- Two-answer questions — must be single answer
 
-✅ Counting IS acceptable as the final step AFTER genuine visual reasoning. Examples of reasoning-first counting:
-- Tracing connections: "How many arrows connect node A to group B?"
-- Resolving spatial relationships: "How many objects on the top shelf are to the left of the vase?"
-- Distinguishing overlapping elements: "How many circles overlap with the shaded region?"
-- Applying a visually meaningful condition: "How many bars exceed the threshold line?"
-The count itself must be small and obvious — the hard part must be the visual reasoning, not the tallying.
-
-🚫 ANTI-PATTERNS (DO NOT USE — these are mechanical, not reasoning):
-- "Count the number of X, Y, and Z" where the primary effort is tallying many items
-- "Classify [A], [B], [C], then sum all counts" — counting with labels, not reasoning
-- "How many arrows/connections touch [component]?" without requiring classification or comparison
-- Counting chart furniture: tick labels, axis labels, colorbar ticks, legends — OCR-able, useless
-- Chaining multiple independent counts with addition/multiplication — manufactured difficulty
-- Any question answerable from text alone without seeing the image
-- Asking for a specific y-axis value that requires tracing from a data point to the axis — multiple defensible answers
-- Multi-sentence questions where the first sentence leaks information
-- Inline choices: "Is it X or Y?" or "Choose between X and Y" — 50/50 binary guess
-- Single-criterion matchmaking: "Which panel has X?" where X is a single label — require comparison or ranking instead
-- Extreme-seeking: "What is the highest/lowest/most?" — Qwen checks these first
-- Two-answer questions: "Which X and what Y?" — must be single answer
-- Calculation without visual input: "What is 10% of 50?" — must require reading from the image
-
-The question MUST:
-- Be a SINGLE sentence (2 sentences ONLY if absolutely necessary for format spec — never use 3+)
-- Require 2+ distinct visual operations (read + calculate, compare + rank, trace + identify)
-- Reference specific VALUES, data points, peaks, regions, or visual features
+✅ Hardest question must:
+- Be a SINGLE sentence (2 sentences ONLY if absolutely necessary)
+- Require 2+ visual operations (locate + count, identify + compare positions, trace + count)
+- Target Qwen's counting or spatial weakness specifically
 - Be UNANSWERABLE from text alone — the image must be indispensable
-- Produce a SINGLE atomic answer (one number or one word — never compound)
-
-✅ What a GOOD Hardest question looks like (self-check before answering):
-- REQUIRES CALCULATION: answer requires arithmetic (percentage, difference, ratio) or multi-panel reasoning
-- MULTI-STEP: cannot be answered by scanning one panel — multiple data sources must be consulted
-- SINGLE ANSWER: one number or one word, never "X and Y"
-- SPECIFIC: names all entities explicitly ("among X, Y, Z")
-- NO LEAKAGE: no information in the question text that gives away the answer
-- DETERMINISTIC: two readers would give the same answer
+- Produce a SINGLE atomic answer (one number or one word)
 
 QA handbook rules:
 - English, 1 sentence (2 absolute max for format spec), must need the image. NEVER use 3+ sentences.
@@ -562,39 +508,41 @@ Draft answer: {answer}"""),
 
 SELF_CRITIQUE_PROMPT = PromptTemplate(
     "SELF_CRITIQUE_PROMPT",
-    _with_strict("""You drafted this question for a CHALLENGING visual-reasoning task:
+    _with_strict("""You drafted this question for a HARDEST visual-reasoning task:
 
 Q: {question}
 A: {answer}
 {fx_context}
-Rate 1-5: would BOTH Qwen 3.6-35B-A3B AND Gemini 3.5 Flash likely FAIL on this? A "5" means both definitely fail, "1" means both definitely solve.
+Rate 1-5: would Qwen 3.6-35B-A3B likely FAIL on this? A "5" means Qwen definitely fails, "1" means Qwen definitely solves.
 
-Capability notes:
-- Qwen: strong OCR/diagrams/math (82-93), weak at in-the-wild counting (ODInW13 50.8), novel formats (ZEROBench 34.4), fine spatial (RefSpatialBench 64.3)
-- Gemini: near-Pro reasoning, mandatory careful thinking — it rarely fails on reasoning depth or math; it can only be beaten by a PERCEPTION failure (something it cannot reliably read or count from the image)
+CRITICAL: Realm classifies difficulty by Qwen's performance. If Qwen passes → "Easy". If Qwen fails → "Hardest".
+
+Qwen failure profile (verified benchmarks, 2026-08):
+- COUNTING in the wild (ODInW13 50.8) — Qwen's WEAKEST capability. Fails when counting many small/dense visual elements.
+- NOVEL task formats (ZEROBench_sub 34.4) — Fails on unfamiliar reasoning structures.
+- FINE-GRAINED spatial references (RefSpatialBench 64.3) — Fails on precise position/orientation distinctions.
+- Qwen STRENGTHS (will PASS): OCR 89.9, chart reading 78.0, diagram understanding 92.7, MathVista 86.4, simple comparisons, single-value reads.
 
 CRITICAL CHECK FIRST: Could a smart person answer this WITHOUT seeing the image?
 - If the question provides all the numerical data needed to compute the answer in the text (e.g., "Panel A's X covers 0 to 5, Panel B's X covers 0 to 4. What is the ratio?" — answerable from text alone), score it 1 regardless of math complexity. The IMAGE must be REQUIRED.
 - If the question references a SPECIFIC visual element (peak, trough, color region, data point) that requires looking at the image, it's valid.
 
 A question deserves a HIGH score (4-5) only if it:
-- References a visual element (peak, trough, color region, specific data point, position on chart)
-- Requires COMPARING values or ranking from the image (not extracting a specific numeric value by tracing to an axis)
+- Targets Qwen's COUNTING or SPATIAL weaknesses specifically
+- Requires locating and counting many small/dense elements, OR distinguishing fine-grained positions
 - Cannot be answered from text alone
-- Would defeat a strong careful reasoner: the difficulty comes from PERCEPTION (counting small/dense elements, fine spatial distinctions, subtle visual grouping) rather than reasoning depth — that is the only way Gemini 3.5 Flash fails
+- Would cause Qwen to either miscount, miss elements, or confuse similar positions
 
-A question deserves a LOW score (1-2) if it is:
-- Pure math (ratio/difference/sum) of values stated in the question text
-- A simple COUNT of axis labels, tick marks, colorbar values
-- A generic "How many X are in the image?" with no filter
-- Mechanical counting of chart furniture
-- Answerable without the image (provides all needed data in text)
-- Asks for a specific y-axis value that requires tracing from a curve point to the axis (ambiguous answers)
-- Solvable by careful reading and reasoning on clearly visible values — Gemini 3.5 Flash reasons carefully and will pass these; the failure must come from perception
+A question deserves a LOW score (1-2) if it:
+- Is solvable by Qwen's strong OCR/chart reading (single-value reads, simple comparisons)
+- Asks "which is higher/lower/larger/smaller" — Qwen reads charts at 78-93
+- Uses extreme-seeking words (highest/lowest/most) — Qwen checks these first
+- Is a simple count of easily-visible elements (Qwen can count small obvious things)
+- Is answerable without the image (provides all needed data in text)
 
 If score is 1-3, REWRITE the question to:
-- REMOVE any explicit data values from the text (no "X covers 0 to 5")
-- ASK about a COMPARISON or ranking (which is higher/larger/steeper, what rank, which direction)
+- TARGET Qwen's counting weakness: ask it to count many small/dense elements with a condition
+- TARGET Qwen's spatial weakness: ask about precise ordering among near-identical positions
 - Make the image REQUIRED (no way to answer without seeing it)
 
 FORMATTING RULES for the rewritten question and answer:
