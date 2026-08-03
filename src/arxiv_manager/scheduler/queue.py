@@ -49,7 +49,7 @@ def enqueue(
         session.close()
 
 
-def dequeue() -> ScheduledTask | None:
+def dequeue(worker_id: int = 0) -> ScheduledTask | None:
     """Pick the highest-priority queued job and mark it running.
 
     Uses an atomic UPDATE ... WHERE status='queued' claim so concurrent
@@ -76,7 +76,7 @@ def dequeue() -> ScheduledTask | None:
                 update(ScheduledTask)
                 .where(ScheduledTask.id == task.id)
                 .where(ScheduledTask.status == "queued")
-                .values(status="running", started_at=datetime.now())
+                .values(status="running", started_at=datetime.now(), worker_id=worker_id)
             )
             session.commit()
             if result.rowcount != 1:
@@ -144,7 +144,7 @@ def fail_job(job_id: int, error: str) -> ScheduledTask | None:
 
 
 def cancel_job(job_id: int) -> ScheduledTask | None:
-    """Cancel a queued or running job."""
+    """Cancel a queued job (drop from queue)."""
     session = get_session()
     try:
         task = session.get(ScheduledTask, job_id)
@@ -158,6 +158,107 @@ def cancel_job(job_id: int) -> ScheduledTask | None:
         session.refresh(task)
         logger.info("scheduler: cancelled job %d", job_id)
         return task
+    finally:
+        session.close()
+
+
+def abort_job(job_id: int) -> ScheduledTask | None:
+    """Abort a running job by setting status and writing an abort sentinel.
+
+    The worker checks for this sentinel during execution and raises
+    JobCancelled to stop the current LLM call.
+    """
+    session = get_session()
+    try:
+        task = session.get(ScheduledTask, job_id)
+        if task is None:
+            return None
+        if task.status != "running":
+            return task
+
+        task.status = "cancelled"
+        task.completed_at = datetime.now()
+        task.result = json.dumps({"error": "aborted by user"})
+        session.add(task)
+        session.commit()
+        session.refresh(task)
+
+        # Write abort sentinel so the worker can check mid-execution
+        from ..storage import STORAGE_DIR
+
+        sentinel = STORAGE_DIR / f"_abort_{job_id}"
+        sentinel.write_text(f"aborted at {datetime.now().isoformat()}")
+        logger.info("scheduler: aborted running job %d (worker_id=%d)", job_id, task.worker_id)
+        return task
+    finally:
+        session.close()
+
+
+def check_abort_sentinel(job_id: int) -> bool:
+    """Check if an abort sentinel exists for a running job."""
+    from ..storage import STORAGE_DIR
+
+    sentinel = STORAGE_DIR / f"_abort_{job_id}"
+    return sentinel.exists()
+
+
+def cleanup_abort_sentinel(job_id: int) -> None:
+    """Remove the abort sentinel after processing."""
+    from ..storage import STORAGE_DIR
+
+    sentinel = STORAGE_DIR / f"_abort_{job_id}"
+    try:
+        sentinel.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def queue_position(job_id: int) -> tuple[int, int]:
+    """Return (position, total_queued) for a queued job.
+
+    Position is 1-indexed (1 = next to run).
+    Returns (0, 0) if the job is not queued.
+    """
+    session = get_session()
+    try:
+        task = session.get(ScheduledTask, job_id)
+        if task is None or task.status != "queued":
+            return (0, 0)
+
+        ahead = session.exec(
+            select(ScheduledTask)
+            .where(ScheduledTask.status == "queued")
+            .where(ScheduledTask.id < job_id)
+        ).all()
+        total = session.exec(
+            select(ScheduledTask)
+            .where(ScheduledTask.status == "queued")
+        ).all()
+        return (len(ahead) + 1, len(total))
+    finally:
+        session.close()
+
+
+def find_job_for_task(task_id: int, statuses: list[str] | None = None) -> ScheduledTask | None:
+    """Find the latest regeneration job for a task with given statuses."""
+    if statuses is None:
+        statuses = ["queued", "running"]
+
+    session = get_session()
+    try:
+        task_id_pattern = f'%"task_id": {task_id}'
+        jobs = session.exec(
+            select(ScheduledTask)
+            .where(ScheduledTask.type == "regenerate_task")
+            .where(ScheduledTask.status.in_(statuses))
+            .where(
+                ScheduledTask.payload.like(task_id_pattern + ",%")
+                | ScheduledTask.payload.like(task_id_pattern + "}%")
+            )
+            .order_by(ScheduledTask.id.desc())
+            .limit(5)
+        ).all()
+        return jobs[0] if jobs else None
     finally:
         session.close()
 
@@ -180,6 +281,7 @@ def get_job_status(job_id: int) -> dict[str, Any] | None:
             "attempts": task.attempts,
             "max_attempts": task.max_attempts,
             "result": task.result,
+            "worker_id": task.worker_id,
         }
     finally:
         session.close()
@@ -201,6 +303,7 @@ def list_queue(limit: int = 50) -> list[dict[str, Any]]:
                 "completed_at": t.completed_at.isoformat() if t.completed_at else None,
                 "attempts": t.attempts,
                 "max_attempts": t.max_attempts,
+                "worker_id": t.worker_id,
             }
             for t in tasks
         ]

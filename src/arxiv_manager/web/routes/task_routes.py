@@ -833,7 +833,7 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
     auto-classify → save). The client polls GET /api/task/{id}/regenerate-status
     until the job reaches done/failed. Pass sync=1 to run inline instead.
     """
-    from ...scheduler.manager import start_worker, worker_is_alive
+    from ...scheduler.manager import start_worker_pool, worker_is_alive
     from ...scheduler.queue import enqueue as _enqueue
 
     sync = request.query_params.get("sync", "0") == "1"
@@ -866,26 +866,25 @@ def api_regenerate_task(request: Request, task_id: int, difficulty: str = Form("
     )
     if not worker_is_alive():
         try:
-            start_worker()
+            import os as os_mod
+            count = int(os_mod.environ.get("WORKER_COUNT", "5"))
+            start_worker_pool(count=max(1, min(10, count)))
         except Exception as exc:
-            logger.warning("task regenerate worker autostart failed: %s", exc)
+            logger.warning("task regenerate worker pool autostart failed: %s", exc)
     logger.info("task regenerate enqueued task_id=%d job=%d difficulty=%s", task_id, job.id, difficulty)
     return {"ok": True, "job_id": job.id, "status": job.status, "async": True}
 
 
 @router.get("/api/task/{task_id}/regenerate-status")
 def api_regenerate_status(task_id: int):
-    """Return the latest regenerate job status + result for a task."""
+    """Return the latest regenerate job status + result + queue position for a task."""
     import json as _json_mod
 
     from ...scheduler.models import ScheduledTask
-    from ...scheduler.queue import get_job_status
+    from ...scheduler.queue import get_job_status, queue_position
 
     session = get_session()
     try:
-        # Filter by task_id in SQL: enqueue serializes payload with default
-        # json separators, so the task_id key is `"task_id": N, ...` (or the
-        # last key, `"task_id": N}`). Match both shapes exactly.
         task_id_pattern = f'%"task_id": {task_id}'
         job = session.exec(
             select(ScheduledTask)
@@ -908,8 +907,39 @@ def api_regenerate_status(task_id: int):
                 result = _json_mod.loads(status["result"])
             except _json_mod.JSONDecodeError:
                 result = {"raw": status["result"]}
-        return {"ok": True, "job_id": candidate.id, "status": status["status"], "result": result}
+        resp = {"ok": True, "job_id": candidate.id, "status": status["status"], "result": result}
+        if status["status"] == "queued":
+            pos, total = queue_position(candidate.id)
+            resp["queue_position"] = pos
+            resp["queue_total"] = total
+        if status["status"] == "running":
+            resp["worker_id"] = status.get("worker_id", 0)
+        return resp
     return {"ok": True, "job_id": None, "status": "none"}
+
+
+@router.post("/api/task/{task_id}/drop")
+def api_drop_task(task_id: int):
+    """Drop (cancel) a queued regeneration for a task."""
+    from ...scheduler.queue import cancel_job, find_job_for_task
+
+    job = find_job_for_task(task_id, statuses=["queued"])
+    if job is None:
+        return {"ok": False, "error": "No queued job found for this task"}
+    cancel_job(job.id)
+    return {"ok": True, "job_id": job.id, "status": "cancelled"}
+
+
+@router.post("/api/task/{task_id}/abort")
+def api_abort_task(task_id: int):
+    """Abort a running regeneration for a task."""
+    from ...scheduler.queue import abort_job, find_job_for_task
+
+    job = find_job_for_task(task_id, statuses=["running"])
+    if job is None:
+        return {"ok": False, "error": "No running job found for this task"}
+    abort_job(job.id)
+    return {"ok": True, "job_id": job.id, "status": "cancelled"}
 
 
 @router.post("/api/task/{task_id}/ai-fix", response_class=HTMLResponse)

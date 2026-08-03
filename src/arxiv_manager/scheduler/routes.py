@@ -1,94 +1,125 @@
-"""FastAPI route handlers for the scheduler API."""
+"""Scheduler API endpoints for the worker pool."""
 
 from __future__ import annotations
 
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
-
-from .manager import get_worker_pid, start_worker, stop_worker, worker_is_alive
-from .queue import (
-    cancel_job,
-    enqueue,
-    get_job_status,
-    list_queue,
-    queue_depth,
-)
+from fastapi import APIRouter, Query
+from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/scheduler", tags=["scheduler"])
 
 
 @router.post("/enqueue")
-def api_enqueue(body: dict[str, Any]) -> dict[str, Any]:
-    """Enqueue a new job.
+def api_enqueue(data: dict[str, Any]) -> dict[str, Any]:
+    """Enqueue a new job."""
+    from .queue import enqueue
 
-    Body:
-        type: str (required) - "generate_qa" | "regenerate_task" | "validate_batch" | "rag_index"
-        payload: dict (optional) - kwargs for the job handler
-        priority: int (optional, default 0)
-        max_attempts: int (optional, default 3)
-    """
-    job_type = body.get("type", "")
+    job_type = data.get("type", "")
     if not job_type:
-        raise HTTPException(status_code=400, detail="type is required")
+        return JSONResponse({"error": "missing 'type'"}, status_code=400)
 
     job = enqueue(
         job_type=job_type,
-        payload=body.get("payload"),
-        priority=body.get("priority", 0),
-        max_attempts=body.get("max_attempts", 3),
+        payload=data.get("payload"),
+        priority=data.get("priority", 0),
     )
-    return {"job_id": job.id, "status": job.status}
+    return {"ok": True, "job_id": job.id}
 
 
 @router.get("/status/{job_id}")
 def api_job_status(job_id: int) -> dict[str, Any]:
-    """Get the status of a job by ID."""
+    """Get the status of a job."""
+    from .queue import get_job_status
+
     status = get_job_status(job_id)
     if status is None:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return status
+        return JSONResponse({"error": "job not found"}, status_code=404)
+    return {"ok": True, **status}
 
 
 @router.post("/cancel/{job_id}")
 def api_cancel_job(job_id: int) -> dict[str, Any]:
-    """Cancel a queued or running job."""
+    """Cancel a queued job (drop from queue)."""
+    from .queue import cancel_job
+
     job = cancel_job(job_id)
     if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return {"job_id": job.id, "status": job.status}
+        return JSONResponse({"error": "job not found"}, status_code=404)
+    return {"ok": True, "status": job.status}
+
+
+@router.post("/abort/{job_id}")
+def api_abort_job(job_id: int) -> dict[str, Any]:
+    """Abort a running job (worker checks abort sentinel mid-execution)."""
+    from .queue import abort_job
+
+    job = abort_job(job_id)
+    if job is None:
+        return JSONResponse({"error": "job not found"}, status_code=404)
+    return {"ok": True, "status": job.status}
 
 
 @router.get("/queue")
-def api_queue(limit: int = 50) -> dict[str, Any]:
-    """List recent jobs and current queue depth."""
-    return {
-        "depth": queue_depth(),
-        "jobs": list_queue(limit=limit),
-    }
+def api_list_queue(limit: int = Query(50)) -> dict[str, Any]:
+    """List recent jobs."""
+    from .queue import list_queue
+
+    return {"ok": True, "jobs": list_queue(limit)}
+
+
+@router.get("/depth")
+def api_queue_depth() -> dict[str, Any]:
+    """Return the number of queued jobs."""
+    from .queue import queue_depth
+
+    return {"ok": True, "depth": queue_depth()}
 
 
 @router.get("/worker")
 def api_worker_status() -> dict[str, Any]:
-    """Get the worker subprocess status."""
-    alive = worker_is_alive()
+    """Return the status of the worker pool."""
+    from .manager import worker_pool_status
+
+    workers = worker_pool_status()
     return {
-        "alive": alive,
-        "pid": get_worker_pid() if alive else None,
+        "ok": True,
+        "alive": any(w.get("alive") for w in workers),
+        "workers": workers,
+        "count": len([w for w in workers if w.get("alive")]),
     }
 
 
-@router.post("/worker/start")
-def api_start_worker() -> dict[str, Any]:
-    """Start the worker subprocess."""
-    pid = start_worker()
-    return {"pid": pid, "status": "started"}
+@router.get("/pool")
+def api_pool_status() -> dict[str, Any]:
+    """Return the worker pool status (alias for /worker)."""
+    from .manager import worker_pool_status
+
+    workers = worker_pool_status()
+    return {
+        "ok": True,
+        "workers": workers,
+        "count": len([w for w in workers if w.get("alive")]),
+    }
 
 
-@router.post("/worker/stop")
-def api_stop_worker() -> dict[str, Any]:
-    """Stop the worker subprocess."""
-    stopped = stop_worker()
-    return {"stopped": stopped}
+@router.post("/pool/start")
+def api_start_pool(count: int = Query(5)) -> dict[str, Any]:
+    """Start the worker pool with N workers."""
+    from .manager import start_worker_pool
+
+    count = max(1, min(10, count))
+    pids = start_worker_pool(count)
+    return {"ok": True, "workers": len(pids), "pids": pids}
+
+
+@router.post("/pool/stop")
+def api_stop_pool() -> dict[str, Any]:
+    """Stop all workers in the pool."""
+    from .manager import stop_worker_pool
+
+    stopped = stop_worker_pool()
+    return {"ok": True, "stopped": stopped}

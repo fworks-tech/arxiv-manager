@@ -309,9 +309,20 @@ var _regenerating = false;
             statusEl.textContent = 'Last regeneration failed: ' + err;
             statusEl.className = 'mt-2 px-3 py-2 rounded-lg text-sm bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800';
             statusEl.classList.remove('hidden');
-        } else if (data.status === 'queued' || data.status === 'running') {
-            statusEl.textContent = 'Regeneration ' + data.status + '... (started ' + (data.created_at || 'recently') + ')';
+        } else if (data.status === 'queued') {
+            var pos = data.queue_position || '?';
+            var total = data.queue_total || '?';
+            statusEl.innerHTML = 'Queued — position ' + pos + '/' + total + ' in queue <button onclick="dropRegen({{ task.id }})" class="ml-3 px-2 py-0.5 bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 rounded text-xs hover:bg-red-200 dark:hover:bg-red-800/60">Drop from Queue</button>';
             statusEl.className = 'mt-2 px-3 py-2 rounded-lg text-sm bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800';
+            statusEl.classList.remove('hidden');
+            var btn = document.getElementById('regenerate-btn');
+            if (btn) { btn.textContent = 'Regenerating...'; btn.disabled = true; }
+            _regenerating = true;
+            pollRegenStatus(data.job_id, btn);
+        } else if (data.status === 'running') {
+            var wid = data.worker_id || '?';
+            statusEl.innerHTML = 'Running on worker #' + wid + '... <button onclick="abortRegen({{ task.id }})" class="ml-3 px-2 py-0.5 bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 rounded text-xs hover:bg-red-200 dark:hover:bg-red-800/60">Abort</button>';
+            statusEl.className = 'mt-2 px-3 py-2 rounded-lg text-sm bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800';
             statusEl.classList.remove('hidden');
             var btn = document.getElementById('regenerate-btn');
             if (btn) { btn.textContent = 'Regenerating...'; btn.disabled = true; }
@@ -321,6 +332,42 @@ var _regenerating = false;
     })
     .catch(function() {});
 })();
+
+function dropRegen(taskId) {
+    if (!confirm('Drop this regeneration from the queue?')) return;
+    fetch('/api/task/' + taskId + '/drop', {method: 'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.ok) {
+            showToast('Regeneration dropped from queue', 'success');
+            var statusEl = document.getElementById('regen-status');
+            if (statusEl) statusEl.classList.add('hidden');
+            var btn = document.getElementById('regenerate-btn');
+            if (btn) { btn.textContent = 'Regenerate'; btn.disabled = false; }
+            _regenerating = false;
+        } else {
+            showToast('Drop failed: ' + (data.error || 'unknown'), 'error');
+        }
+    });
+}
+
+function abortRegen(taskId) {
+    if (!confirm('Abort the running regeneration? This will stop the current job.')) return;
+    fetch('/api/task/' + taskId + '/abort', {method: 'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.ok) {
+            showToast('Regeneration aborted', 'success');
+            var statusEl = document.getElementById('regen-status');
+            if (statusEl) statusEl.classList.add('hidden');
+            var btn = document.getElementById('regenerate-btn');
+            if (btn) { btn.textContent = 'Regenerate'; btn.disabled = false; }
+            _regenerating = false;
+        } else {
+            showToast('Abort failed: ' + (data.error || 'unknown'), 'error');
+        }
+    });
+}
 
 document.getElementById('regenerate-btn')?.addEventListener('click', function() {
     if (_regenerating) return;
@@ -403,7 +450,16 @@ function pollRegenStatus(jobId, btn) {
             } else {
                 btn.textContent = 'Regenerating (' + data.status + ')...';
                 if (statusEl) {
-                    statusEl.textContent = 'Regeneration ' + data.status + '...';
+                    if (data.status === 'queued') {
+                        var pos = data.queue_position || '?';
+                        var total = data.queue_total || '?';
+                        statusEl.innerHTML = 'Queued — position ' + pos + '/' + total + ' <button onclick="dropRegen({{ task.id }})" class="ml-3 px-2 py-0.5 bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 rounded text-xs hover:bg-red-200 dark:hover:bg-red-800/60">Drop</button>';
+                    } else if (data.status === 'running') {
+                        var wid = data.worker_id || '?';
+                        statusEl.innerHTML = 'Running on worker #' + wid + '... <button onclick="abortRegen({{ task.id }})" class="ml-3 px-2 py-0.5 bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 rounded text-xs hover:bg-red-200 dark:hover:bg-red-800/60">Abort</button>';
+                    } else {
+                        statusEl.textContent = 'Regeneration ' + data.status + '...';
+                    }
                     statusEl.className = 'mt-2 px-3 py-2 rounded-lg text-sm bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800';
                     statusEl.classList.remove('hidden');
                 }

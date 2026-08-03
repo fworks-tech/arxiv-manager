@@ -1,143 +1,96 @@
-"""Tests for agents/orchestrator.py — orchestration workflow."""
+"""Tests for agents/orchestrator.py — event-driven pipeline."""
 
 from __future__ import annotations
 
-from unittest.mock import patch
-
 from arxiv_manager.agents.context import new_context
-from arxiv_manager.agents.orchestrator import orchestrate
-
-# All patches target source modules (not the lazy-importing orchestrator)
-DRAFT_PATH = "arxiv_manager.authoring.ai_draft.core.draft_qa"
-REVIEW_PATH = "arxiv_manager.agents.reviewer.review_draft"
-DECOMP_PATH = "arxiv_manager.agents.query_decomposer.decompose_query"
+from arxiv_manager.agents.events import EventBus, PipelineEvent
+from arxiv_manager.agents.orchestrator import _subscribe_agents
 
 
-class TestOrchestrate:
-    def test_orchestrate_basic(self):
-        ctx = new_context(1, "challenging", "chart_graph_text")
+class TestSubscribeAgents:
+    def test_all_agents_subscribed(self):
+        bus = EventBus()
+        _subscribe_agents(bus)
 
-        with patch(DRAFT_PATH) as mock_draft:
-            mock_draft.return_value = {
-                "question": "What is the peak value?",
-                "answer": "42",
-                "_validation_quality": 0.85,
-            }
-            with patch(REVIEW_PATH) as mock_review:
-                mock_review.return_value = {
-                    "score": 4,
-                    "passed": True,
-                    "suggestions": [],
-                    "strengths": ["High quality"],
-                    "agent": "reviewer",
-                }
-
-                result = orchestrate(ctx, "Generate a question", "/tmp/test.png")
-
-        assert result["question"] == "What is the peak value?"
-        assert result["answer"] == "42"
-
-    def test_orchestrate_fallback_on_failure(self):
-        ctx = new_context(1, "challenging", "chart_graph_text")
-
-        with patch(DRAFT_PATH) as mock_draft:
-            mock_draft.return_value = None
-            mock_fallback = patch(
-                "arxiv_manager.agents.orchestrator._fallback_generate",
-                return_value={},
-            )
-            with mock_fallback:
-                result = orchestrate(ctx, "test", "/tmp/test.png")
-        assert result == {}
-
-    def test_orchestrate_delegates_review_for_hardest(self):
-        ctx = new_context(1, "hardest", "chart_graph_text")
-
-        with patch(DRAFT_PATH) as mock_draft:
-            mock_draft.return_value = {
-                "question": "Q?",
-                "answer": "A",
-                "_validation_quality": 0.6,
-            }
-            with patch(REVIEW_PATH) as mock_review:
-                mock_review.return_value = {
-                    "score": 2,
-                    "passed": False,
-                    "suggestions": ["Low quality"],
-                    "strengths": [],
-                    "agent": "reviewer",
-                }
-                result = orchestrate(ctx, "test", "/tmp/test.png")
-
-        assert result["question"] == "Q?"
-        mock_review.assert_called_once()
-
-    def test_orchestrate_skips_review_for_easy(self):
-        ctx = new_context(1, "easy", "chart_graph_text")
-
-        with patch(DRAFT_PATH) as mock_draft:
-            mock_draft.return_value = {
-                "question": "Q?",
-                "answer": "A",
-                "_validation_quality": 0.8,
-            }
-            with patch(REVIEW_PATH) as mock_review:
-                result = orchestrate(ctx, "test", "/tmp/test.png")
-
-        assert result["question"] == "Q?"
-        mock_review.assert_not_called()
-
-    def test_orchestrate_sets_artifacts(self):
-        ctx = new_context(1, "challenging", "chart_graph_text")
-
-        with patch(DRAFT_PATH) as mock_draft:
-            mock_draft.return_value = {
-                "question": "Q?",
-                "answer": "A",
-                "_validation_quality": 0.9,
-            }
-            with patch(REVIEW_PATH) as mock_review:
-                mock_review.return_value = {
-                    "score": 5,
-                    "passed": True,
-                    "suggestions": [],
-                    "strengths": [],
-                    "agent": "reviewer",
-                }
-                orchestrate(ctx, "test", "/tmp/test.png")
-
-        assert ctx.get_artifact("prompt") == "test"
-        assert ctx.get_artifact("image_path") == "/tmp/test.png"
-        assert ctx.get_artifact("review") is not None
+        # Each agent subscribes to at least one event
+        assert bus.subscriber_count("issue_reported") >= 1
+        assert bus.subscriber_count("regeneration_requested") >= 1
+        assert bus.subscriber_count("draft_generated") >= 1
+        assert bus.subscriber_count("draft_validated") >= 1
+        assert bus.subscriber_count("fact_checked") >= 1
+        assert bus.subscriber_count("determinism_checked") >= 1
+        assert bus.subscriber_count("answer_verified") >= 1
 
 
-class TestOrchestratePlan:
-    def test_plan_subtasks_called_for_hardest(self):
-        ctx = new_context(1, "hardest", "chart_graph_text")
+class TestPipelineEndToEnd:
+    def test_easy_pipeline_skips_heavy_gates(self):
+        """Easy tasks skip self-critique, fact-check, determinism."""
+        from arxiv_manager.agents.determinism import DeterminismCheckerAgent
+        from arxiv_manager.agents.fact_checker import FactCheckerAgent
+        from arxiv_manager.agents.self_critique import SelfCritiqueAgent
 
-        with patch(DECOMP_PATH) as mock_decomp:
-            mock_decomp.return_value = [
-                {"description": "Step 1", "order": 0},
-                {"description": "Step 2", "order": 1},
-            ]
-            with patch(DRAFT_PATH) as mock_draft:
-                mock_draft.return_value = {
-                    "question": "Q?",
-                    "answer": "A",
-                    "_validation_quality": 0.8,
-                }
-                with patch(REVIEW_PATH) as mock_r:
-                    mock_r.return_value = {
-                        "score": 4,
-                        "passed": True,
-                        "suggestions": [],
-                        "strengths": [],
-                        "agent": "reviewer",
-                    }
-                    orchestrate(ctx, "test", "/tmp/test.png")
+        bus = EventBus()
+        ctx = new_context(figure_id=1, difficulty="easy", figure_type="chart")
+        ctx.set_artifact("image_path", "/tmp/fake.png")
 
-        mock_decomp.assert_called_once_with(
-            difficulty="hardest",
-            figure_type="chart_graph_text",
-            prompt="test",
+        # Track which events fire
+        events_fired = []
+
+        def tracker(event: PipelineEvent):
+            events_fired.append(event.event_type)
+            return []
+
+        for evt_type in ["draft_generated", "draft_validated", "fact_checked",
+                         "determinism_checked", "answer_verified", "review_completed",
+                         "pipeline_completed"]:
+            bus.subscribe(evt_type, tracker)
+
+        # Manually drive: generator → self_critique (skips) → fact_checker (skips)
+        # → determinism (skips) → reviewer → pipeline_completed
+        sc = SelfCritiqueAgent()
+        fc = FactCheckerAgent()
+        det = DeterminismCheckerAgent()
+
+        # We can't call generator without a real image, so test the skip agents directly
+        sc_event = PipelineEvent(event_type="draft_generated", context=ctx)
+        sc_results = sc.process(sc_event)
+        assert sc_results[0].metadata.get("skipped") is True
+
+        fc_event = PipelineEvent(event_type="draft_validated", context=ctx)
+        fc_results = fc.process(fc_event)
+        assert fc_results[0].metadata.get("skipped") is True
+
+        det_event = PipelineEvent(event_type="fact_checked", context=ctx)
+        det_results = det.process(det_event)
+        assert det_results[0].metadata.get("skipped") is True
+
+    def test_issue_analyst_emits_regeneration(self):
+        from arxiv_manager.agents.issue_analyst import IssueAnalystAgent
+
+        analyst = IssueAnalystAgent()
+        ctx = new_context(figure_id=1, difficulty="hardest", figure_type="chart")
+
+        event = PipelineEvent(
+            event_type="issue_reported",
+            context=ctx,
+            metadata={"issue_report": {"reason": "too_easy", "description": "Qwen 4/4"}},
         )
+
+        results = analyst.process(event)
+        assert len(results) == 1
+        assert results[0].event_type == "regeneration_requested"
+        assert "too_easy" in ctx.get_artifact("issue_hints")
+
+    def test_reviewer_marks_pipeline_completed(self):
+        from arxiv_manager.agents.reviewer import ReviewerAgent
+
+        rev = ReviewerAgent()
+        ctx = new_context(figure_id=1, difficulty="easy", figure_type="chart")
+        ctx.set_artifact("draft", {"question": "Q?", "answer": "A", "_validation_quality": 0.9})
+
+        event = PipelineEvent(event_type="answer_verified", context=ctx)
+        results = rev.process(event)
+
+        assert len(results) == 1
+        assert results[0].event_type == "pipeline_completed"
+        assert ctx.pipeline_status == "completed"

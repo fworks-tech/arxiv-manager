@@ -8,7 +8,7 @@ from sqlmodel import Field, SQLModel
 
 
 class ScheduledTask(SQLModel, table=True):
-    """A queued task for the subprocess worker.
+    """A queued task for the subprocess worker pool.
 
     Status transitions: queued → running → done | failed | cancelled
     """
@@ -26,3 +26,4 @@ class ScheduledTask(SQLModel, table=True):
     result: str = ""  # JSON result or error message
     attempts: int = 0
     max_attempts: int = 3
+    worker_id: int = 0  # which worker pool slot is processing this job

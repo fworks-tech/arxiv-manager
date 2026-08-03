@@ -43,6 +43,10 @@ def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     init_db()
 
+    # Register all pipeline agents
+    from ..agents import register_all_agents
+    register_all_agents()
+
     # Pre-warm RAG models in background to avoid cold-start delay on first request
     import threading
 
@@ -57,6 +61,23 @@ def create_app() -> FastAPI:
             logging.getLogger(__name__).warning("RAG pre-warm failed: %s", exc)
 
     threading.Thread(target=_prewarm_rag, daemon=True).start()
+
+    # Auto-start worker pool
+    def _start_worker_pool():
+        import os as os_mod
+
+        try:
+            from ..scheduler.manager import start_worker_pool, worker_is_alive
+
+            if not worker_is_alive():
+                count = int(os_mod.environ.get("WORKER_COUNT", "5"))
+                count = max(1, min(10, count))
+                pids = start_worker_pool(count)
+                logging.getLogger(__name__).info("Worker pool started: %d workers", len(pids))
+        except Exception as exc:
+            logging.getLogger(__name__).warning("Worker pool auto-start failed: %s", exc)
+
+    threading.Thread(target=_start_worker_pool, daemon=True).start()
 
     app = FastAPI(title="ArXiv Manager", version="0.2.0")
 

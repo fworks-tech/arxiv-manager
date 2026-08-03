@@ -1,173 +1,178 @@
-"""Orchestrator agent — plans, delegates, and aggregates multi-agent workflows.
+"""Orchestrator — event-driven pipeline planner and executor.
 
-The Orchestrator is the entry point for multi-agent collaboration.
-It receives a generation request, uses the query decomposer to plan
-subtasks, delegates to Generator and Reviewer agents, and aggregates
-results into a final output.
+Receives a regeneration or issue-report request, wires up the
+agent pipeline via the EventBus, and drives it to completion.
 """
 
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
-from .context import AgentContext
+from .context import new_context
+from .events import TERMINAL_EVENTS, EventBus, PipelineEvent
 
 logger = logging.getLogger(__name__)
 
 
-def orchestrate(
-    context: AgentContext,
-    prompt: str,
-    image_path: str,
+def run_pipeline(
+    task_id: int,
+    difficulty: str,
+    source_route: str = "orchestrator",
+    initial_event_type: str = "regeneration_requested",
+    issue_report: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Run a full orchestration workflow: plan → delegate → aggregate.
+    """Run the full event-driven agent pipeline for a task.
+
+    This is the single entry point called by the scheduler worker.
 
     Args:
-        context: The shared AgentContext for this workflow.
-        prompt: The generation prompt.
-        image_path: Path to the figure image.
+        task_id:           The task to regenerate.
+        difficulty:        Requested difficulty level.
+        source_route:      Where this was triggered from (for telemetry).
+        initial_event_type: "regeneration_requested" or "issue_reported".
+        issue_report:      Issue report dict if triggered by user report.
 
     Returns:
-        The best Q&A result from the collaboration, or an empty dict on failure.
+        Result dict with "ok", "question", "answer", etc.
     """
-    context.set_artifact("prompt", prompt)
-    context.set_artifact("image_path", image_path)
+    start_time = time.time()
 
-    subtasks = _plan(context, prompt)
-    if not subtasks:
-        logger.warning("orchestrator: no subtasks generated")
-        return _fallback_generate(context, image_path)
+    # Build context from DB
+    from ..db import get_session
+    from ..models import Figure, Task
 
-    draft = _delegate_generation(context, image_path, prompt)
-    if not draft:
-        return {}
-
-    review = _delegate_review(context, draft)
-    if review:
-        context.set_artifact("review", review)
-
-    result = _aggregate(draft, review, context)
-    return result
-
-
-def _plan(context: AgentContext, prompt: str) -> list[dict[str, Any]]:
-    """Plan subtasks using the query decomposer.
-
-    For hardest difficulty, breaks the task into reasoning steps.
-    For easier difficulties, returns a single task.
-    """
-    from ..agents.query_decomposer import decompose_query
-
-    subtasks = decompose_query(
-        difficulty=context.difficulty,
-        figure_type=context.figure_type,
-        prompt=prompt,
-    )
-    logger.info(
-        "orchestrator: planned %d subtasks for '%s'",
-        len(subtasks),
-        context.difficulty,
-    )
-    return subtasks
-
-
-def _delegate_generation(
-    context: AgentContext,
-    image_path: str,
-    prompt: str,
-) -> dict[str, Any] | None:
-    """Delegate generation to the generator agent(s).
-
-    Uses the existing draft_qa pipeline, launching multiple attempts
-    for consensus when the difficulty warrants it.
-    """
-    from ..authoring.ai_draft.core import draft_qa
-
-    n_attempts = 3 if context.difficulty == "hardest" else 1
-    attempts = []
-
-    for i in range(n_attempts):
-        child_ctx = context.fork("generator")
-        child_ctx.set_artifact("attempt", i)
-
-        result = draft_qa(
-            image_path=image_path,
-            difficulty=context.difficulty,
-            figure_type=context.figure_type,
-            complexity_score=context.get_artifact("complexity_score", 0.5),
-            caption=context.get_artifact("caption", ""),
-            figure_id=context.figure_id,
-        )
-        if result:
-            result["_attempt"] = i
-            attempts.append(result)
-
-    if not attempts:
-        return None
-
-    # Pick best by validation quality
-    attempts.sort(key=lambda x: x.get("_validation_quality", 0), reverse=True)
-    context.set_artifact("attempts", attempts)
-    return attempts[0]
-
-
-def _delegate_review(
-    context: AgentContext,
-    draft: dict[str, Any],
-) -> dict[str, Any] | None:
-    """Delegate draft review to the reviewer agent.
-
-    Only reviews if the difficulty merits it (challenging or hardest).
-    """
-    if context.difficulty == "easy":
-        return None
-
+    session = get_session()
     try:
-        from .reviewer import review_draft
+        task = session.get(Task, task_id)
+        if not task:
+            return {"error": "Task not found", "ok": False}
 
-        child_ctx = context.fork("reviewer")
-        result = review_draft(draft, child_ctx)
-        return result
-    except Exception as exc:
-        logger.debug("orchestrator: reviewer unavailable: %s", exc)
-        return None
+        figure = session.get(Figure, task.figure_id) if task.figure_id else None
+        figure_type = getattr(figure, "figure_type", "") if figure else ""
+        complexity = getattr(figure, "complexity_score", 0.0) if figure else 0.0
+        image_path = ""
+        if task.image_path:
+            from ..storage import STORAGE_DIR
+            image_path = str(STORAGE_DIR / task.image_path)
+    finally:
+        session.close()
 
-
-def _aggregate(
-    draft: dict[str, Any],
-    review: dict[str, Any] | None,
-    context: AgentContext,
-) -> dict[str, Any]:
-    """Aggregate generation and review results into a final output.
-
-    Applies review suggestions if they improve quality. Otherwise
-    returns the original draft.
-    """
-    result = {k: v for k, v in draft.items() if not k.startswith("_")}
-
-    if review and review.get("score", 0) >= 4:
-        return result
-
-    if review and review.get("score", 0) < 3 and review.get("suggestion"):
-        result["question"] = draft.get("question", "")
-        result["answer"] = draft.get("answer", "")
-        context.set_artifact("review_applied", False)
-
-    return result
-
-
-def _fallback_generate(
-    context: AgentContext,
-    image_path: str,
-) -> dict[str, Any]:
-    """Fallback: direct generation without orchestration."""
-    from ..authoring.ai_draft.core import draft_qa
-
-    result = draft_qa(
-        image_path=image_path,
-        difficulty=context.difficulty,
-        figure_type=context.figure_type,
-        figure_id=context.figure_id,
+    ctx = new_context(
+        figure_id=task.figure_id,
+        difficulty=difficulty,
+        figure_type=figure_type,
     )
-    return result or {}
+    ctx.set_artifact("task_id", task_id)
+    ctx.set_artifact("image_path", image_path)
+    ctx.set_artifact("complexity_score", complexity)
+    ctx.set_artifact("previous_question", task.question)
+    ctx.set_artifact("source_route", source_route)
+
+    # Create fresh event bus and subscribe agents
+    bus = EventBus()
+    _subscribe_agents(bus)
+
+    # Emit initial event
+    if initial_event_type == "issue_reported" and issue_report:
+        initial_event = PipelineEvent(
+            event_type="issue_reported",
+            context=ctx,
+            source_agent="user",
+            metadata={"issue_report": issue_report},
+        )
+    else:
+        # Build validation context for the prompt
+        from ..authoring.validator import validate_task
+        v = validate_task(task.question, task.answer, task.answer_format,
+                          figure_type=figure_type, task_type=task.task_type, difficulty=difficulty)
+        validation_context = ""
+        if v.errors:
+            validation_context += "Errors: " + "; ".join(v.errors[:3])
+        if v.warnings:
+            if validation_context:
+                validation_context += " | "
+            validation_context += "Warnings: " + "; ".join(v.warnings[:3])
+        ctx.set_artifact("validation_context", validation_context)
+
+        initial_event = PipelineEvent(
+            event_type="regeneration_requested",
+            context=ctx,
+            source_agent="orchestrator",
+        )
+
+    # Drive the pipeline
+    produced = bus.emit(initial_event)
+    terminal_reached = ctx.pipeline_status in ("completed", "failed")
+
+    max_iterations = 20
+    iteration = 0
+    while produced and not terminal_reached and iteration < max_iterations:
+        iteration += 1
+        next_batch: list[PipelineEvent] = []
+        for evt in produced:
+            if evt.event_type in TERMINAL_EVENTS:
+                terminal_reached = True
+                break
+            results = bus.emit(evt)
+            next_batch.extend(results)
+        produced = next_batch
+
+    # Collect result
+    draft = ctx.get_artifact("draft")
+    if draft is None or ctx.pipeline_status == "failed":
+        elapsed_ms = int((time.time() - start_time) * 1000)
+        errors = ctx.errors or ["Pipeline produced no draft"]
+        logger.warning("orchestrator: pipeline failed task_id=%d errors=%s", task_id, errors[:3])
+        return {"error": "; ".join(errors[:2]), "ok": False, "elapsed_ms": elapsed_ms}
+
+    elapsed_ms = int((time.time() - start_time) * 1000)
+    usage = draft.get("_usage", {})
+    model_name = draft.get("_model", difficulty)
+
+    return {
+        "ok": True,
+        "question": draft.get("question", ""),
+        "answer": draft.get("answer", ""),
+        "answer_format": draft.get("answer_format", "number"),
+        "task_type": draft.get("task_type", "chart"),
+        "model": model_name,
+        "input_tokens": usage.get("input_tokens", 0),
+        "output_tokens": usage.get("output_tokens", 0),
+        "total_tokens": usage.get("input_tokens", 0) + usage.get("output_tokens", 0),
+        "elapsed_ms": elapsed_ms,
+    }
+
+
+def _subscribe_agents(bus: EventBus) -> None:
+    """Subscribe all pipeline agents to the event bus."""
+    from .determinism import DeterminismCheckerAgent
+    from .fact_checker import FactCheckerAgent
+    from .generator import GeneratorAgent
+    from .issue_analyst import IssueAnalystAgent
+    from .reviewer import ReviewerAgent
+    from .self_critique import SelfCritiqueAgent
+    from .verifier import VerifierAgent
+
+    agents = [
+        IssueAnalystAgent(),
+        GeneratorAgent(),
+        SelfCritiqueAgent(),
+        FactCheckerAgent(),
+        DeterminismCheckerAgent(),
+        VerifierAgent(),
+        ReviewerAgent(),
+    ]
+
+    for agent in agents:
+        for event_type in agent.subscribe_events:
+            bus.subscribe(event_type, agent.process)
+
+    logger.info("orchestrator: subscribed %d agents", len(agents))
+
+
+# Backward-compatible alias
+def run_regeneration(task_id: int, difficulty: str, source_route: str = "api_regenerate_task") -> dict:
+    """Backward-compatible wrapper that delegates to run_pipeline."""
+    return run_pipeline(task_id, difficulty, source_route=source_route)

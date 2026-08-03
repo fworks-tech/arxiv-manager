@@ -1,30 +1,39 @@
-"""Agents: registry, context, orchestrator, reviewer, adaptive routing, tools."""
+"""Agents: event bus, base class, registry, context, orchestrator, specialized agents."""
 
 from __future__ import annotations
 
+from .base import Agent
 from .context import AgentContext, new_context
-from .orchestrator import orchestrate
+from .events import EventBus, PipelineEvent, get_event_bus
+from .orchestrator import run_pipeline, run_regeneration
 from .registry import (
     AgentMetadata,
     clear_registry,
     find_agents,
     get_agent,
+    get_agent_instance,
     list_agents,
     register_agent,
+    register_all_agents,
     unregister_agent,
 )
-from .reviewer import review_draft
 
 __all__ = [
-    "AgentMetadata",
-    "register_agent",
-    "get_agent",
-    "find_agents",
-    "list_agents",
-    "unregister_agent",
-    "clear_registry",
+    "Agent",
     "AgentContext",
+    "AgentMetadata",
+    "EventBus",
+    "PipelineEvent",
+    "clear_registry",
+    "find_agents",
+    "get_agent",
+    "get_agent_instance",
+    "get_event_bus",
+    "list_agents",
     "new_context",
-    "orchestrate",
-    "review_draft",
+    "register_agent",
+    "register_all_agents",
+    "run_pipeline",
+    "run_regeneration",
+    "unregister_agent",
 ]

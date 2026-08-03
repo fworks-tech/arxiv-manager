@@ -102,15 +102,19 @@ def update_task(task_id: int, **kwargs) -> Task | None:
         session.commit()
         session.refresh(task)
 
-        log_task_event(
-            task_id,
-            "update",
-            {
-                "changed_fields": list(kwargs.keys()),
-                "old_values": old_values,
-                "new_values": {k: str(v) for k, v in kwargs.items()},
-            },
-        )
+        # Only log fields that actually changed
+        actual_changes = {k: v for k, v in kwargs.items()
+                          if str(getattr(task, k, "")) != str(old_values.get(k, ""))}
+        if actual_changes:
+            log_task_event(
+                task_id,
+                "update",
+                {
+                    "changed_fields": list(actual_changes.keys()),
+                    "old_values": {k: old_values[k] for k in actual_changes},
+                    "new_values": {k: str(v) for k, v in actual_changes.items()},
+                },
+            )
         return task
     finally:
         session.close()

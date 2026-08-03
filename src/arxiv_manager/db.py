@@ -117,6 +117,13 @@ def _migrate() -> None:
             conn.commit()
             logger.info("migration: added tasks.golden_suspect")
 
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(text("PRAGMA table_info(scheduled_tasks)")).fetchall()]
+        if "worker_id" not in cols:
+            conn.execute(text("ALTER TABLE scheduled_tasks ADD COLUMN worker_id INTEGER NOT NULL DEFAULT 0"))
+            conn.commit()
+            logger.info("migration: added scheduled_tasks.worker_id")
+
 
 def init_db() -> None:
     """Create all tables if they don't exist."""

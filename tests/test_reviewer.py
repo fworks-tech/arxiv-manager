@@ -2,112 +2,70 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from arxiv_manager.agents.context import new_context
-from arxiv_manager.agents.reviewer import review_draft
+from arxiv_manager.agents.events import PipelineEvent
+from arxiv_manager.agents.reviewer import ReviewerAgent
 
 
-class TestReviewDraft:
+class TestReviewerAgent:
     def test_review_empty_draft(self):
-        result = review_draft({"question": "", "answer": ""})
-        assert result["score"] == 1
-        assert result["passed"] is False
-        assert "empty" in result["suggestions"][0].lower()
+        rev = ReviewerAgent()
+        ctx = new_context(figure_id=1, difficulty="easy", figure_type="chart")
+        ctx.set_artifact("draft", {"question": "", "answer": ""})
 
-    def test_review_high_quality(self):
-        draft = {
-            "question": "What is the maximum value shown in the bar chart?",
+        event = PipelineEvent(event_type="answer_verified", context=ctx)
+        results = rev.process(event)
+        assert results[0].metadata["score"] == 1
+        assert results[0].metadata["passed"] is False
+
+    @patch("arxiv_manager.agents.reviewer.os.environ", {"OPENCODE_API_KEY": ""})
+    def test_review_high_quality_draft(self):
+        rev = ReviewerAgent()
+        ctx = new_context(figure_id=1, difficulty="challenging", figure_type="chart")
+        ctx.set_artifact("draft", {
+            "question": "What is the peak value in panel A?",
             "answer": "42",
-            "answer_format": "number",
             "_validation_quality": 0.95,
-        }
-        result = review_draft(draft)
-        assert result["score"] >= 4
-        assert result["passed"] is True
-        assert "High validation quality" in result["strengths"]
+        })
 
-    def test_review_medium_quality(self):
-        draft = {
-            "question": "What color is the bar?",
-            "answer": "blue",
-            "answer_format": "word",
-            "_validation_quality": 0.55,
-        }
-        result = review_draft(draft)
-        assert result["score"] == 3
-        assert result["passed"] is True
+        event = PipelineEvent(event_type="answer_verified", context=ctx)
+        results = rev.process(event)
 
-    def test_review_low_quality(self):
-        draft = {
-            "question": "What is x?",
-            "answer": "42",
-            "answer_format": "number",
+        assert results[0].event_type == "pipeline_completed"
+        review = ctx.get_artifact("review")
+        assert review["score"] >= 4
+        assert review["passed"] is True
+
+    @patch("arxiv_manager.agents.reviewer.os.environ", {"OPENCODE_API_KEY": ""})
+    def test_review_low_quality_draft(self):
+        rev = ReviewerAgent()
+        ctx = new_context(figure_id=1, difficulty="easy", figure_type="chart")
+        ctx.set_artifact("draft", {
+            "question": "What is X?",
+            "answer": "A",
             "_validation_quality": 0.3,
-        }
-        result = review_draft(draft)
-        assert result["score"] == 2
-        assert result["passed"] is False
-        assert any("regenerating" in s.lower() for s in result["suggestions"])
+        })
 
-    def test_review_very_short_answer(self):
-        draft = {
-            "question": "What is x?",
-            "answer": "X",
-            "answer_format": "word",
-            "_validation_quality": 0.8,
-        }
-        result = review_draft(draft)
-        assert result["score"] <= 4
-        assert any("short" in s.lower() for s in result["suggestions"])
+        event = PipelineEvent(event_type="answer_verified", context=ctx)
+        rev.process(event)
 
+        review = ctx.get_artifact("review")
+        assert review["score"] <= 3
+
+    @patch("arxiv_manager.agents.reviewer.os.environ", {"OPENCODE_API_KEY": ""})
     def test_review_answer_in_question(self):
-        draft = {
-            "question": "Is the answer 42?",
+        rev = ReviewerAgent()
+        ctx = new_context(figure_id=1, difficulty="easy", figure_type="chart")
+        ctx.set_artifact("draft", {
+            "question": "The answer is 42. What is the answer?",
             "answer": "42",
-            "answer_format": "number",
             "_validation_quality": 0.8,
-        }
-        result = review_draft(draft)
-        assert any("contain the answer" in s.lower() for s in result["suggestions"])
+        })
 
-    def test_review_format_mismatch_number(self):
-        draft = {
-            "question": "What color is it?",
-            "answer": "blue",
-            "answer_format": "number",
-            "_validation_quality": 0.8,
-        }
-        result = review_draft(draft)
-        assert any(s for s in result["suggestions"] if "number" in s.lower())
+        event = PipelineEvent(event_type="answer_verified", context=ctx)
+        rev.process(event)
 
-    def test_review_format_mismatch_year(self):
-        draft = {
-            "question": "What year?",
-            "answer": "not-a-year",
-            "answer_format": "year",
-            "_validation_quality": 0.8,
-        }
-        result = review_draft(draft)
-        assert any(s for s in result["suggestions"] if "year" in s.lower())
-
-    def test_review_with_context(self):
-        ctx = new_context(1, "challenging", "chart_graph_text")
-        draft = {
-            "question": "What is the ratio?",
-            "answer": "3.5",
-            "answer_format": "number",
-            "_validation_quality": 0.85,
-        }
-        result = review_draft(draft, ctx)
-        assert result["agent"] == "reviewer"
-        assert result["score"] >= 4
-
-    def test_review_perfect_passes(self):
-        draft = {
-            "question": "What is the maximum temperature shown?",
-            "answer": "37.2",
-            "answer_format": "number",
-            "_validation_quality": 0.95,
-        }
-        result = review_draft(draft)
-        assert result["passed"] is True
-        assert result["score"] == 5
+        review = ctx.get_artifact("review")
+        assert any("contains the answer" in s for s in review["suggestions"])

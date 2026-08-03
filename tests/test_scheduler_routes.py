@@ -51,7 +51,7 @@ class TestEnqueueEndpoint:
     def test_enqueue_missing_type(self, scheduler_client):
         resp = scheduler_client.post("/api/scheduler/enqueue", json={})
         assert resp.status_code == 400
-        assert "type is required" in resp.json()["detail"]
+        assert "missing" in resp.json()["error"].lower()
 
     def test_enqueue_defaults(self, scheduler_client):
         resp = scheduler_client.post(
@@ -129,16 +129,16 @@ class TestQueueEndpoint:
         resp = scheduler_client.get("/api/scheduler/queue")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["depth"] == 2
         assert len(data["jobs"]) == 2
 
     def test_queue_empty(self, scheduler_client):
         resp = scheduler_client.get("/api/scheduler/queue")
-        assert resp.json()["depth"] == 0
+        assert len(resp.json()["jobs"]) == 0
 
     def test_worker_status(self, scheduler_client):
         resp = scheduler_client.get("/api/scheduler/worker")
         assert resp.status_code == 200
         data = resp.json()
         assert "alive" in data
-        assert "pid" in data
+        assert "workers" in data
+        assert "count" in data

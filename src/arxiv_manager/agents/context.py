@@ -24,17 +24,11 @@ class AgentContext:
     parent_context_id: str | None = None
     model_name: str = ""
     delegation_chain: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    pipeline_status: str = "pending"  # pending | in_progress | completed | failed
 
     def fork(self, agent_name: str, **overrides: Any) -> AgentContext:
-        """Create a child context for subtask delegation.
-
-        Args:
-            agent_name: The name of the agent receiving the child context.
-            **overrides: Fields to override in the child context.
-
-        Returns:
-            A new AgentContext linked to this one.
-        """
+        """Create a child context for subtask delegation."""
         child = AgentContext(
             trace_id=self.trace_id,
             figure_id=self.figure_id,
@@ -46,6 +40,8 @@ class AgentContext:
             parent_context_id=self.trace_id,
             model_name=self.model_name,
             delegation_chain=self.delegation_chain + [agent_name],
+            errors=list(self.errors),
+            pipeline_status=self.pipeline_status,
         )
         for key, value in overrides.items():
             if hasattr(child, key):
@@ -59,6 +55,11 @@ class AgentContext:
     def get_artifact(self, key: str, default: Any = None) -> Any:
         """Retrieve an artifact from the shared context."""
         return self.artifacts.get(key, default)
+
+    def add_error(self, error: str) -> None:
+        """Append an error to the context's error list."""
+        self.errors.append(error)
+        self.pipeline_status = "failed"
 
 
 def new_context(
