@@ -15,12 +15,20 @@ from arxiv_manager.scheduler.manager import (
 
 
 @pytest.fixture(autouse=True)
-def _reset_globals():
-    """Reset manager globals before each test to prevent bleed."""
+def _reset_globals(tmp_path, monkeypatch):
+    """Reset manager globals before each test to prevent bleed.
+
+    Also points STORAGE_DIR at a temp dir so the real storage's worker PID
+    file (written by a live worker) can't be mistaken for an orphan.
+    """
     import arxiv_manager.scheduler.manager as mgr
+    from arxiv_manager import storage as st_mod
+
+    monkeypatch.setattr(st_mod, "STORAGE_DIR", tmp_path)
 
     mgr._PROCESS = None
     mgr._SENTINEL_PATH = None
+    mgr._WORKER_LOG_HANDLE = None
 
 
 class TestStartWorker:

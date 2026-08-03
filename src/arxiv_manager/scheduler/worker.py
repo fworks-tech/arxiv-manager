@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import time
 from pathlib import Path
 
@@ -141,6 +142,63 @@ def _main_loop(poll_interval: float = 1.0) -> None:
     logger.info("worker: sentinel removed, shutting down")
 
 
+_PID_FILE_NAME = "_scheduler_worker.pid"
+
+
+def _pid_file_path() -> Path:
+    """Path to the worker PID file (used for orphan detection)."""
+    from ..storage import STORAGE_DIR
+
+    return STORAGE_DIR / _PID_FILE_NAME
+
+
+def _write_pid_file() -> None:
+    """Write this worker's PID so the manager can detect orphans after restart."""
+    try:
+        _pid_file_path().write_text(str(os.getpid()))
+    except Exception as exc:  # pragma: no cover - best-effort
+        logger.warning("worker: could not write pid file: %s", exc)
+
+
+def _remove_pid_file() -> None:
+    """Remove the PID file on clean shutdown."""
+    try:
+        pid_file = _pid_file_path()
+        if pid_file.exists():
+            pid_file.unlink()
+    except Exception:  # pragma: no cover - best-effort
+        pass
+
+
+def _requeue_stale_running_jobs() -> None:
+    """Reset jobs stuck in 'running' back to 'queued'.
+
+    A job in 'running' with no live worker (server restarted, worker killed)
+    would otherwise sit forever. Safe with the atomic dequeue + PID-file
+    orphan detection: only one worker is ever alive, so any 'running' job
+    belongs to a dead predecessor. Started_at is preserved for audit.
+    """
+    from sqlmodel import update
+
+    from ..db import get_session
+    from .models import ScheduledTask
+
+    session = get_session()
+    try:
+        result = session.exec(
+            update(ScheduledTask)
+            .where(ScheduledTask.status == "running")
+            .values(status="queued")
+        )
+        session.commit()
+        if result.rowcount:
+            logger.warning("worker: requeued %d stale running job(s)", result.rowcount)
+    except Exception as exc:  # pragma: no cover - best-effort
+        logger.warning("worker: requeue stale jobs failed: %s", exc)
+    finally:
+        session.close()
+
+
 def main() -> None:
     """Worker entry point."""
     parser = argparse.ArgumentParser(description="Scheduler worker subprocess")
@@ -154,7 +212,12 @@ def main() -> None:
     _setup_logging()
     logger.info("worker: init DB")
     init_db()
-    _main_loop(args.poll_interval)
+    _write_pid_file()
+    _requeue_stale_running_jobs()
+    try:
+        _main_loop(args.poll_interval)
+    finally:
+        _remove_pid_file()
 
 
 if __name__ == "__main__":
