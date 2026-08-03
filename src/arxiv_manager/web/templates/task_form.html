@@ -320,7 +320,7 @@ var _regenerating = false;
             _regenerating = true;
             pollRegenStatus(data.job_id, btn);
         } else if (data.status === 'running') {
-            var wid = data.worker_id || '?';
+            var wid = data.worker_id != null ? data.worker_id : '?';
             statusEl.innerHTML = 'Running on worker #' + wid + '... <button onclick="abortRegen({{ task.id }})" class="ml-3 px-2 py-0.5 bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 rounded text-xs hover:bg-red-200 dark:hover:bg-red-800/60">Abort</button>';
             statusEl.className = 'mt-2 px-3 py-2 rounded-lg text-sm bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800';
             statusEl.classList.remove('hidden');
@@ -455,7 +455,7 @@ function pollRegenStatus(jobId, btn) {
                         var total = data.queue_total || '?';
                         statusEl.innerHTML = 'Queued — position ' + pos + '/' + total + ' <button onclick="dropRegen({{ task.id }})" class="ml-3 px-2 py-0.5 bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 rounded text-xs hover:bg-red-200 dark:hover:bg-red-800/60">Drop</button>';
                     } else if (data.status === 'running') {
-                        var wid = data.worker_id || '?';
+                        var wid = data.worker_id != null ? data.worker_id : '?';
                         statusEl.innerHTML = 'Running on worker #' + wid + '... <button onclick="abortRegen({{ task.id }})" class="ml-3 px-2 py-0.5 bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 rounded text-xs hover:bg-red-200 dark:hover:bg-red-800/60">Abort</button>';
                     } else {
                         statusEl.textContent = 'Regeneration ' + data.status + '...';
