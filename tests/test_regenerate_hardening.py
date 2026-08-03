@@ -95,7 +95,8 @@ class TestRestoreGate:
         assert resp.status_code == 200
         assert b"Restored attempt" in resp.content
 
-    def test_restore_invalid_blocked(self, app_db, monkeypatch):
+    def test_restore_invalid_attempt_ok(self, app_db, monkeypatch):
+        """Restoring an invalid attempt is allowed — user has full control."""
         from fastapi.testclient import TestClient
 
         tid = _make_task(app_db)
@@ -104,10 +105,10 @@ class TestRestoreGate:
 
         with TestClient(create_app()) as c:
             resp = c.post(f"/api/task/{tid}/restore/{aid}")
-        assert b"Restore blocked" in resp.content
-        assert b"failed validation" in resp.content
+        assert b"Restored attempt" in resp.content
 
-    def test_restore_fact_failed_blocked(self, app_db, monkeypatch):
+    def test_restore_fact_failed_attempt_ok(self, app_db, monkeypatch):
+        """Restoring a fact-check-failed attempt is allowed."""
         from fastapi.testclient import TestClient
 
         tid = _make_task(app_db)
@@ -116,10 +117,10 @@ class TestRestoreGate:
 
         with TestClient(create_app()) as c:
             resp = c.post(f"/api/task/{tid}/restore/{aid}")
-        assert b"Restore blocked" in resp.content
-        assert b"fact-check" in resp.content
+        assert b"Restored attempt" in resp.content
 
-    def test_restore_determinism_failed_blocked(self, app_db, monkeypatch):
+    def test_restore_determinism_failed_attempt_ok(self, app_db, monkeypatch):
+        """Restoring a determinism-failed attempt is allowed."""
         from fastapi.testclient import TestClient
 
         tid = _make_task(app_db)
@@ -128,8 +129,7 @@ class TestRestoreGate:
 
         with TestClient(create_app()) as c:
             resp = c.post(f"/api/task/{tid}/restore/{aid}")
-        assert b"Restore blocked" in resp.content
-        assert b"determinism" in resp.content
+        assert b"Restored attempt" in resp.content
 
 
 class TestRegenerateCap:

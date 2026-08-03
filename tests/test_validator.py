@@ -141,14 +141,14 @@ def test_visual_reference_in_question():
 
 
 def test_extreme_seeking_warning():
-    """Questions using extreme-seeking words should warn (Qwen bias)."""
+    """Questions using extreme-seeking words should error (Qwen checks these first)."""
     result = validate_task(
         "Which model has the highest accuracy?",
         "Model A",
         "word",
     )
-    # Should warn about extreme-seeking
-    assert any("extreme" in w.lower() for w in result.warnings)
+    # Should error about extreme-seeking (not just warn — Qwen checks these first)
+    assert any("extreme" in e.lower() for e in result.errors)
 
 
 def test_threshold_filter_bonus():
@@ -314,7 +314,7 @@ def test_handbook_mcq_no_trick_options():
 def test_handbook_noise_condition_warning():
     """Handbook common error #7: conditions that don't materially change the answer."""
     result = validate_task(
-        "Which sample shows the greatest rate of decline in reflectance between 550nm and 850nm?",
+        "Which sample shows the steepest rate of decline in reflectance between 550nm and 850nm?",
         "Grosnaja",
         "word",
     )
@@ -362,7 +362,7 @@ def test_validate_mcq_helper():
     from arxiv_manager.authoring.validator import validate_mcq
 
     result = validate_mcq(
-        "Which bar in the chart shows the largest gap from the previous year?",
+        "Which bar in the chart shows the biggest gap from the previous year?",
         "BERT",
         options=["A", "B", "C", "D", "E", "F", "G", "H"],
         answer_format="word",
@@ -402,7 +402,7 @@ def test_chart_anti_pattern_colorbar():
 def test_chart_anti_pattern_good_question():
     """A chart question referencing data values (peaks) passes."""
     result = validate_task(
-        "What is the difference between the maximum z-axis value in panel A and the minimum in panel B?",
+        "What is the difference between the peak z-axis value in panel A and the trough in panel B?",
         "0.7",
         "number",
         figure_type="chart_graph_text",
@@ -443,8 +443,8 @@ def test_chart_math_only_ratio_in_text():
 def test_chart_math_only_good_ratio():
     """Ratio question requiring image reading (no inline data) passes."""
     result = validate_task(
-        "What is the ratio of the absolute minimum weight value shown on "
-        "panel A's colorbar to the maximum weight value shown on panel B's colorbar?",
+        "What is the ratio of the lower bound weight value shown on "
+        "panel A's colorbar to the upper bound weight value shown on panel B's colorbar?",
         "8",
         "number",
         figure_type="chart_graph_text",
@@ -564,7 +564,7 @@ def test_reasoning_factor_recognized():
 def test_reasoning_larger_than_recognized():
     """'larger than' is recognized as a reasoning indicator."""
     result = validate_task(
-        "How much larger is panel A's minimum than panel B's maximum?",
+        "How much larger is panel A's bottom value than panel B's top value?",
         "0.5",
         "number",
         figure_type="chart_graph_text",
@@ -590,7 +590,7 @@ def test_reasoning_magnitude_recognized():
 def test_reasoning_ratio_recognized():
     """'ratio' is recognized as a reasoning indicator."""
     result = validate_task(
-        "What is the ratio of the minimum to maximum in panel A?",
+        "What is the ratio of the bottom to top value in panel A?",
         "0.25",
         "number",
         figure_type="chart_graph_text",

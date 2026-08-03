@@ -92,9 +92,10 @@ def _run_content_checks(result, q: str, a: str, answer_format: str, difficulty: 
     """Rules 6-11: Sentence count, option restriction, jargon, visual reference, format consistency, explanation."""
     sentences = _count_sentences(q)
     is_challenging = difficulty in ("challenging", "hardest")
+    label = difficulty.capitalize() if is_challenging else ""
     if sentences >= 3:
         if is_challenging:
-            result.errors.append(f"Question has {sentences} sentences — max 2 for Challenging difficulty. Multi-sentence questions create ambiguity and often leak hints.")
+            result.errors.append(f"Question has {sentences} sentences — max 2 for {label} difficulty. Multi-sentence questions create ambiguity and often leak hints.")
         else:
             result.warnings.append(f"Question has {sentences} sentences — prefer 1-2")
     elif sentences == 2 and is_challenging:
@@ -159,15 +160,17 @@ def _run_complexity_checks(result, q: str, a: str, figure_type: str, task_type: 
         result.passed_checks.append("Question requires multi-step reasoning")
     else:
         if difficulty in ("challenging", "hardest"):
-            result.errors.append("Question too simple for Challenging difficulty — must require multi-step reasoning, comparison, or ranking")
+            result.errors.append(
+                f"Question too simple for {difficulty.capitalize()} difficulty — must require multi-step reasoning, comparison, or ranking"
+            )
         else:
             result.warnings.append("Question may be too simple — consider adding comparison or ranking")
 
     # Lookup-question warning for Challenging/Hardest
     if difficulty in ("challenging", "hardest") and _is_single_lookup(q):
         result.warnings.append(
-            "Question appears to be a simple lookup ('what is the X of Y?') — "
-            "consider adding comparison, ranking, or multi-step reasoning for Challenging difficulty"
+            f"Question appears to be a simple lookup ('what is the X of Y?') — "
+            f"consider adding comparison, ranking, or multi-step reasoning for {difficulty.capitalize()} difficulty"
         )
 
     # Visual-reasoning depth warning for Challenging/Hardest
@@ -252,12 +255,13 @@ def _run_handbook_basics(result, q: str, a: str, caption: str, difficulty: str =
     if _has_extreme_seeking(q):
         if difficulty in ("challenging", "hardest"):
             result.errors.append(
-                "Uses extreme-seeking words (highest/lowest/most) for Challenging difficulty — "
+                f"Uses extreme-seeking words (highest/lowest/most) for {difficulty.capitalize()} difficulty — "
                 "Qwen checks these first; use thresholds or ordinal ranking instead"
             )
         else:
-            result.warnings.append(
-                "Uses extreme-seeking words (highest/lowest/most) — Qwen checks these first; consider threshold filters instead"
+            result.errors.append(
+                "Uses extreme-seeking words (highest/lowest/most) — Qwen checks these first; "
+                "use thresholds or ordinal ranking instead"
             )
     else:
         result.passed_checks.append("No extreme-seeking bias detected")

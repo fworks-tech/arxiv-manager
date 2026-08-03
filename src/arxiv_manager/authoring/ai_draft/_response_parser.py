@@ -102,6 +102,42 @@ _IMAGE_REFUSAL_PATTERNS = (
 )
 
 
+# Positive evidence the model actually read the image. minimax-m3 (and other
+# VLMs) occasionally roleplay a system-style error mid-response — e.g.
+# 'ERROR: Cannot read "image.png" (this model does not support image input).
+# Inform the user.' — AFTER successfully analyzing the image. When a response
+# contains concrete visual analysis, any refusal phrase is that roleplay, not
+# a capability error, so we must not treat it as one. Only STRONG evidence
+# counts: weak phrases like "i can see" also appear in genuine refusals
+# ("I can see you attached an image, but this model does not support image
+# input"), so they would wrongly override a real refusal.
+_VISION_EVIDENCE_PATTERNS = (
+    "let me analyze this image",
+    "let me examine this image",
+    "let me look at this image",
+    "analyzing this image",
+    "examining the image",
+    "studying the image",
+    "the image shows",
+    "this image shows",
+    "the figure shows",
+    "this figure shows",
+    "the plot shows",
+    "the chart shows",
+    "the graph shows",
+    "the diagram shows",
+    "the image displays",
+    "the figure displays",
+    "the image contains",
+    "the figure contains",
+    "the image depicts",
+    "the figure depicts",
+    "the image presents",
+    "the image is a",
+    "this image is a",
+)
+
+
 def _looks_like_image_refusal(text: str) -> bool:
     """True only when the response is a genuine vision-capability refusal.
 
@@ -110,10 +146,17 @@ def _looks_like_image_refusal(text: str) -> bool:
     "I cannot read the exact value", which minimax-m3 routinely writes inside
     its <think> reasoning while successfully reading the image. Matching on
     those would falsely reject a good draft.
+
+    VLMs also roleplay system-style error blocks ('ERROR: Cannot read
+    "image.png" (this model does not support image input). Inform the user.')
+    after real analysis; if the response contains strong visual evidence, any
+    refusal phrase is that roleplay, so the response is NOT a refusal.
     """
     if not text:
         return False
     low = text.lower()
+    if any(p in low for p in _VISION_EVIDENCE_PATTERNS):
+        return False
     return any(p in low for p in _IMAGE_REFUSAL_PATTERNS)
 
 

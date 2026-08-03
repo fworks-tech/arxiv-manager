@@ -82,10 +82,11 @@ def api_update_task(
     answer: str = Form(...),
     answer_format: str = Form("word"),
     task_type: str = Form("chart"),
+    difficulty: str = Form(""),
 ):
     """Update an existing task (HTMX endpoint)."""
-    logger.info("task update task_id=%d type=%s format=%s", task_id, task_type, answer_format)
-    validation = validate_task(question, answer, answer_format)
+    logger.info("task update task_id=%d type=%s format=%s difficulty=%s", task_id, task_type, answer_format, difficulty)
+    validation = validate_task(question, answer, answer_format, difficulty=difficulty)
     task = update_task(
         task_id,
         title=title,
@@ -94,6 +95,7 @@ def api_update_task(
         answer=answer,
         answer_format=answer_format,
         task_type=task_type,
+        difficulty=difficulty or "",
     )
     figure = None
     if task:
@@ -1082,34 +1084,6 @@ def api_restore_task(request: Request, task_id: int, attempt_id: int):
             return HTMLResponse(
                 "<div class='text-red-500 p-3 text-sm'>Cannot restore — attempt has empty Q&A</div>"
             )
-
-        # Restore gate: never restore an attempt that failed the gates. A restore
-        # reintroduces that Q&A as the task's golden pair, so it must not be a
-        # rejected draft (invalid, fact-check-failed, or determinism-failed).
-        gate_reasons: list[str] = []
-        if not attempt.validation_is_valid:
-            gate_reasons.append("failed validation")
-        if _nonempty_json_list(attempt.fact_check_errors):
-            gate_reasons.append("failed the premise fact-check (claims not supported by the image)")
-        if _nonempty_json_list(attempt.determinism_errors):
-            gate_reasons.append("failed the determinism check (sampled reads disagreed with the golden answer)")
-        if gate_reasons:
-            reasons = "; ".join(gate_reasons)
-            logger.warning("task restore blocked task_id=%d attempt_id=%d: %s", task_id, attempt_id, reasons)
-            blocked_html = (
-                """<div class="border border-red-200 dark:border-red-800 bg-red-50"""
-                """ dark:bg-red-900/30 rounded-xl p-4 mt-2">"""
-                """<div class="flex items-center gap-2 text-sm">"""
-                """<span>⛔</span>"""
-                """<span class="font-semibold text-red-800 dark:text-red-300">Restore blocked</span>"""
-                f"""<span class="text-xs text-red-600 dark:text-red-400 ml-auto">attempt #{attempt_id}</span>"""
-                """</div>"""
-                f"""<p class="text-xs text-red-700 dark:text-red-400 mt-2">This attempt {reasons}. Restoring it would"""
-                """reintroduce a rejected Q&A as the golden answer. Edit the Q&A manually instead, or pick a"""
-                """different attempt.</p>"""
-                """</div>"""
-            )
-            return HTMLResponse(blocked_html)
 
         old_q = task.question
         old_a = task.answer

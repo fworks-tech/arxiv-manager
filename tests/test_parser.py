@@ -376,6 +376,7 @@ def test_generic_cannot_read_phrases_not_refusal(phrase):
         "I have no vision capabilities.",
         "I cannot read images — text-only model.",
         "Sorry, I cannot see images.",
+        "I can see you attached an image, but this model does not support image input.",
     ],
 )
 def test_genuine_refusals_detected(phrase):
@@ -384,3 +385,43 @@ def test_genuine_refusals_detected(phrase):
 
     assert _looks_like_image_refusal(phrase) is True
     assert _parse_llm_response(phrase) is None
+
+
+def test_roleplayed_error_after_analysis_is_not_refusal():
+    """VLMs roleplay 'ERROR: Cannot read...' AFTER real image analysis.
+
+    The refusal phrase is hallucinated system-error text, not a capability
+    error — the response must be parsed normally. See 2026-08-03 log entry:
+    analysis of the experimental-setup photo preceded the roleplayed block.
+    """
+    from arxiv_manager.authoring.ai_draft._response_parser import _looks_like_image_refusal
+
+    text = (
+        "<think>Let me analyze this image carefully. It shows two parts: "
+        "(a) Experimental setup - a photo of a physical apparatus with a "
+        "shaker, accelerometer, clamp, lap-joint, Orion beam, and measurement "
+        "points labeled M1-M4.</think>\n"
+        'ERROR: Cannot read "image.png" (this model does not support image input). Inform the user.\n'
+        '{"question": "Which measurement point is closest to the clamp?", '
+        '"answer": "M2", "answer_format": "word", "task_type": "spatial"}'
+    )
+    assert _looks_like_image_refusal(text) is False
+    r = _parse_llm_response(text)
+    assert r is not None
+    assert r["answer"] == "M2"
+
+
+def test_roleplayed_error_inside_think_is_not_refusal():
+    """Roleplayed error block inside <think> after analysis is not a refusal."""
+    from arxiv_manager.authoring.ai_draft._response_parser import _looks_like_image_refusal
+
+    text = (
+        "<think>Let me analyze this image. The plot shows training loss over "
+        "epochs, decreasing from 2.1 to 0.4. ERROR: Cannot read \"image.png\" "
+        "(this model does not support image input). Inform the user.</think>\n"
+        '{"question": "What is the final loss?", "answer": "0.4", "answer_format": "number", "task_type": "chart"}'
+    )
+    assert _looks_like_image_refusal(text) is False
+    r = _parse_llm_response(text)
+    assert r is not None
+    assert r["answer"] == "0.4"

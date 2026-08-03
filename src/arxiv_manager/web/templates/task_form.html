@@ -115,6 +115,7 @@
                     </div>
 
                     <div class="flex flex-wrap gap-3 pt-2">
+                        <input type="hidden" name="difficulty" id="difficulty-hidden" value="{{ task.difficulty or '' }}">
                         <button type="submit" class="px-4 py-2 bg-[#1a1a2e] text-white rounded-lg text-sm font-medium hover:bg-[#16213e] transition-colors">
                             {% if task %}Update Task{% else %}Create Task{% endif %}
                         </button>
@@ -280,6 +281,16 @@ Model Restriction: {{ task.test_model_restriction }}</textarea>
 
 <script>
 var _regenerating = false;
+
+// Sync toolbar difficulty dropdown to hidden form field
+(function() {
+    var dd = document.getElementById('regenerate-difficulty');
+    var hi = document.getElementById('difficulty-hidden');
+    if (dd && hi) {
+        dd.addEventListener('change', function() { hi.value = this.value; });
+    }
+})();
+
 document.getElementById('regenerate-btn')?.addEventListener('click', function() {
     if (_regenerating) return;
     _regenerating = true;
