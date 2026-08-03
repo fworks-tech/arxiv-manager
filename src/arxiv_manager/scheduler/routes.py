@@ -123,3 +123,21 @@ def api_stop_pool() -> dict[str, Any]:
 
     stopped = stop_worker_pool()
     return {"ok": True, "stopped": stopped}
+
+
+@router.get("/worker-log")
+def api_worker_log(lines: int = Query(50)) -> dict[str, Any]:
+    """Return the last N lines from the worker log file."""
+    from ..storage import STORAGE_DIR
+
+    log_path = STORAGE_DIR / "_scheduler_worker.log"
+    if not log_path.exists():
+        return {"ok": True, "lines": []}
+
+    try:
+        with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+            all_lines = f.readlines()
+        recent = all_lines[-lines:]
+        return {"ok": True, "lines": [line.rstrip("\n") for line in recent]}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}

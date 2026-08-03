@@ -135,6 +135,10 @@
                         {% endif %}
                     </div>
                     <div id="regen-status" class="hidden mt-2 px-3 py-2 rounded-lg text-sm"></div>
+                    <div id="worker-log-box" class="hidden mt-2">
+                        <button type="button" onclick="toggleWorkerLog()" class="text-xs text-gray-500 dark:text-gray-400 hover:underline mb-1">Show worker log</button>
+                        <pre id="worker-log" class="hidden max-h-64 overflow-y-auto p-3 bg-gray-900 dark:bg-black text-green-400 dark:text-green-300 text-xs rounded-lg border border-gray-700 dark:border-gray-600 font-mono whitespace-pre-wrap"></pre>
+                    </div>
                 </div>
             </form>
             <div id="ai-fix-box" class="mt-2"></div>
@@ -345,6 +349,7 @@ function dropRegen(taskId) {
             var btn = document.getElementById('regenerate-btn');
             if (btn) { btn.textContent = 'Regenerate'; btn.disabled = false; }
             _regenerating = false;
+            hideWorkerLog();
         } else {
             showToast('Drop failed: ' + (data.error || 'unknown'), 'error');
         }
@@ -363,10 +368,48 @@ function abortRegen(taskId) {
             var btn = document.getElementById('regenerate-btn');
             if (btn) { btn.textContent = 'Regenerate'; btn.disabled = false; }
             _regenerating = false;
+            hideWorkerLog();
         } else {
             showToast('Abort failed: ' + (data.error || 'unknown'), 'error');
         }
     });
+}
+
+var _logTimer = null;
+
+function showWorkerLog() {
+    var box = document.getElementById('worker-log-box');
+    if (box) box.classList.remove('hidden');
+    fetchWorkerLog();
+    _logTimer = setInterval(fetchWorkerLog, 3000);
+}
+
+function hideWorkerLog() {
+    if (_logTimer) { clearInterval(_logTimer); _logTimer = null; }
+    var box = document.getElementById('worker-log-box');
+    if (box) box.classList.add('hidden');
+    var pre = document.getElementById('worker-log');
+    if (pre) pre.classList.add('hidden');
+}
+
+function toggleWorkerLog() {
+    var pre = document.getElementById('worker-log');
+    if (pre) {
+        pre.classList.toggle('hidden');
+        if (!pre.classList.contains('hidden')) fetchWorkerLog();
+    }
+}
+
+function fetchWorkerLog() {
+    fetch('/api/scheduler/worker-log?lines=40')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var pre = document.getElementById('worker-log');
+        if (!pre || !data.ok || !data.lines) return;
+        pre.textContent = data.lines.join('\n');
+        pre.scrollTop = pre.scrollHeight;
+    })
+    .catch(function() {});
 }
 
 document.getElementById('regenerate-btn')?.addEventListener('click', function() {
@@ -398,6 +441,7 @@ document.getElementById('regenerate-btn')?.addEventListener('click', function() 
             return;
         }
         btn.textContent = 'Regenerating (queued)...';
+        showWorkerLog();
         pollRegenStatus(data.job_id, btn);
     })
     .catch(function(e) { showToast('Regenerate error: ' + e.message, 'error'); btn.textContent = 'Regenerate'; btn.disabled = false; _regenerating = false; });
@@ -413,6 +457,7 @@ function pollRegenStatus(jobId, btn) {
             btn.textContent = 'Regenerate';
             btn.disabled = false;
             _regenerating = false;
+            hideWorkerLog();
             if (statusEl) {
                 statusEl.textContent = 'Regeneration timed out — check the scheduler queue';
                 statusEl.className = 'mt-2 px-3 py-2 rounded-lg text-sm bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800';
@@ -430,6 +475,7 @@ function pollRegenStatus(jobId, btn) {
                 btn.textContent = 'Regenerate';
                 btn.disabled = false;
                 _regenerating = false;
+                hideWorkerLog();
                 if (statusEl) {
                     statusEl.textContent = 'Regeneration completed successfully.';
                     statusEl.className = 'mt-2 px-3 py-2 rounded-lg text-sm bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800';
@@ -442,6 +488,7 @@ function pollRegenStatus(jobId, btn) {
                 btn.textContent = 'Regenerate';
                 btn.disabled = false;
                 _regenerating = false;
+                hideWorkerLog();
                 if (statusEl) {
                     statusEl.textContent = 'Regeneration failed: ' + err;
                     statusEl.className = 'mt-2 px-3 py-2 rounded-lg text-sm bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800';
