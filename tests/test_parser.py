@@ -1,5 +1,7 @@
 """Tests for AI draft response parser — locks in think-tag handling."""
 
+import pytest
+
 from arxiv_manager.authoring.ai_draft import (
     _extract_reasoning,
     _parse_critique_response,
@@ -321,3 +323,64 @@ def test_parse_critique_coerces_float_score():
     assert r is not None
     assert r["score"] == 3
     assert isinstance(r["score"], int)
+
+
+# ---------------------------------------------------------------------------
+# Image-refusal detection (false-positive guard for minimax-m3 <think> text)
+# ---------------------------------------------------------------------------
+
+
+def test_reasoning_containing_cannot_read_is_not_refusal():
+    """Generic 'cannot read' inside <think> reasoning is NOT a capability error.
+
+    minimax-m3 writes "I cannot read the exact value..." while successfully
+    reading the image; matching on that would falsely reject a good draft.
+    """
+    from arxiv_manager.authoring.ai_draft._response_parser import _looks_like_image_refusal
+
+    text = (
+        "<think>Let me carefully examine the image and identify the confidence "
+        "annotations in each panel. Panel 1: text overlap: 80%. I cannot read "
+        "the exact value from the small thumbnail, but it appears to be 80%."
+        "</think>\n"
+        '{"question": "What is the sum?", "answer": "160", "answer_format": "number", "task_type": "chart"}'
+    )
+    assert _looks_like_image_refusal(text) is False
+    r = _parse_llm_response(text)
+    assert r is not None
+    assert r["answer"] == "160"
+
+
+@pytest.mark.parametrize(
+    "phrase",
+    [
+        "I cannot read the exact value",
+        "cannot read the text clearly",
+        "I cannot read the small numbers",
+        "Cannot read the confidence percentage precisely",
+    ],
+)
+def test_generic_cannot_read_phrases_not_refusal(phrase):
+    """Generic uncertainty phrases never trigger the refusal path."""
+    from arxiv_manager.authoring.ai_draft._response_parser import _looks_like_image_refusal
+
+    text = f"<think>{phrase}. Let me look closer.</think>{{\"question\": \"q\", \"answer\": \"1\"}}"
+    assert _looks_like_image_refusal(text) is False
+
+
+@pytest.mark.parametrize(
+    "phrase",
+    [
+        "I am a text-only model and cannot process images.",
+        "This model does not support image input.",
+        "I have no vision capabilities.",
+        "I cannot read images — text-only model.",
+        "Sorry, I cannot see images.",
+    ],
+)
+def test_genuine_refusals_detected(phrase):
+    """Explicit capability refusals still reject the draft."""
+    from arxiv_manager.authoring.ai_draft._response_parser import _looks_like_image_refusal
+
+    assert _looks_like_image_refusal(phrase) is True
+    assert _parse_llm_response(phrase) is None

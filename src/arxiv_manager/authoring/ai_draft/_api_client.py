@@ -7,7 +7,7 @@ import os
 import time
 
 from .._draft_config import CONFIG
-from ._response_parser import _parse_llm_response
+from ._response_parser import _looks_like_image_refusal, _parse_llm_response
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ def _call_api_with_retry(
                 if not content.strip():
                     logger.warning("_call_api_with_retry: empty content on attempt %d", attempt)
                     continue
-                if "does not support image" in content.lower() or "cannot read" in content.lower():
+                if _looks_like_image_refusal(content):
                     logger.warning("_call_api_with_retry: model does not support image input: %.200s", content[:200])
                     raise ValueError("Cannot read image — this model does not support image input")
                 parse_fn = parser or _parse_llm_response

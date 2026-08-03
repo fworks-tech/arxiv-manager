@@ -77,6 +77,46 @@ def _coerce_answer_fields(data: dict) -> dict:
     return data
 
 
+# Genuine capability refusals — a model that really cannot read images says one
+# of these. Generic phrases like "I cannot read the exact value" appear inside
+# minimax-m3's <think> reasoning while it IS successfully reading the image, so
+# we must not treat them as capability errors.
+_IMAGE_REFUSAL_PATTERNS = (
+    "does not support image input",
+    "does not support images",
+    "does not support image",
+    "cannot process images",
+    "cannot process image",
+    "cannot read images",
+    "can't read images",
+    "cannot see images",
+    "text-only model",
+    "text only model",
+    "no vision capabilities",
+    "don't have vision",
+    "do not have vision",
+    "unable to see images",
+    "unable to read images",
+    "cannot view images",
+    "can't view images",
+)
+
+
+def _looks_like_image_refusal(text: str) -> bool:
+    """True only when the response is a genuine vision-capability refusal.
+
+    Only specific capability statements ("text-only model", "cannot process
+    images", "does not support image input") count — NOT generic phrases like
+    "I cannot read the exact value", which minimax-m3 routinely writes inside
+    its <think> reasoning while successfully reading the image. Matching on
+    those would falsely reject a good draft.
+    """
+    if not text:
+        return False
+    low = text.lower()
+    return any(p in low for p in _IMAGE_REFUSAL_PATTERNS)
+
+
 def _parse_llm_response(text: str | None, raw_text: str = "") -> dict | None:
     """Parse JSON from LLM response, handling markdown code blocks and <think> tags.
 
@@ -86,8 +126,7 @@ def _parse_llm_response(text: str | None, raw_text: str = "") -> dict | None:
         return None
 
     text = text.strip()
-    err_lower = text.lower()
-    if "does not support image" in err_lower or "cannot read" in err_lower:
+    if _looks_like_image_refusal(text):
         logger.warning("_parse_llm_response: model does not support image input: %.200s", text[:200])
         return None
     if text.startswith("```"):
