@@ -26,6 +26,13 @@ class GeneratorAgent(Agent):
         image_path = ctx.get_artifact("image_path")
         api_key = os.environ.get("OPENCODE_API_KEY")
 
+        # Apply difficulty_delta from IssueAnalyst if present
+        delta = ctx.get_artifact("difficulty_delta", 0)
+        if delta:
+            levels = ["easy", "challenging", "hardest"]
+            idx = levels.index(ctx.difficulty) if ctx.difficulty in levels else 1
+            ctx.difficulty = levels[max(0, min(2, idx + delta))]
+
         if not image_path or not api_key:
             ctx.add_error("Generator: missing image_path or OPENCODE_API_KEY")
             return [PipelineEvent(

@@ -260,6 +260,15 @@ def main() -> None:
     _setup_logging()
     logger.info("worker-%d: init DB", _WORKER_ID)
     init_db()
+
+    # Register agent pipeline so orchestrator uses the registry
+    try:
+        from ..agents.registry import register_all_agents
+        register_all_agents()
+        logger.info("worker-%d: agents registered", _WORKER_ID)
+    except Exception as exc:
+        logger.warning("worker-%d: agent registration failed (will use fallback): %s", _WORKER_ID, exc)
+
     _write_pid_file()
     _requeue_stale_running_jobs()
     try:

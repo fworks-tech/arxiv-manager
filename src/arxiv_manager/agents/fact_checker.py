@@ -49,12 +49,21 @@ class FactCheckerAgent(Agent):
 
         from ..authoring.ai_draft._fact_checker import fact_check_draft
 
-        fc = fact_check_draft(
-            question=question,
-            image_path=image_path,
-            api_key=api_key,
-            difficulty=difficulty,
-        )
+        try:
+            fc = fact_check_draft(
+                question=question,
+                image_path=image_path,
+                api_key=api_key,
+                difficulty=difficulty,
+            )
+        except Exception as exc:
+            ctx.add_error(f"FactChecker: {exc}")
+            return [PipelineEvent(
+                event_type="pipeline_failed",
+                context=ctx,
+                source_agent=self.name,
+                metadata={"error": str(exc)},
+            )]
 
         draft = ctx.get_artifact("draft", {})
         draft["_fact_check_checked"] = fc["checked"]

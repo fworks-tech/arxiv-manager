@@ -166,6 +166,16 @@ class TestStaleJobRequeue:
             "arxiv_manager.db.get_session",
             lambda: Session(queue_engine),
         )
+        # Patch _orphan_worker_pids so no live workers are found (all requeued)
+        monkeypatch.setattr(
+            "arxiv_manager.scheduler.manager._orphan_worker_pids",
+            lambda: {},
+        )
+        # Patch _WORKER_ID to 99 so the current worker's ID (0) is NOT in alive_pids
+        monkeypatch.setattr(
+            "arxiv_manager.scheduler.worker._WORKER_ID",
+            99,
+        )
 
         job = enqueue("generate_qa")
         claimed = dequeue()
@@ -187,9 +197,10 @@ class TestWorkerPidFile:
         from arxiv_manager import storage as st_mod
 
         monkeypatch.setattr(st_mod, "STORAGE_DIR", tmp_path)
+        monkeypatch.setattr(w_mod, "_WORKER_ID", 0)
 
         w_mod._write_pid_file()
-        pid_file = tmp_path / w_mod._PID_FILE_NAME
+        pid_file = tmp_path / "_scheduler_worker_0.pid"
         assert pid_file.exists()
         assert int(pid_file.read_text().strip()) > 0
 
@@ -197,7 +208,7 @@ class TestWorkerPidFile:
         assert not pid_file.exists()
 
     def test_orphan_detection_via_pid_file(self, tmp_path, monkeypatch):
-        """manager._orphan_worker_pid returns a live PID from the pid file."""
+        """manager._orphan_worker_pids returns live PIDs from pid files."""
         import arxiv_manager.scheduler.manager as m_mod
         from arxiv_manager import storage as st_mod
 
@@ -205,13 +216,13 @@ class TestWorkerPidFile:
 
         # PID 1 never exists as a real process we can probe, so the manager
         # must treat a stale pid file as no-orphan on failure.
-        assert m_mod._orphan_worker_pid() is None
+        assert m_mod._orphan_worker_pids() == {}
 
-        (tmp_path / "_scheduler_worker.pid").write_text("999999999")
-        assert m_mod._orphan_worker_pid() is None
+        (tmp_path / "_scheduler_worker_0.pid").write_text("999999999")
+        assert m_mod._orphan_worker_pids() == {}
 
-        (tmp_path / "_scheduler_worker.pid").write_text("0")
-        assert m_mod._orphan_worker_pid() is None
+        (tmp_path / "_scheduler_worker_0.pid").write_text("0")
+        assert m_mod._orphan_worker_pids() == {}
 
-        (tmp_path / "_scheduler_worker.pid").write_text("not-a-pid")
-        assert m_mod._orphan_worker_pid() is None
+        (tmp_path / "_scheduler_worker_0.pid").write_text("not-a-pid")
+        assert m_mod._orphan_worker_pids() == {}
