@@ -67,7 +67,7 @@ def create_app() -> FastAPI:
         import os as os_mod
 
         try:
-            from ..scheduler.manager import start_worker_pool, start_watchdog, worker_is_alive
+            from ..scheduler.manager import start_watchdog, start_worker_pool, worker_is_alive
 
             if not worker_is_alive():
                 count = int(os_mod.environ.get("WORKER_COUNT", "5"))
