@@ -228,6 +228,18 @@ def api_draft_qa(
                 validation_context=validation_context,
             )
     except ValueError as e:
+        log_generation_attempt(
+            figure_id=figure_id,
+            attempt_number=1,
+            generation_type="self_critique" if difficulty in ("challenging", "hardest") else "draft",
+            source_route="api_draft_qa",
+            difficulty=difficulty,
+            figure_type=figure_type,
+            complexity_score=complexity,
+            previous_question=previous_question,
+            success=False,
+            error_message=str(e)[:500],
+        )
         return TEMPLATES.TemplateResponse(
             request,
             "_author_draft.html",
@@ -235,6 +247,18 @@ def api_draft_qa(
         )
 
     if not draft:
+        log_generation_attempt(
+            figure_id=figure_id,
+            attempt_number=1,
+            generation_type="self_critique" if difficulty in ("challenging", "hardest") else "draft",
+            source_route="api_draft_qa",
+            difficulty=difficulty,
+            figure_type=figure_type,
+            complexity_score=complexity,
+            previous_question=previous_question,
+            success=False,
+            error_message="draft_qa returned None",
+        )
         return TEMPLATES.TemplateResponse(
             request,
             "_author_draft.html",

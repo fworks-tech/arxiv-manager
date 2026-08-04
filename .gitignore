@@ -11,6 +11,11 @@ storage/realm-siq.db*
 storage/*.log
 storage/*.jsonl
 
+# Scheduler runtime
+storage/_abort_*
+storage/_scheduler_worker*.pid
+storage/_worker_heartbeat_*
+
 # Python
 __pycache__/
 *.py[cod]

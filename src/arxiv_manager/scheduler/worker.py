@@ -35,11 +35,28 @@ class JobCancelledError(Exception):
 
 
 def _setup_logging() -> None:
-    """Configure logging for the worker subprocess."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [worker-%(name)s] %(levelname)s: %(message)s",
+    """Configure logging for the worker subprocess with log rotation."""
+    from logging.handlers import RotatingFileHandler
+
+    from ..storage import STORAGE_DIR
+
+    log_path = STORAGE_DIR / "_scheduler_worker.log"
+    STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Rotating file handler: 5MB max, keep 3 backups
+    file_handler = RotatingFileHandler(
+        str(log_path), maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8"
     )
+    file_handler.setFormatter(logging.Formatter("%(asctime)s [worker-%(name)s] %(levelname)s: %(message)s"))
+
+    # Also log to stderr for subprocess capture
+    stderr_handler = logging.StreamHandler()
+    stderr_handler.setFormatter(logging.Formatter("%(asctime)s [worker-%(name)s] %(levelname)s: %(message)s"))
+
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    root.addHandler(file_handler)
+    root.addHandler(stderr_handler)
 
 
 def _sentinel_exists() -> bool:
@@ -163,6 +180,13 @@ def _main_loop(poll_interval: float = 1.0) -> None:
     logger.info("worker-%d: started (poll_interval=%.1fs)", _WORKER_ID, poll_interval)
 
     while _sentinel_exists():
+        # Write heartbeat so watchdog knows we're alive
+        try:
+            from ..scheduler.manager import write_heartbeat
+            write_heartbeat(_WORKER_ID)
+        except Exception:
+            pass
+
         task = dequeue(worker_id=_WORKER_ID)
         if task is None:
             time.sleep(poll_interval)
@@ -275,6 +299,12 @@ def main() -> None:
         _main_loop(args.poll_interval)
     finally:
         _remove_pid_file()
+        # Clean up heartbeat file
+        try:
+            from ..scheduler.manager import cleanup_heartbeat
+            cleanup_heartbeat(_WORKER_ID)
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

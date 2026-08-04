@@ -638,12 +638,8 @@ def _is_two_answer_question(q: str) -> bool:
     q_clean = re.sub(rf"\bwhen\s+(?:{when_words})\b", " while ", q_lower)
     # Pattern: two question words (which/what/how) connected by " and "
     question_words = r"(?:which|what|how|where|when)"
-    pattern = rf"{question_words}\b.*?\band\b.*?{question_words}\b"
+    pattern = rf"\b{question_words}\b.*?\band\b.*?\b{question_words}\b"
     if re.search(pattern, q_clean):
-        return True
-    # Pattern: "X and what Y" or "which X and how Y"
-    pattern2 = r"\b(?:which|what|how|where|when)\b.*?\band\b.*?\b(?:which|what|how|where|when)\b"
-    if re.search(pattern2, q_clean):
         return True
     return False
 

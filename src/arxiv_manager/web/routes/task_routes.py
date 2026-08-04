@@ -301,6 +301,10 @@ def _do_regenerate(
     Retries up to max_validation_retries times with the draft's own validation errors
     as feedback before giving up.
 
+    Adaptive retry budget: validation failures get full retries (fixable with feedback),
+    but fact-check and determinism failures get only 1 retry each (wrong premise or
+    ambiguous question are hard to fix with feedback).
+
     When use_fact_check is set, drafts that pass text validation are additionally
     checked against the image for factual premises (adversarial VLM fact-check).
     When use_determinism is set, drafts are further run through the vision model
@@ -315,6 +319,11 @@ def _do_regenerate(
             and not _is_format_only_error(validation_context)
         )
         draft: dict | None = None
+        # Adaptive retry budget: track consecutive failure types
+        consecutive_fact_check_fails = 0
+        consecutive_determinism_fails = 0
+        max_fact_check_retries = 1  # wrong premise is hard to fix
+        max_determinism_retries = 1  # ambiguous question is hard to fix
         for attempt in range(max_validation_retries + 1):
             if attempt == 0 and use_self_critique:
                 draft = draft_with_self_critique(
@@ -399,6 +408,7 @@ def _do_regenerate(
                     draft["_fact_check_failed"] = True
                     draft["_fact_check_errors"] = fc["unsupported"]
                     draft["_fact_check_claims"] = fc["claims"]
+                    consecutive_fact_check_fails += 1
                     logger.warning(
                         "regenerate attempt %d/%d fact check failed task_id=%s claims=%s",
                         attempt + 1,
@@ -406,6 +416,16 @@ def _do_regenerate(
                         task_id,
                         "; ".join(fc["unsupported"][:3]),
                     )
+                    # Fact-check failures are hard to fix with feedback —
+                    # reduce remaining retries to avoid burning LLM calls
+                    if consecutive_fact_check_fails >= max_fact_check_retries:
+                        remaining = max_validation_retries - attempt
+                        if remaining > 1:
+                            logger.info(
+                                "regenerate: reducing retry budget after %d fact-check failures (was %d remaining)",
+                                consecutive_fact_check_fails, remaining,
+                            )
+                            max_validation_retries = attempt + 1
                     continue
                 draft["_fact_check_failed"] = False
                 draft["_fact_check_errors"] = []
@@ -426,6 +446,7 @@ def _do_regenerate(
                     if det["checked"] and not det["deterministic"]:
                         draft["_determinism_failed"] = True
                         draft["_determinism_diverging"] = det["diverging"]
+                        consecutive_determinism_fails += 1
                         logger.warning(
                             "regenerate attempt %d/%d determinism failed task_id=%s answers=%s",
                             attempt + 1,
@@ -433,6 +454,17 @@ def _do_regenerate(
                             task_id,
                             det["diverging"][:3],
                         )
+                        # Determinism failures indicate ambiguous questions —
+                        # reduce remaining retries to avoid burning LLM calls
+                        if consecutive_determinism_fails >= max_determinism_retries:
+                            remaining = max_validation_retries - attempt
+                            if remaining > 1:
+                                logger.info(
+                                    "regenerate: reducing retry budget after %d "
+                                    "determinism failures (was %d remaining)",
+                                    consecutive_determinism_fails, remaining,
+                                )
+                                max_validation_retries = attempt + 1
                         continue
                     draft["_determinism_failed"] = False
                     draft["_determinism_errors"] = []
@@ -1322,7 +1354,7 @@ def api_check_answer(request: Request, task_id: int):
 
         vlm_result = _call(
             api_key, check_prompt, b64_image,
-            model=CONFIG.text_model,
+            model=CONFIG.default_model,
             retries=1,
             difficulty=task.difficulty or "challenging",
             parser=_parse_answer,

@@ -295,6 +295,24 @@ The count itself must be small and obvious — the hard part must be the visual 
 - Single-criterion matchmaking: "Which panel has X?" where X is a single label or criterion — scanning for one label is too easy. Require comparison across panels, ranking, or ordinal reasoning instead.
 - Extreme-seeking: "What is the highest/lowest/most?" — Qwen checks these first. Use thresholds or ordinal ranking instead.
 
+🎯 QWEN-SPECIFIC TARGETING (verified weaknesses to exploit):
+Qwen 3.6-35B-A3B has these measured weaknesses — prioritize strategies that target them:
+1. COUNTING SMALL/DENSE ELEMENTS (ODInW13: 50.8 — weakest capability):
+   - "How many [small elements] are inside [region A] versus [region B]?"
+   - "Count the [elements] that meet [condition]. How many are there?"
+   - Best for: images with many small items, scattered dots, dense annotations
+2. FINE-GRAINED SPATIAL DISTINCTIONS (RefSpatialBench: 64.3):
+   - "Which [element] is closest to [reference]?" (requires precise position judgment)
+   - "What is the [ordinal position] of [element] when sorted by [spatial axis]?"
+   - Best for: images with elements at similar positions, subtle ordering
+3. NOVEL MULTI-STEP FORMATS (ZEROBench: 34.4 — weakest reasoning):
+   - Multi-condition filtering: "Which [X] is connected to both [A] and [B] but not [C]?"
+   - Cross-panel arithmetic: "How many more [X] does panel A have than panel B?"
+   - Best for: diagrams, flowcharts, complex layouts
+4. MULTI-GROUP COUNTING WITH COMPARISON:
+   - "Count [type A] and [type B] in each panel. Which panel has more [A] than [B]?"
+   - Best for: grouped data, multi-series charts
+
 The question MUST:
 - Be a SINGLE sentence (2 sentences ONLY if absolutely necessary for a format specification like naming panels and conditions — never use 3+)
 - Reference specific VALUES, data points, peaks, regions, or visual features

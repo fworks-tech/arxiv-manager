@@ -34,6 +34,21 @@ class DeterminismCheckerAgent(Agent):
                 metadata={"skipped": True, "verdict": "pass"},
             )]
 
+        # Skip if model results already prove answerability
+        qwen_passes = ctx.get_artifact("qwen_passes", 0)
+        gemini_passes = ctx.get_artifact("gemini_passes", 0)
+        if qwen_passes > 0 and gemini_passes > 0:
+            logger.info(
+                "determinism: skipping — both models already passed (qwen=%d, gemini=%d)",
+                qwen_passes, gemini_passes,
+            )
+            return [PipelineEvent(
+                event_type="determinism_checked",
+                context=ctx,
+                source_agent=self.name,
+                metadata={"skipped": True, "verdict": "pass", "reason": "models already passed"},
+            )]
+
         question = ctx.get_artifact("question", "")
         answer = ctx.get_artifact("answer", "")
         answer_format = ctx.get_artifact("answer_format", "number")
