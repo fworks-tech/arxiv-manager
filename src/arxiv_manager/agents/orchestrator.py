@@ -481,7 +481,7 @@ def run_regeneration(task_id: int, difficulty: str, source_route: str = "api_reg
     """Backward-compatible wrapper that delegates to run_pipeline.
 
     Checks for a recent issue report on this task. If one exists and was
-    reported within the last hour, the pipeline starts with the
+    reported within the last 24 hours, the pipeline starts with the
     ``issue_reported`` event so the IssueAnalyst agent can classify the
     problem and inject hints into the generator.
     """
@@ -495,7 +495,7 @@ def run_regeneration(task_id: int, difficulty: str, source_route: str = "api_reg
     issue_report: dict[str, Any] | None = None
     session = get_session()
     try:
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
         report = session.exec(
             select(IssueReport)
             .where(IssueReport.task_id == task_id)

@@ -634,7 +634,7 @@ def run_regeneration(task_id: int, difficulty: str, source_route: str = "api_reg
             edited_since = session.exec(
                 select(TaskEvent)
                 .where(TaskEvent.task_id == task_id)
-                .where(TaskEvent.event_type.in_(["update", "restore", "ai_fix"]))
+                .where(TaskEvent.event_type.in_(["update", "restore", "ai_fix", "issue_report"]))
                 .where(TaskEvent.created_at > newest.created_at)
                 .limit(1)
             ).first()
