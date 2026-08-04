@@ -281,9 +281,12 @@ def run_pipeline(
             return {"error": "Task not found", "ok": False}
 
         # Consecutive-failure cap: block if 3 failures in a row
-        cap_error = _check_consecutive_failures(session, task_id, difficulty)
-        if cap_error:
-            return {"error": cap_error, "ok": False}
+        # Skip the cap when an issue report is present — the user is explicitly
+        # providing new feedback and wants another attempt.
+        if not issue_report:
+            cap_error = _check_consecutive_failures(session, task_id, difficulty)
+            if cap_error:
+                return {"error": cap_error, "ok": False}
 
         figure = session.get(Figure, task.figure_id) if task.figure_id else None
         figure_type = getattr(figure, "figure_type", "") if figure else ""
@@ -475,5 +478,51 @@ def _subscribe_agents(bus: EventBus) -> None:
 
 # Backward-compatible alias
 def run_regeneration(task_id: int, difficulty: str, source_route: str = "api_regenerate_task") -> dict:
-    """Backward-compatible wrapper that delegates to run_pipeline."""
+    """Backward-compatible wrapper that delegates to run_pipeline.
+
+    Checks for a recent issue report on this task. If one exists and was
+    reported within the last hour, the pipeline starts with the
+    ``issue_reported`` event so the IssueAnalyst agent can classify the
+    problem and inject hints into the generator.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from sqlmodel import select
+
+    from ..db import get_session
+    from ..models import IssueReport
+
+    issue_report: dict[str, Any] | None = None
+    session = get_session()
+    try:
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
+        report = session.exec(
+            select(IssueReport)
+            .where(IssueReport.task_id == task_id)
+            .where(IssueReport.created_at >= cutoff)
+            .order_by(IssueReport.created_at.desc())
+            .limit(1)
+        ).first()
+        if report:
+            issue_report = {
+                "reason": report.reason,
+                "description": report.description or "",
+                "corrected_answer": report.corrected_answer or "",
+            }
+            logger.info(
+                "run_regeneration: found issue report reason=%s for task_id=%d",
+                report.reason, task_id,
+            )
+    except Exception as exc:
+        logger.warning("run_regeneration: failed to check issue reports: %s", exc)
+    finally:
+        session.close()
+
+    if issue_report:
+        return run_pipeline(
+            task_id, difficulty,
+            source_route=source_route,
+            initial_event_type="issue_reported",
+            issue_report=issue_report,
+        )
     return run_pipeline(task_id, difficulty, source_route=source_route)
