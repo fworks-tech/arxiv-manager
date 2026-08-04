@@ -31,7 +31,7 @@ def normalize_number(value: str) -> float | None:
     """Extract a numeric value from an answer string (handles %, commas, units)."""
     if not value:
         return None
-    cleaned = re.sub(r"[^0-9.\-]", "", value.strip().replace(",", ""))
+    cleaned = re.sub(r"[^0-9.\-]", "", str(value).strip().replace(",", ""))
     if not cleaned or cleaned in (".", "-"):
         return None
     try:
@@ -90,8 +90,8 @@ def matches_golden(model_answer: str, golden: str, answer_format: str = "number"
     Word/phrase answers compare normalized-exact, falling back to semantic
     equivalence via the text model when the formats differ.
     """
-    model_answer = (model_answer or "").strip()
-    golden = (golden or "").strip()
+    model_answer = str(model_answer or "").strip()
+    golden = str(golden or "").strip()
     if not model_answer or not golden:
         return False
     if answer_format == "number":

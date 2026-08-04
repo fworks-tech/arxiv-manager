@@ -631,13 +631,24 @@ def run_regeneration(task_id: int, difficulty: str, source_route: str = "api_reg
             from ...models import TaskEvent
 
             newest = consecutive_failures[0]
-            edited_since = session.exec(
+            # An issue report means the user explicitly wants another attempt
+            # with new feedback — bypass the cap regardless of timing.
+            has_issue_report = session.exec(
                 select(TaskEvent)
                 .where(TaskEvent.task_id == task_id)
-                .where(TaskEvent.event_type.in_(["update", "restore", "ai_fix", "issue_report"]))
-                .where(TaskEvent.created_at > newest.created_at)
+                .where(TaskEvent.event_type == "issue_report")
                 .limit(1)
             ).first()
+            if has_issue_report is None:
+                edited_since = session.exec(
+                    select(TaskEvent)
+                    .where(TaskEvent.task_id == task_id)
+                    .where(TaskEvent.event_type.in_(["update", "restore", "ai_fix"]))
+                    .where(TaskEvent.created_at > newest.created_at)
+                    .limit(1)
+                ).first()
+            else:
+                edited_since = has_issue_report
             if edited_since is None:
                 reasons = "; ".join(failed_reasons)
                 logger.warning(
