@@ -248,7 +248,7 @@ def run_pipeline(
     source_route: str = "orchestrator",
     initial_event_type: str = "regeneration_requested",
     issue_report: dict[str, Any] | None = None,
-    max_total_seconds: float = 600,
+    max_total_seconds: float = 1800,
 ) -> dict[str, Any]:
     """Run the full event-driven agent pipeline for a task.
 
@@ -260,7 +260,10 @@ def run_pipeline(
         source_route:      Where this was triggered from (for telemetry).
         initial_event_type: "regeneration_requested" or "issue_reported".
         issue_report:      Issue report dict if triggered by user report.
-        max_total_seconds: Wall-clock timeout (default 600s = 10 minutes).
+        max_total_seconds: Wall-clock timeout (default 1800s = 30 minutes).
+                          The pipeline makes 10-12 sequential LLM calls
+                          (generator + critique + fact-check + 3×determinism
+                          + verifier + reviewer), each 80-220s.
 
     Returns:
         Result dict with "ok", "question", "answer", etc.
@@ -358,7 +361,15 @@ def run_pipeline(
             if evt.event_type in TERMINAL_EVENTS:
                 terminal_reached = True
                 break
+            agent_start = time.time()
             results = bus.emit(evt)
+            agent_elapsed = time.time() - agent_start
+            for r in results:
+                logger.info(
+                    "orchestrator: agent=%s event=%s -> %s (%.1fs)",
+                    evt.source_agent, evt.event_type,
+                    r.event_type, agent_elapsed,
+                )
             next_batch.extend(results)
         produced = next_batch
 
