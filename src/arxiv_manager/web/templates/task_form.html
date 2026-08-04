@@ -322,6 +322,7 @@ var _regenerating = false;
             var btn = document.getElementById('regenerate-btn');
             if (btn) { btn.textContent = 'Regenerating...'; btn.disabled = true; }
             _regenerating = true;
+            showWorkerLog();
             pollRegenStatus(data.job_id, btn);
         } else if (data.status === 'running') {
             var wid = data.worker_id != null ? data.worker_id : '?';
@@ -331,6 +332,7 @@ var _regenerating = false;
             var btn = document.getElementById('regenerate-btn');
             if (btn) { btn.textContent = 'Regenerating...'; btn.disabled = true; }
             _regenerating = true;
+            showWorkerLog();
             pollRegenStatus(data.job_id, btn);
         }
     })

@@ -153,8 +153,12 @@ def check_determinism_for_qa(
     api_key: str,
     runs: int = 3,
     difficulty: str = "challenging",
+    model: str | None = None,
 ) -> dict:
     """Run the question against the vision model `runs` times and compare answers.
+
+    For "hardest" difficulty, uses Qwen by default to verify that Qwen specifically
+    fails. For other difficulties, uses the default model (minimax-m3).
 
     Returns:
         {
@@ -167,6 +171,13 @@ def check_determinism_for_qa(
     b64, image_media_type = encode_image_for_llm(image_path, CONFIG.thumbnail_size, CONFIG.jpeg_quality)
     prompt = CHECK_ANSWER_PROMPT.text.format(question=question)
 
+    # For hardest difficulty, use Qwen to verify Qwen specifically fails
+    if model is None:
+        if difficulty == "hardest":
+            model = "openrouter/qwen/qwen3.6-35b-a3b"
+        else:
+            model = CONFIG.default_model
+
     runs_out = []
     diverging: list[str] = []
     answered = 0
@@ -176,7 +187,7 @@ def check_determinism_for_qa(
                 api_key,
                 prompt,
                 b64,
-                model=CONFIG.default_model,
+                model=model,
                 retries=1,
                 difficulty=difficulty,
                 media_type=image_media_type,

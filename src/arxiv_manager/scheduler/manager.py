@@ -2,6 +2,7 @@
 
 Uses sentinel files for graceful shutdown (Windows-compatible).
 Each worker in the pool has its own PID file, sentinel, and log handle.
+Includes watchdog thread for auto-restart, heartbeat monitoring, and crash-loop detection.
 """
 
 from __future__ import annotations
@@ -11,6 +12,8 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -25,10 +28,18 @@ class _WorkerSlot:
     process: subprocess.Popen | None = None
     sentinel: Path | None = None
     log_handle: object | None = None
+    restart_count: int = 0
+    last_restart: float = 0.0
 
 
 _WORKERS: dict[int, _WorkerSlot] = {}
 _DEFAULT_POOL_SIZE = 5
+_WATCHDOG_THREAD: threading.Thread | None = None
+_WATCHDOG_STOP = threading.Event()
+_WATCHDOG_INTERVAL = 30  # seconds
+_HEARTBEAT_MAX_AGE = 60  # seconds — worker must heartbeat within this window
+_CRASH_LOOP_THRESHOLD = 5  # max restarts in _CRASH_LOOP_WINDOW
+_CRASH_LOOP_WINDOW = 300  # 5 minutes
 
 
 def _storage_dir() -> Path:
@@ -278,3 +289,133 @@ def start_worker(poll_interval: float = 1.0) -> int | None:
 def stop_worker(timeout: float = 5.0) -> bool:
     """Stop all workers (backward compat)."""
     return stop_worker_pool(timeout) > 0
+
+
+# --- Heartbeat ---
+
+
+def _heartbeat_path(worker_id: int) -> Path:
+    """Path to the worker heartbeat file."""
+    return _storage_dir() / f"_worker_heartbeat_{worker_id}"
+
+
+def write_heartbeat(worker_id: int) -> None:
+    """Write current timestamp as heartbeat (called by worker subprocess)."""
+    try:
+        _heartbeat_path(worker_id).write_text(str(time.time()))
+    except Exception:
+        pass
+
+
+def check_heartbeat(worker_id: int) -> bool:
+    """Check if a worker's heartbeat is fresh (within _HEARTBEAT_MAX_AGE)."""
+    try:
+        hb = _heartbeat_path(worker_id)
+        if not hb.exists():
+            return False
+        ts = float(hb.read_text().strip())
+        return (time.time() - ts) < _HEARTBEAT_MAX_AGE
+    except (ValueError, OSError):
+        return False
+
+
+def cleanup_heartbeat(worker_id: int) -> None:
+    """Remove heartbeat file on worker shutdown."""
+    try:
+        _heartbeat_path(worker_id).unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+# --- Crash-loop detection ---
+
+
+def _is_crash_loop(slot: _WorkerSlot) -> bool:
+    """Check if a worker slot is in a crash loop (too many restarts in window)."""
+    if slot.restart_count < _CRASH_LOOP_THRESHOLD:
+        return False
+    elapsed = time.time() - slot.last_restart
+    if elapsed > _CRASH_LOOP_WINDOW:
+        # Window expired, reset counter
+        slot.restart_count = 0
+        return False
+    return True
+
+
+def _record_restart(slot: _WorkerSlot) -> None:
+    """Record a restart attempt for crash-loop detection."""
+    now = time.time()
+    # Reset counter if window expired
+    if now - slot.last_restart > _CRASH_LOOP_WINDOW:
+        slot.restart_count = 0
+    slot.restart_count += 1
+    slot.last_restart = now
+
+
+# --- Watchdog ---
+
+
+def _watchdog_loop() -> None:
+    """Background thread that monitors worker health and restarts dead workers."""
+    while not _WATCHDOG_STOP.is_set():
+        _WATCHDOG_STOP.wait(_WATCHDOG_INTERVAL)
+        if _WATCHDOG_STOP.is_set():
+            break
+        try:
+            _check_workers()
+        except Exception as exc:
+            logger.warning("watchdog: error checking workers: %s", exc)
+
+
+def _check_workers() -> None:
+    """Check all worker slots and restart dead ones."""
+    for wid, slot in list(_WORKERS.items()):
+        # Check if process is alive
+        if slot.process is not None and slot.process.poll() is None:
+            continue  # still running
+
+        # Check heartbeat (worker might be alive but hung)
+        if slot.process is not None and slot.process.poll() is None:
+            if check_heartbeat(wid):
+                continue  # heartbeat is fresh
+            # Heartbeat stale — worker might be hung, but don't kill it yet
+            # (LLM calls can take minutes). Just log.
+            logger.warning("watchdog: worker %d heartbeat stale (may be in long LLM call)", wid)
+            continue
+
+        # Worker is dead — check for crash loop
+        if _is_crash_loop(slot):
+            logger.warning(
+                "watchdog: worker %d in crash loop (%d restarts in %ds), not restarting",
+                wid, slot.restart_count, _CRASH_LOOP_WINDOW,
+            )
+            continue
+
+        # Restart the worker
+        logger.info("watchdog: restarting dead worker %d", wid)
+        _record_restart(slot)
+        try:
+            new_slot = _spawn_worker(wid)
+            _WORKERS[wid] = new_slot
+            logger.info("watchdog: worker %d restarted (PID %d)", wid, new_slot.process.pid if new_slot.process else -1)
+        except Exception as exc:
+            logger.warning("watchdog: failed to restart worker %d: %s", wid, exc)
+
+
+def start_watchdog() -> None:
+    """Start the watchdog background thread (called once at app startup)."""
+    global _WATCHDOG_THREAD
+    if _WATCHDOG_THREAD is not None and _WATCHDOG_THREAD.is_alive():
+        return
+    _WATCHDOG_STOP.clear()
+    _WATCHDOG_THREAD = threading.Thread(target=_watchdog_loop, daemon=True, name="worker-watchdog")
+    _WATCHDOG_THREAD.start()
+    logger.info("watchdog: started (interval=%ds)", _WATCHDOG_INTERVAL)
+
+
+def stop_watchdog() -> None:
+    """Stop the watchdog background thread."""
+    _WATCHDOG_STOP.set()
+    if _WATCHDOG_THREAD is not None:
+        _WATCHDOG_THREAD.join(timeout=5)
+    logger.info("watchdog: stopped")

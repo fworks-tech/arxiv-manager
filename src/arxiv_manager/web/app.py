@@ -67,13 +67,15 @@ def create_app() -> FastAPI:
         import os as os_mod
 
         try:
-            from ..scheduler.manager import start_worker_pool, worker_is_alive
+            from ..scheduler.manager import start_worker_pool, start_watchdog, worker_is_alive
 
             if not worker_is_alive():
                 count = int(os_mod.environ.get("WORKER_COUNT", "5"))
                 count = max(1, min(10, count))
                 pids = start_worker_pool(count)
                 logging.getLogger(__name__).info("Worker pool started: %d workers", len(pids))
+            # Start watchdog to monitor and auto-restart workers
+            start_watchdog()
         except Exception as exc:
             logging.getLogger(__name__).warning("Worker pool auto-start failed: %s", exc)
 

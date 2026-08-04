@@ -78,21 +78,40 @@ def _check_llm() -> dict:
         return {"status": "error", "detail": str(exc)}
 
 
+def _check_workers() -> dict:
+    """Check worker pool health."""
+    try:
+        from ...scheduler.manager import worker_pool_status
+
+        workers = worker_pool_status()
+        alive_count = sum(1 for w in workers if w.get("alive"))
+        total_count = len(workers)
+        return {
+            "status": "ok" if alive_count > 0 else "error",
+            "alive": alive_count,
+            "total": total_count,
+        }
+    except Exception as exc:
+        return {"status": "skipped", "reason": str(exc)}
+
+
 @router.get("/health")
 def health_check(request: Request) -> JSONResponse:
     """Return overall system health.
 
-    Checks database connectivity, API key presence, and optionally LLM
-    connectivity.  Slow checks (LLM) run only when ?full=true is set.
+    Checks database connectivity, API key presence, worker pool status,
+    and optionally LLM connectivity.  Slow checks (LLM) run only when ?full=true is set.
     """
     full = request.query_params.get("full", "").lower() in ("1", "true", "yes")
 
     db_status = _check_db()
     key_status = _check_api_key()
+    worker_status = _check_workers()
 
     checks = {
         "db": db_status,
         "api_key": key_status,
+        "workers": worker_status,
     }
 
     if full and key_status["status"] == "ok":

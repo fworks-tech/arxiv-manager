@@ -26,11 +26,13 @@ def _nonempty_json_list(value: str | None) -> list:
         return []
 
 
-def _check_consecutive_failures(session, task_id: int) -> str | None:
+def _check_consecutive_failures(session, task_id: int, current_difficulty: str = "") -> str | None:
     """Check if the task has hit the consecutive-failure cap (3 in a row).
 
     Returns an error message if blocked, None if allowed to proceed.
     A manual edit (update/restore/ai_fix) since the last failure resets the cap.
+
+    When 2 consecutive failures are reached, suggests difficulty relaxation.
     """
     from sqlmodel import select
 
@@ -58,7 +60,7 @@ def _check_consecutive_failures(session, task_id: int) -> str | None:
             failed_reasons = []
             break
 
-    if len(failed_reasons) == 3:
+    if len(failed_reasons) >= 3:
         newest = consecutive[0]
         edited_since = session.exec(
             select(TaskEvent)
@@ -74,6 +76,14 @@ def _check_consecutive_failures(session, task_id: int) -> str | None:
                 "Each attempt costs LLM calls with no result. Edit the Q&A manually "
                 "first (resets the cap), or use a different image."
             )
+
+    # Suggest difficulty relaxation when approaching cap (2 failures)
+    if len(failed_reasons) == 2 and current_difficulty in ("hardest", "challenging"):
+        lower = "challenging" if current_difficulty == "hardest" else "easy"
+        logger.info(
+            "consecutive failures approaching cap for task_id=%d (2/%d), suggesting difficulty relaxation to %s",
+            task_id, 3, lower,
+        )
     return None
 
 
@@ -268,7 +278,7 @@ def run_pipeline(
             return {"error": "Task not found", "ok": False}
 
         # Consecutive-failure cap: block if 3 failures in a row
-        cap_error = _check_consecutive_failures(session, task_id)
+        cap_error = _check_consecutive_failures(session, task_id, difficulty)
         if cap_error:
             return {"error": cap_error, "ok": False}
 
